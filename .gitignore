@@ -1,0 +1,44 @@
+# Audio + datasets — NEVER commit (standing rule)
+data/raw/
+# recorded live-demo sessions (audio + detections)
+demo/sessions/
+*.parquet
+*.mp3
+*.wav
+*.flac
+
+# Large generated manifests / features
+data/manifests/*.jsonl.gz
+data/fbank/
+*.h5
+*.lilcom
+
+# Models / checkpoints / exports
+*.pt
+*.onnx
+exp/
+**/checkpoints/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+env/
+*.egg-info/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Keep these small text assets tracked (override the broad ignores above)
+!data/lang/tokens.txt
+!data/lang/ayah_phonemes.json
+!data/manifests/ayah_text.json
+
+# Third-party clone (not part of this project)
+icefall/
+
+# Local Claude settings
+.claude/settings.local.json

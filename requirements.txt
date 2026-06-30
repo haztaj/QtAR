@@ -1,0 +1,37 @@
+# PyTorch — CUDA 13.0, Blackwell sm_120 (RTX 5080)
+# pip install -r requirements.txt --index-url https://download.pytorch.org/whl/cu130
+# torch
+# torchaudio
+
+# HuggingFace data
+datasets
+huggingface_hub
+
+# Audio I/O
+soundfile
+mutagen
+
+# Manifests (icefall's native format)
+lhotse
+
+# Scientific stack
+numpy
+pandas
+scipy
+
+# Augmentation
+audiomentations
+torch-audiomentations
+fast_mp3_augment        # enables audiomentations Mp3Compression (codec round-trip)
+
+# VAD
+silero-vad
+
+# Export / runtime
+onnx
+onnxscript               # required by torch.onnx.export in torch 2.x
+onnxruntime-gpu
+sherpa-onnx
+
+# k2 — install separately after the above:
+# pip install k2 --find-links https://k2-fsa.github.io/k2/cuda.html

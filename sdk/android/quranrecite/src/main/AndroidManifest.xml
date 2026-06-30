@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Managed capture needs RECORD_AUDIO (host app must request at runtime). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- INTERNET only for download-on-first-launch of the model (one time). -->
+    <uses-permission android:name="android.permission.INTERNET" />
+</manifest>

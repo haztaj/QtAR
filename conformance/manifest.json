@@ -1,0 +1,100 @@
+{
+  "sample_rate": 16000,
+  "n_mels": 80,
+  "n_fft": 400,
+  "hop": 160,
+  "win": 400,
+  "fmin": 20.0,
+  "fmax": 8000.0,
+  "log_floor": 1e-10,
+  "norm_rms": 0.1,
+  "mel_scale": "htk",
+  "window": "hann_periodic",
+  "stft": "center=True, pad_mode=reflect, power=2.0",
+  "tolerances": {
+    "logmel_max_abs": 0.01,
+    "phonemes": "exact",
+    "events": "exact"
+  },
+  "checkpoint": "training\\exp\\best_mic.pt",
+  "frontend": [
+    {
+      "name": "studio_ikhlas1_short",
+      "wav": "fixtures/frontend/studio_ikhlas1_short.wav",
+      "logmel": "golden/frontend/studio_ikhlas1_short.logmel.bin",
+      "logmel_shape": [
+        199,
+        80
+      ]
+    },
+    {
+      "name": "studio_naba1",
+      "wav": "fixtures/frontend/studio_naba1.wav",
+      "logmel": "golden/frontend/studio_naba1.logmel.bin",
+      "logmel_shape": [
+        1542,
+        80
+      ]
+    },
+    {
+      "name": "studio_alaq1_long",
+      "wav": "fixtures/frontend/studio_alaq1_long.wav",
+      "logmel": "golden/frontend/studio_alaq1_long.logmel.bin",
+      "logmel_shape": [
+        371,
+        80
+      ]
+    },
+    {
+      "name": "user_114_quietmic",
+      "wav": "fixtures/frontend/user_114_quietmic.wav",
+      "logmel": "golden/frontend/user_114_quietmic.logmel.bin",
+      "logmel_shape": [
+        601,
+        80
+      ]
+    },
+    {
+      "name": "silence_1s",
+      "wav": "fixtures/frontend/silence_1s.wav",
+      "logmel": "golden/frontend/silence_1s.logmel.bin",
+      "logmel_shape": [
+        101,
+        80
+      ]
+    },
+    {
+      "name": "sine_440hz",
+      "wav": "fixtures/frontend/sine_440hz.wav",
+      "logmel": "golden/frontend/sine_440hz.logmel.bin",
+      "logmel_shape": [
+        101,
+        80
+      ]
+    }
+  ],
+  "matcher": [
+    {
+      "name": "user_114_session",
+      "windows": "fixtures/matcher/user_114_session.json",
+      "events": "golden/matcher/user_114_session.events.json",
+      "n_windows": 16,
+      "n_events": 3
+    },
+    {
+      "name": "clean_108_sequence",
+      "windows": "fixtures/matcher/clean_108_sequence.json",
+      "events": "golden/matcher/clean_108_sequence.events.json",
+      "n_windows": 6,
+      "n_events": 3
+    }
+  ],
+  "edit_cases": "assets/edit_cases.json",
+  "mel_filterbank_shape": [
+    201,
+    80
+  ],
+  "hann_window_shape": [
+    400
+  ]
+}

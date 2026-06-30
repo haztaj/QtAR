@@ -1,0 +1,22 @@
+{
+ "events": [
+  {
+   "event": "detect",
+   "ayah": "114:1",
+   "t": 1.0,
+   "cost": 0.24
+  },
+  {
+   "event": "advance",
+   "ayah": "114:2",
+   "t": 3.0,
+   "cost": 0.28
+  },
+  {
+   "event": "advance",
+   "ayah": "114:3",
+   "t": 8.0,
+   "cost": 0.28
+  }
+ ]
+}
