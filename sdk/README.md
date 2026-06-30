@@ -18,12 +18,24 @@ sdk/
 - **Matcher / segmenter (`matcher.cpp`, `segmenter.cpp`) — done + conformance-validated.**
   Exact event sequences (incl. the real quiet-mic session 114:1→2→3).
 - **Inference (`inference.cpp`) — done + validated.** ONNX Runtime session + greedy CTC
-  decode reproduce the Python phonemes exactly (same-model). See `conformance/spec.md`
-  (incl. the int8/`ConvInteger` deployment note and the MinGW `-D_stdcall=__stdcall` flag).
-- **Builds via CMake+Ninja** (or direct g++). `nlohmann/json` vendored under
-  `core/third_party/`. Desktop ORT is fetched to `build/onnxruntime/` (gitignored).
-- **TODO:** `detector.cpp` orchestration loop (frontend→inference→decode→segmenter) +
-  input resampling; re-export int8 as QDQ; then the Android `.aar` + Compose demo, then iOS.
+  decode reproduce the Python phonemes exactly (same-model).
+- **Detector orchestration (`detector.cpp`) — done + validated end-to-end.** Rolling-window
+  loop (resample → buffer → front-end → inference → decode → segmenter → events). The full
+  pipeline reproduces `114:1 → 114:2 → 114:3` on the real quiet-mic session, fed in 100 ms
+  chunks. **The C++ core is complete.**
+- **Builds via CMake+Ninja** (needs `-DORT_HOME=<onnxruntime>`) or direct g++.
+  `nlohmann/json` vendored under `core/third_party/`; desktop ORT fetched to
+  `build/onnxruntime/` (gitignored). See `conformance/spec.md` for the int8/`ConvInteger`
+  note and the MinGW `-D_stdcall=__stdcall` flag.
+- **TODO:** re-export int8 as QDQ (so on-device int8 runs everywhere); then the Android
+  `.aar` (JNI + Kotlin scaffold exists) + Compose demo, then iOS.
+
+```bash
+cmake -S core -B build/cmake -G Ninja -DORT_HOME=$PWD/build/onnxruntime
+cmake --build build/cmake
+build/cmake/conformance_runner.exe ../conformance build/cmake_out && python ../conformance/verify.py --candidate build/cmake_out
+build/cmake/test_detector.exe ../export/onnx/model.onnx ../conformance <recitation.wav>
+```
 
 ```bash
 # build + run the conformance acceptance gate (no ORT needed for these stages)
