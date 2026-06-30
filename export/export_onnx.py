@@ -99,17 +99,29 @@ def main():
           f"out_len pt={int(pt_len[0])} ort={int(ort_len[0])}  "
           f"{'OK' if max_diff < 1e-3 else 'MISMATCH'}")
 
-    # --- int8 dynamic quantization ---
+    # --- int8 dynamic quantization (weight-only, MatMul only) ---
+    # Why not static QDQ: this is a transformer. Static QDQ quantizes ACTIVATIONS to
+    # fixed calibrated ranges, but the Emformer's attention/LayerNorm activations carry
+    # outliers that int8 static ranges can't hold -> the phoneme argmax collapses
+    # (measured: detection sequence destroyed). DYNAMIC quant is weight-only (activations
+    # stay fp32) and is argmax-lossless.
+    # Why MatMul-only: full dynamic quant also emits `ConvInteger` (from the tiny
+    # Conv2dSubsampling), which several ORT CPU builds (incl. desktop 1.18) can't execute.
+    # `MatMulInteger` is supported on every EP. The Emformer's MatMuls are the bulk of the
+    # weights (so we keep the size win); leaving the small conv in fp32 costs ~0.2 MB and
+    # removes the only unsupported op -> int8 runs everywhere AND stays lossless.
     from onnxruntime.quantization import quantize_dynamic, QuantType
     int8_path = OUT_DIR / "model.int8.onnx"
-    quantize_dynamic(str(onnx_path), str(int8_path), weight_type=QuantType.QInt8)
+    print("quantizing (dynamic, weight-only, MatMul only) ...")
+    quantize_dynamic(str(onnx_path), str(int8_path), weight_type=QuantType.QInt8,
+                     op_types_to_quantize=["MatMul"])
     print(f"  wrote {int8_path}  ({int8_path.stat().st_size/1e6:.1f} MB)")
 
     sess8 = ort.InferenceSession(str(int8_path), providers=["CPUExecutionProvider"])
     o8_lp, _ = sess8.run(None, {"features": f2.numpy(), "lengths": l2.numpy()})
     # agreement on argmax phoneme path (what the matcher consumes)
     agree = (pt_lp.numpy().argmax(-1) == o8_lp.argmax(-1)).mean()
-    print(f"int8 argmax agreement vs fp32: {agree:.1%}")
+    print(f"int8 (dynamic, MatMul-only) argmax agreement vs fp32: {agree:.1%}")
 
     # --- CPU real-time factor ---
     tokens = load_tokens()

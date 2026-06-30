@@ -198,9 +198,10 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   alignment) is the priority next step.
 - **Commit policy tuned** (`matcher/CommitTracker`): persistence K is the lever, not
   the threshold. Default T=0.15/K=5. See matcher/CLAUDE.md.
-- **ONNX export working** (`export/onnx/`): fp32 43.8 MB / int8 15.1 MB, parity 1.7e-5,
-  int8 argmax lossless, CPU RTF ~0.03. Full-utterance (fixed 30 s window — Emformer's
-  data-dependent masks block dynamic-T export). See export/CLAUDE.md.
+- **ONNX export working** (`export/onnx/`): fp32 43.8 MB / int8 15.2 MB, parity 1.5e-5,
+  int8 argmax lossless, CPU RTF ~0.03. int8 = weight-only dynamic, MatMul-only (avoids
+  `ConvInteger`; static QDQ tanks this transformer — see export/CLAUDE.md). Full-utterance
+  (fixed 30 s window — Emformer's data-dependent masks block dynamic-T export).
 - **Next options:** (1) **streaming export** (`Emformer.infer` + conv-cache — the
   real-time on-device path); (2) in-house learner collection for the long surahs
   (raises the learner ceiling); (3) the ~5 identical-phoneme ayat.

@@ -95,11 +95,16 @@ Notes:
 - **Golden uses the fp32 export.** int8 vs fp32 differ on the occasional borderline frame,
   so the inference test must compare the C++ to the **same** model it runs (same-model =
   exact). On-device int8 is validated on the target ORT.
-- **int8 deployment caveat:** the `quantize_dynamic` int8 model uses `ConvInteger`, which
-  some ORT CPU builds (e.g. desktop 1.18) don't implement → "could not find implementation".
-  For broad support, re-export with **QDQ static quantization** (QuantizeLinear/DequantizeLinear
-  + regular ops, universally supported), or confirm the target ORT supports ConvInteger
-  (the Android AAR build generally does). Tracked for the export step.
+- **int8 deployment (resolved):** the shipped int8 is **weight-only dynamic quant restricted
+  to MatMul** (`op_types_to_quantize=["MatMul"]`). Earlier full `quantize_dynamic` also
+  quantized the Conv2dSubsampling → a `ConvInteger` op some ORT CPU builds (e.g. desktop 1.18)
+  can't execute. `MatMulInteger` is supported everywhere and holds ~all the size win, so
+  leaving the tiny conv in fp32 makes int8 run on every EP while staying argmax-lossless
+  (100% vs fp32). **Static QDQ was rejected:** it quantizes activations, and this Emformer's
+  attention/LayerNorm outliers blow up under static int8 — the phoneme argmax (and detection)
+  collapsed. Don't re-introduce QDQ for this model. The int8 model is validated end-to-end by
+  `test_detector` (114:1→2→3); the off-by-one phoneme `test_inference` shows on one fixture is
+  the expected int8≠fp32 borderline-frame flip, absorbed by the matcher.
 - **MinGW:** ORT's header defines the calling convention as `_stdcall` (single underscore),
   which g++ rejects; build with `-D_stdcall=__stdcall` (harmless on x64).
 

@@ -11,11 +11,24 @@ python export/export_onnx.py --checkpoint training/exp/best_phase2.pt
 ```
 
 Pipeline: load checkpoint → ONNX export → PyTorch/onnxruntime parity → int8 dynamic
-quantization → CPU RTF. Verified results (best_phase2):
-- parity max|Δ| ≈ 1.7e-5 (PyTorch vs ORT, on a clip other than the traced one)
-- size 43.8 MB fp32 → **15.1 MB int8**, **100% argmax agreement** (the matcher consumes
+quantization (weight-only, MatMul-only) → CPU RTF. Verified results (best_mic):
+- parity max|Δ| ≈ 1.5e-5 (PyTorch vs ORT, on a clip other than the traced one)
+- size 43.8 MB fp32 → **15.2 MB int8**, **100% argmax agreement** (the matcher consumes
   greedy argmax phonemes, so int8 is lossless for our purposes)
 - CPU RTF ~0.03 (≈30× real-time desktop; comfortably real-time on phone)
+
+### int8: weight-only dynamic, MatMul-only (not QDQ)
+
+- **Weight-only dynamic**, not static QDQ. QDQ quantizes *activations*, and this Emformer's
+  attention/LayerNorm activations carry outliers that static int8 ranges can't hold — it
+  destroyed the phoneme argmax and detection (verified). Dynamic quant keeps activations
+  fp32 → argmax-lossless.
+- **`op_types_to_quantize=["MatMul"]`**: full dynamic quant also emits `ConvInteger` (from
+  the small Conv2dSubsampling), which some ORT CPU builds (desktop 1.18) can't execute.
+  `MatMulInteger` is supported on every EP and the Emformer MatMuls are ~all the weight mass,
+  so the small conv stays fp32 (~0.2 MB) and int8 runs everywhere. Validated end-to-end
+  through the C++ core (`sdk/.../test_detector` → 114:1→2→3) on the desktop ORT that
+  previously rejected `ConvInteger`.
 
 ## Why fixed-window, not dynamic-T
 

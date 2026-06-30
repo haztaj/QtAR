@@ -27,8 +27,11 @@ sdk/
   `nlohmann/json` vendored under `core/third_party/`; desktop ORT fetched to
   `build/onnxruntime/` (gitignored). See `conformance/spec.md` for the int8/`ConvInteger`
   note and the MinGW `-D_stdcall=__stdcall` flag.
-- **TODO:** re-export int8 as QDQ (so on-device int8 runs everywhere); then the Android
-  `.aar` (JNI + Kotlin scaffold exists) + Compose demo, then iOS.
+- **int8 runs everywhere — done.** Re-exported as weight-only dynamic quant restricted to
+  MatMul (15.2 MB, argmax-lossless); avoids the `ConvInteger` op older ORT CPU builds reject.
+  Static QDQ was tried and rejected (it tanks this transformer's accuracy). Validated through
+  the C++ core end-to-end on the ORT that previously couldn't run the int8 model.
+- **TODO:** the Android `.aar` (JNI + Kotlin scaffold exists) + Compose demo, then iOS.
 
 ```bash
 cmake -S core -B build/cmake -G Ninja -DORT_HOME=$PWD/build/onnxruntime
