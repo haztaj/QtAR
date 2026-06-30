@@ -2,6 +2,7 @@
 // and training/data.py:logmel_16k exactly (validated by conformance/verify.py).
 #pragma once
 #include <cstddef>
+#include <string>
 #include <vector>
 
 namespace quranrecite {
@@ -26,6 +27,7 @@ public:
 private:
     std::vector<float> filterbank_;  // [kNFreqs * kNMels], row-major [201][80]
     std::vector<float> window_;      // [kNFft]
+    std::vector<double> cos_, sin_;  // rfft twiddles [kNFreqs * kNFft]
     float normRms_;
 };
 

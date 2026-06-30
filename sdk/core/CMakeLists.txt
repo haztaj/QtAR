@@ -27,7 +27,7 @@ add_library(quranrecite_core STATIC
 
 target_include_directories(quranrecite_core
     PUBLIC  include
-    PRIVATE src
+    PRIVATE src third_party
 )
 
 if(ORT_HOME)
@@ -41,5 +41,9 @@ endif()
 option(QR_BUILD_CONFORMANCE "Build the conformance runner" ON)
 if(QR_BUILD_CONFORMANCE)
     add_executable(conformance_runner tests/conformance_runner.cpp)
+    target_include_directories(conformance_runner PRIVATE src third_party)
     target_link_libraries(conformance_runner PRIVATE quranrecite_core)
+    if(MINGW)   # bundle the C++ runtime so the exe runs without the MinGW DLLs on PATH
+        target_link_options(conformance_runner PRIVATE -static -static-libgcc -static-libstdc++)
+    endif()
 endif()

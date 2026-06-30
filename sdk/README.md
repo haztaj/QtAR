@@ -13,9 +13,22 @@ sdk/
 
 ## Status
 
-Scaffold. Interfaces and project structure are in place; the numerically-sensitive
-implementations (`frontend.cpp`, `matcher.cpp`, `segmenter.cpp`) are stubs that must be
-filled per `conformance/spec.md` and validated with `conformance/verify.py`.
+- **Front-end (`frontend.cpp`) — done + conformance-validated.** Log-mel matches the
+  Python reference within 1e-2 (worst 4.5e-3) on all fixtures.
+- **Matcher / segmenter (`matcher.cpp`, `segmenter.cpp`) — done + conformance-validated.**
+  Exact event sequences (incl. the real quiet-mic session 114:1→2→3).
+- **Builds via CMake+Ninja** (or direct g++). `nlohmann/json` is vendored under
+  `core/third_party/` for lexicon/fixture I/O.
+- **TODO:** `inference.cpp` (ONNX Runtime session), `detector.cpp` orchestration loop,
+  resampling, then the Android `.aar` + Compose demo, then iOS.
+
+```bash
+# build + run the conformance acceptance gate (no ORT needed for these stages)
+cmake -S core -B build/cmake -G Ninja -DQR_BUILD_CONFORMANCE=ON
+cmake --build build/cmake --target conformance_runner
+build/cmake/conformance_runner.exe ../conformance build/cmake_out
+python ../conformance/verify.py --candidate build/cmake_out      # -> ALL PASS
+```
 
 ## Build order
 

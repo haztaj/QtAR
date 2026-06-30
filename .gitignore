@@ -40,5 +40,8 @@ Thumbs.db
 # Third-party clone (not part of this project)
 icefall/
 
+# C++ build artifacts (keep vendored sources like third_party/)
+sdk/build/
+
 # Local Claude settings
 .claude/settings.local.json
