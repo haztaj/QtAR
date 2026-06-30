@@ -17,10 +17,13 @@ sdk/
   Python reference within 1e-2 (worst 4.5e-3) on all fixtures.
 - **Matcher / segmenter (`matcher.cpp`, `segmenter.cpp`) — done + conformance-validated.**
   Exact event sequences (incl. the real quiet-mic session 114:1→2→3).
-- **Builds via CMake+Ninja** (or direct g++). `nlohmann/json` is vendored under
-  `core/third_party/` for lexicon/fixture I/O.
-- **TODO:** `inference.cpp` (ONNX Runtime session), `detector.cpp` orchestration loop,
-  resampling, then the Android `.aar` + Compose demo, then iOS.
+- **Inference (`inference.cpp`) — done + validated.** ONNX Runtime session + greedy CTC
+  decode reproduce the Python phonemes exactly (same-model). See `conformance/spec.md`
+  (incl. the int8/`ConvInteger` deployment note and the MinGW `-D_stdcall=__stdcall` flag).
+- **Builds via CMake+Ninja** (or direct g++). `nlohmann/json` vendored under
+  `core/third_party/`. Desktop ORT is fetched to `build/onnxruntime/` (gitignored).
+- **TODO:** `detector.cpp` orchestration loop (frontend→inference→decode→segmenter) +
+  input resampling; re-export int8 as QDQ; then the Android `.aar` + Compose demo, then iOS.
 
 ```bash
 # build + run the conformance acceptance gate (no ORT needed for these stages)

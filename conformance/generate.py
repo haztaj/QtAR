@@ -165,6 +165,32 @@ def main():
     evs = make_matcher_fixture("clean_108_sequence", clean_windows)
     print(f"  matcher/clean_108_sequence: events {[e['ayah'] for e in evs]}")
 
+    # --- 2c) inference golden: log-mel -> ONNX -> greedy phoneme ids (for test_inference) ---
+    # Uses the fp32 export (desktop ORT can't run the int8 ConvInteger op on some versions;
+    # on-device int8 is validated on the target ORT). Same-model comparison validates the
+    # C++ ORT session + CTC greedy decode.
+    onnx_fp32 = REPO / "export" / "onnx" / "model.onnx"
+    if onnx_fp32.exists():
+        import onnxruntime as ort
+        sess = ort.InferenceSession(str(onnx_fp32), providers=["CPUExecutionProvider"])
+        FT = sess.get_inputs()[0].shape[1]
+        (CONF / "golden" / "inference").mkdir(parents=True, exist_ok=True)
+        for fx in manifest["frontend"]:
+            lm = np.fromfile(CONF / fx["logmel"], dtype="<f4").reshape(fx["logmel_shape"])
+            v = min(lm.shape[0], FT)
+            feats = np.zeros((1, FT, 80), dtype=np.float32); feats[0, :v] = lm[:v]
+            lp, ol = sess.run(None, {"features": feats, "lengths": np.array([v], dtype=np.int64)})
+            seq = lp[0, :int(ol[0])].argmax(-1).tolist()
+            out, prev = [], -1
+            for s in seq:
+                if s != prev and s != 0: out.append(s)
+                prev = s
+            (CONF / "golden" / "inference" / f"{fx['name']}.phonemes.txt").write_text(
+                " ".join(map(str, out)), encoding="utf-8")
+        manifest["inference"] = {"model": "export/onnx/model.onnx (fp32)",
+                                 "note": "ids per golden/inference/<name>.phonemes.txt; run test_inference"}
+        print(f"  inference golden: {len(manifest['frontend'])} clips (from fp32 ONNX)")
+
     # --- 3) edit-distance unit cases ---
     edit_cases = []
     pairs = [(ap["114:2"], ap["114:2"]), (ap["114:2"], ap["88:10"]),

@@ -77,12 +77,31 @@ are informational).
 
 ---
 
-## Model inference (not a port risk)
+## Model inference (ONNX Runtime — same engine as Python)
 
-The acoustic model runs via **ONNX Runtime** on all platforms (same engine as Python), so
-it isn't re-implemented. Export parity (PyTorch↔ONNX) and int8 argmax-agreement are
-already established (`export/`). The C++ uses the int8 sliding-window ONNX + greedy CTC
-decode (argmax → collapse repeats → drop blank id 0; tokens in `assets/tokens.txt`).
+The acoustic model runs via **ONNX Runtime** on all platforms, so it isn't re-implemented.
+Validated by `tests/test_inference.cpp`: feed each fixture's golden log-mel through the
+C++ ORT session + CTC greedy decode (argmax → collapse repeats → drop blank id 0; tokens
+in `assets/tokens.txt`) and compare the phoneme-id sequence to `golden/inference/<name>.phonemes.txt`.
+
+```bash
+g++ -std=c++17 -O2 -D_stdcall=__stdcall -I ../include -I ../src -I <ort>/include \
+    test_inference.cpp ../src/inference.cpp ../src/decoder.cpp ../src/assets.cpp \
+    <ort>/lib/onnxruntime.dll -o test_inference            # MinGW: -D_stdcall=__stdcall
+./test_inference ../conformance ../export/onnx/model.onnx  # -> ALL PASS (same-model)
+```
+
+Notes:
+- **Golden uses the fp32 export.** int8 vs fp32 differ on the occasional borderline frame,
+  so the inference test must compare the C++ to the **same** model it runs (same-model =
+  exact). On-device int8 is validated on the target ORT.
+- **int8 deployment caveat:** the `quantize_dynamic` int8 model uses `ConvInteger`, which
+  some ORT CPU builds (e.g. desktop 1.18) don't implement → "could not find implementation".
+  For broad support, re-export with **QDQ static quantization** (QuantizeLinear/DequantizeLinear
+  + regular ops, universally supported), or confirm the target ORT supports ConvInteger
+  (the Android AAR build generally does). Tracked for the export step.
+- **MinGW:** ORT's header defines the calling convention as `_stdcall` (single underscore),
+  which g++ rejects; build with `-D_stdcall=__stdcall` (harmless on x64).
 
 ---
 
