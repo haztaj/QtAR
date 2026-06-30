@@ -105,8 +105,16 @@ python conformance/generate.py && python conformance/verify.py
 
 Shipping as a cross-platform SDK (Android first, iOS later): a shared **C++ core** wrapped
 by Kotlin / Swift APIs, with a native demo app. Design + decisions in
-`docs/sdk-architecture.md`; the scaffold is in `sdk/`; the `conformance/` suite is the
-acceptance test that keeps the C++ port numerically faithful to this Python reference.
+`docs/sdk-architecture.md`; the `conformance/` suite is the acceptance test that keeps the
+C++ port numerically faithful to this Python reference.
+
+**The C++ core is complete and validated end-to-end.** All stages — log-mel front-end, CTC
+decode, fuzzy matcher + sliding segmenter, ONNX Runtime inference, and the streaming
+detector orchestration — build via CMake and pass the conformance harness; fed the real
+quiet-mic session in 100 ms chunks, the C++ pipeline reproduces `114:1 → 114:2 → 114:3`,
+matching Python. The int8 model (15.2 MB, argmax-lossless) runs on every ORT CPU build.
+Remaining: the Android `.aar` (JNI + Kotlin scaffold exists) + Compose demo, then iOS. See
+`sdk/README.md`.
 
 ## Standing rules
 
@@ -116,5 +124,6 @@ acceptance test that keeps the C++ port numerically faithful to this Python refe
 
 ## Roadmap
 
-In-house learner audio for the long surahs · streaming ONNX export · full-Quran scale-up
-(re-tune capacity then) · finish the C++ core + Android/iOS SDK + demo apps.
+Android `.aar` + Compose demo (C++ core done) · iOS XCFramework + SwiftUI · streaming ONNX
+export · in-house learner audio for the long surahs · full-Quran scale-up (re-tune capacity
+then).

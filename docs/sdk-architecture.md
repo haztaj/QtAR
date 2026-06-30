@@ -3,9 +3,12 @@
 Goal: ship the ayah-detection engine as a **cross-platform SDK** importable into native
 **Android** and **iOS** apps, plus a **demo app** that showcases it. On-device, offline.
 
-This is a design recommendation, not yet built. The existing Python (`training/data.py`
-front-end, `matcher/phoneme_matcher.py`, `demo/sliding.py`, `export/`) is the reference
-spec to port.
+This is the design recommendation. **Status: the C++ core (§3–§4) and the conformance
+harness (§10) are built and validated** — all stages pass the golden fixtures and the full
+pipeline reproduces the reference detections end-to-end (see `sdk/README.md`). What remains
+is platform packaging: Android `.aar` + Compose demo, then iOS. The Python (`training/data.py`
+front-end, `matcher/phoneme_matcher.py`, `demo/sliding.py`, `export/`) is the reference spec
+the core was ported from.
 
 ---
 
@@ -184,14 +187,20 @@ you recite (the real use case). It exercises every SDK event.
 
 ## 12. Suggested build phases
 
-1. **C++ core + conformance harness** — port DSP + decode + matcher; validate against
-   Python golden fixtures on desktop first.
-2. **ORT integration** — wire the int8 sliding-window model; verify parity vs Python.
-3. **Android AAR + Kotlin API** + managed capture; bring up on a device.
+1. ✅ **C++ core + conformance harness** — DSP + decode + matcher ported; validated against
+   Python golden fixtures on desktop (`conformance/verify.py` → ALL PASS).
+2. ✅ **ORT integration** — int8 model wired; parity vs Python verified, full pipeline
+   reproduces `114:1→2→3` end-to-end (`sdk/core/tests/test_detector`). int8 is weight-only
+   dynamic / MatMul-only (runs on every ORT CPU build; see `export/CLAUDE.md`).
+3. **Android AAR + Kotlin API** + managed capture; bring up on a device. ← next
 4. **iOS XCFramework + Swift API** + managed capture.
 5. **Demo app** (primary platform first), then the second.
 6. Hardening: lifecycle/interruptions, NNAPI/CoreML A-B, on-device RTF/memory profiling
    (the eval roadmap item), packaging/publishing.
+
+> Note: the desktop core uses the **30 s full-utterance** int8 export padded to the 4 s
+> window. The dedicated fixed **4 s sliding-window** streaming export (§4) is a small
+> follow-up before on-device packaging — it cuts per-hop compute ~7×.
 
 ---
 
@@ -209,10 +218,11 @@ you recite (the real use case). It exercises every SDK event.
 - **Capture**: SDK-managed (default, bakes in mic recs) + app-fed PCM (advanced). [as §7]
 - **Distribution**: TBD (Maven Central vs private) — decide at publish time.
 
-## 14. Immediate next step — conformance harness (in this repo)
+## 14. Immediate next step — Android `.aar`
 
-Before any C++: build the **golden-fixture generator** from the Python reference
-(`data.py`, `phoneme_matcher.py`, `sliding.py`) — a set of {audio → log-mel → phonemes →
-sliding-window ayah events} fixtures + tolerances. This lives here, is pure Python, and
-becomes the acceptance test the C++ core must pass. De-risks the whole port and is the
-natural first deliverable.
+The conformance harness and the full C++ core are **done** (§12 phases 1–2). The next
+deliverable is the **Android library**: wire the existing JNI bridge + Kotlin scaffold
+(`sdk/android/quranrecite`: `QuranReciteDetector`, `AudioCapture`, `ModelManager`) to the
+real core, build the `.so` for `arm64-v8a`/`x86_64`, package the `.aar`, and bring it up on
+a device — then the Compose demo. The download-on-first-launch path (§13) also needs a
+hosted, versioned model artifact + `ModelManager` implementation.

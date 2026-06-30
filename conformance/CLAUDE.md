@@ -1,13 +1,18 @@
 # conformance/ — C++ SDK port acceptance test
 
 Golden fixtures generated from the Python reference, so the cross-platform C++ engine
-(see `docs/sdk-architecture.md`) can be validated bit-for-bit-ish. This is the **first
-deliverable** of the SDK effort — de-risks the port before any C++ is written.
+(see `docs/sdk-architecture.md`) can be validated bit-for-bit-ish. This was the **first
+deliverable** of the SDK effort — it de-risked the port before any C++ was written.
+
+**Status: the C++ core passes this harness end-to-end.** `sdk/core/tests/conformance_runner`
+emits the front-end + matcher outputs and `verify.py --candidate` reports ALL PASS; the
+ORT-backed stages and full detector are checked by `test_inference` / `test_detector`. See
+`sdk/README.md`.
 
 ```bash
 python conformance/generate.py                       # (re)build golden from the reference
 python conformance/verify.py                          # self-check (reference vs golden) — must pass
-python conformance/verify.py --candidate <out_dir>    # check the C++ port's outputs
+python conformance/verify.py --candidate <out_dir>    # check the C++ port's outputs (-> ALL PASS)
 ```
 
 - `spec.md` — the exact computation the port must reproduce (front-end DSP, matcher /
