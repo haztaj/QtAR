@@ -4,19 +4,23 @@ plugins {
     `maven-publish`
 }
 
+// ONNX Runtime version. 1.22.0's native libs are 16 KB-page aligned (Play requirement);
+// 1.18.0 was 4 KB. Keep this in sync across the runtime dep and the header/link extract.
+val ortVersion = "1.22.0"
+
 // ONNX Runtime C++ headers + per-ABI .so are unpacked here from the (non-prefab) ORT AAR
 // by the extractOrt task; CMake reads them via -DORT_DIR (see below + src/main/cpp).
 val ortDir = layout.buildDirectory.dir("ort")
 
 // A resolvable configuration holding just the ORT AAR artifact (no transitive deps).
 val ortExtract: Configuration by configurations.creating
-dependencies { ortExtract("com.microsoft.onnxruntime:onnxruntime-android:1.18.0@aar") }
+dependencies { ortExtract("com.microsoft.onnxruntime:onnxruntime-android:$ortVersion@aar") }
 
 android {
     namespace = "com.quranrecite.sdk"
     compileSdk = 34
 
-    ndkVersion = "26.1.10909125"
+    ndkVersion = "27.2.12479018"          // r27: ships 16 KB-aligned libc++_shared.so
 
     defaultConfig {
         minSdk = 24                       // NNAPI + UNPROCESSED audio source
@@ -24,6 +28,9 @@ android {
             cmake {
                 cppFlags += "-std=c++17"
                 arguments += "-DANDROID_STL=c++_shared"
+                // 16 KB page-size support (Play requirement): links our .so with
+                // max-page-size=16384. r27 flag; the default in r28+.
+                arguments += "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON"
                 // ORT headers + per-ABI libonnxruntime.so, unpacked from the AAR by extractOrt.
                 arguments += "-DORT_DIR=${ortDir.get().asFile.path.replace('\\', '/')}"
             }
@@ -52,8 +59,8 @@ android {
 }
 
 dependencies {
-    // ONNX Runtime for Android (provides the prefab onnxruntime native module + Java API).
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.18.0")
+    // ONNX Runtime for Android (provides the runtime native .so + Java API).
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:$ortVersion")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 }
 

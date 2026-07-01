@@ -20,8 +20,9 @@ android/
     `$env:JAVA_HOME="C:/path/to/jdk17"`, or
   - add `org.gradle.java.home=C:/path/to/jdk17` (forward slashes) to your **user**
     `~/.gradle/gradle.properties` — applies to every `./gradlew` without per-shell setup.
-- **Android SDK** (compileSdk 34, build-tools 34) + **NDK 26.1.10909125** + **CMake 3.22.1**
-  (install via Android Studio's SDK Manager, or `sdkmanager`).
+- **Android SDK** (compileSdk 34, build-tools 34) + **NDK 27.2.12479018** + **CMake 3.22.1**
+  (install via Android Studio's SDK Manager, or `sdkmanager`). NDK r27 ships a 16 KB-aligned
+  `libc++_shared.so`; r26 does not.
 - Point Gradle at the SDK: create `sdk/android/local.properties` with
   `sdk.dir=<path>` (use forward slashes on Windows: `sdk.dir=C:/Users/you/android-sdk`), or
   set `ANDROID_HOME`. Android Studio writes this on first open.
@@ -94,13 +95,19 @@ Events are delivered on the main thread. The native core is the same one validat
 
 ## Status
 
-**Builds.** The library `.aar` (18 MB) and the demo APK both build (Gradle 8.7 / AGP 8.5 /
-NDK 26); CMake cross-compiles the shared core + JNI for all three ABIs. Verified: the JNI
-`.so` links ORT (`NEEDED libonnxruntime.so`) and exports the native symbols; the APK bundles
+**Builds.** The library `.aar` and the demo APK both build (Gradle 8.7 / AGP 8.5 / NDK 27);
+CMake cross-compiles the shared core + JNI for all three ABIs. Verified: the JNI `.so` links
+ORT (`NEEDED libonnxruntime.so`) and exports the native symbols; the APK bundles
 `libquranrecite_jni.so` + `libonnxruntime.so` + `libc++_shared.so` + the 4 runtime assets.
 The JNI bridge marshals `detect`/`advance` to Kotlin (main thread), managed capture bakes in
 the mic recommendations, and `ModelManager` implements asset extraction + download +
 sha256.
+
+**16 KB page-size compatible** (required by Google Play). All native libs are 16 KB-aligned:
+NDK r27 (`-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON`) aligns `libquranrecite_jni.so` +
+`libc++_shared.so`, and ORT was bumped **1.18.0 → 1.22.0** (whose prebuilt `libonnxruntime.so`
+is 16 KB-aligned; 1.18 was 4 KB). Verified: ELF `p_align=0x4000` on every lib and
+`zipalign -c -P 16` passes on the APK.
 
 The demo APK is **self-contained and offline** — the int8 model is dev-bundled, so on launch
 it extracts the model + assets and is ready with no server. Install and recite:
