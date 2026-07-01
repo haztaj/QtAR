@@ -12,35 +12,40 @@ android/
 
 ## Prerequisites
 
-- **JDK 17** (AGP 8.5 requires it; the repo's system JDK 8 is too old for Gradle here).
-- **Android SDK** (compileSdk 34) + **NDK** + **CMake 3.22.1** (install via Android Studio's
-  SDK Manager, or `sdkmanager`).
-- Point Gradle at the SDK: create `sdk/android/local.properties` with `sdk.dir=<path>` (or
-  set `ANDROID_HOME`). Android Studio does this on first open.
+- **JDK 17** (AGP 8.5 requires it; a system JDK 8 is too old).
+- **Android SDK** (compileSdk 34, build-tools 34) + **NDK 26.1.10909125** + **CMake 3.22.1**
+  (install via Android Studio's SDK Manager, or `sdkmanager`).
+- Point Gradle at the SDK: create `sdk/android/local.properties` with
+  `sdk.dir=<path>` (use forward slashes on Windows: `sdk.dir=C:/Users/you/android-sdk`), or
+  set `ANDROID_HOME`. Android Studio writes this on first open.
+
+The committed Gradle **wrapper** (`./gradlew`) pins Gradle 8.7 — no separate Gradle install
+needed.
 
 ## Build
 
-Simplest: open `sdk/android/` in **Android Studio** (it supplies Gradle + wires the SDK/NDK)
-and Run the `demo` app, or build the library artifact.
-
-Command line (needs a Gradle wrapper — run `gradle wrapper` once, or use Studio's):
+Open `sdk/android/` in **Android Studio** and Run the `demo` app, or from the command line:
 
 ```bash
 cd sdk/android
-# 1) stage the small runtime assets into the .aar (needs conformance/assets/*.bin —
-#    run `python conformance/generate.py` at the repo root first). Wired into preBuild,
-#    but you can run it explicitly:
-./gradlew :quranrecite:bundleAssets
-
-# 2) build the library .aar   -> quranrecite/build/outputs/aar/quranrecite-release.aar
+# library .aar   -> quranrecite/build/outputs/aar/quranrecite-release.aar
 ./gradlew :quranrecite:assembleRelease
 
-# or publish to the local Maven repo for consumers
+# demo APK       -> demo/build/outputs/apk/debug/demo-debug.apk
+./gradlew :demo:assembleDebug
+
+# publish the .aar to the local Maven repo for consumers
 ./gradlew :quranrecite:publishToMavenLocal
 
-# 3) run the demo on a connected device/emulator (needs a model — see below)
+# install + run the demo on a connected device/emulator (needs a model — see below)
 ./gradlew :demo:installDebug
 ```
+
+`preBuild` runs `bundleAssets` (stages the 4 small assets from `conformance/assets/` — run
+`python conformance/generate.py` first if the `*.bin` are missing) and `extractOrt` (unpacks
+the ORT headers + per-ABI `libonnxruntime.so` from the onnxruntime-android AAR, which is not
+prefab-packaged, into an imported CMake target). The core `.so` links ORT at build time; the
+ORT `.so` itself is packaged into the consuming app by the onnxruntime-android dependency.
 
 ## Assets & the model
 
@@ -80,9 +85,15 @@ Events are delivered on the main thread. The native core is the same one validat
 
 ## Status
 
-Wired and buildable-in-Android-Studio: CMake pulls in the shared core (ORT via prefab),
-the JNI bridge marshals `detect`/`advance` events to Kotlin, managed capture bakes in the
-mic recommendations, and `ModelManager` implements extraction + download + sha256. Not yet
-run on a device from this repo (no Android toolchain in the dev container) — next: bring up
-on a device/emulator, then package/publish. The dedicated fixed **4 s streaming export**
+**Builds.** The library `.aar` (18 MB) and the demo APK both build (Gradle 8.7 / AGP 8.5 /
+NDK 26); CMake cross-compiles the shared core + JNI for all three ABIs. Verified: the JNI
+`.so` links ORT (`NEEDED libonnxruntime.so`) and exports the native symbols; the APK bundles
+`libquranrecite_jni.so` + `libonnxruntime.so` + `libc++_shared.so` + the 4 runtime assets.
+The JNI bridge marshals `detect`/`advance` to Kotlin (main thread), managed capture bakes in
+the mic recommendations, and `ModelManager` implements asset extraction + download +
+sha256.
+
+Not yet **run** on a device — that needs the model (host it + set `MODEL_URL`/`MODEL_SHA256`,
+or dev-bundle it, see above) and a real mic. Next: install on a device/emulator and validate
+live detection; then package/publish; iOS after. The dedicated fixed **4 s streaming export**
 (vs the current 30 s window) is a perf follow-up before shipping.

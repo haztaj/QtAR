@@ -4,9 +4,19 @@ plugins {
     `maven-publish`
 }
 
+// ONNX Runtime C++ headers + per-ABI .so are unpacked here from the (non-prefab) ORT AAR
+// by the extractOrt task; CMake reads them via -DORT_DIR (see below + src/main/cpp).
+val ortDir = layout.buildDirectory.dir("ort")
+
+// A resolvable configuration holding just the ORT AAR artifact (no transitive deps).
+val ortExtract: Configuration by configurations.creating
+dependencies { ortExtract("com.microsoft.onnxruntime:onnxruntime-android:1.18.0@aar") }
+
 android {
     namespace = "com.quranrecite.sdk"
     compileSdk = 34
+
+    ndkVersion = "26.1.10909125"
 
     defaultConfig {
         minSdk = 24                       // NNAPI + UNPROCESSED audio source
@@ -14,6 +24,8 @@ android {
             cmake {
                 cppFlags += "-std=c++17"
                 arguments += "-DANDROID_STL=c++_shared"
+                // ORT headers + per-ABI libonnxruntime.so, unpacked from the AAR by extractOrt.
+                arguments += "-DORT_DIR=${ortDir.get().asFile.path.replace('\\', '/')}"
             }
         }
         ndk {
@@ -27,10 +39,6 @@ android {
             version = "3.22.1"
         }
     }
-
-    // Consume the onnxruntime-android AAR's native module (headers + .so) via prefab, so
-    // the CMake `find_package(onnxruntime CONFIG)` resolves to `onnxruntime::onnxruntime`.
-    buildFeatures { prefab = true }
 
     buildTypes {
         release { isMinifyEnabled = false }
@@ -77,4 +85,12 @@ val bundleAssets by tasks.registering(Copy::class) {
     }
     into(layout.projectDirectory.dir("src/main/assets/quranrecite"))
 }
-tasks.named("preBuild") { dependsOn(bundleAssets) }
+
+// Unpack the ORT AAR's headers/ + jni/<abi>/libonnxruntime.so so CMake can link the core
+// against ONNX Runtime (the AAR isn't prefab-packaged). The .so is provided at runtime by
+// the onnxruntime-android dependency in the app; this is link-time only.
+val extractOrt by tasks.registering(Copy::class) {
+    from(zipTree(ortExtract.singleFile)) { include("headers/**", "jni/**") }
+    into(ortDir)
+}
+tasks.named("preBuild") { dependsOn(bundleAssets, extractOrt) }

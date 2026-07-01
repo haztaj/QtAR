@@ -31,13 +31,16 @@ sdk/
   MatMul (15.2 MB, argmax-lossless); avoids the `ConvInteger` op older ORT CPU builds reject.
   Static QDQ was tried and rejected (it tanks this transformer's accuracy). Validated through
   the C++ core end-to-end on the ORT that previously couldn't run the int8 model.
-- **Android `.aar` — wired (build in Android Studio).** CMake pulls the shared core in and
-  gets ORT from the onnxruntime-android prefab (`onnxruntime::onnxruntime`); the JNI bridge
-  marshals `detect`/`advance` events to the Kotlin API; managed capture + `ModelManager`
-  (asset extraction + download-on-first-launch + sha256) are implemented. The core CMake now
-  takes ORT from either an imported target (Android) or `ORT_HOME` (desktop) — desktop build
-  re-verified. Not yet run on a device (no Android toolchain here). See `android/README.md`.
-- **TODO:** bring the demo up on a device; host the model artifact; then iOS.
+- **Android `.aar` — builds.** The library `.aar` (18 MB) and the demo APK both build with
+  Gradle 8.7 / AGP 8.5 / NDK 26. CMake cross-compiles the shared core + JNI for arm64-v8a,
+  armeabi-v7a, x86_64; ORT headers + per-ABI `libonnxruntime.so` are unpacked from the
+  onnxruntime-android AAR (which is *not* prefab-packaged) into an imported target (core's
+  `QR_ORT_TARGET`); the JNI bridge marshals `detect`/`advance` to the Kotlin API; managed
+  capture + `ModelManager` (asset extraction + download-on-first-launch + sha256) are
+  implemented. Verified: the JNI `.so` links ORT (`NEEDED libonnxruntime.so`) + exports the
+  native symbols; the APK bundles our `.so` + ORT `.so` + the 4 assets. Not yet run on a
+  device (needs the model + a mic). See `android/README.md`.
+- **TODO:** run the demo on a device/emulator; host the model artifact; then iOS.
 
 ```bash
 cmake -S core -B build/cmake -G Ninja -DORT_HOME=$PWD/build/onnxruntime
