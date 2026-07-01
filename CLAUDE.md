@@ -202,6 +202,10 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   int8 argmax lossless, CPU RTF ~0.03. int8 = weight-only dynamic, MatMul-only (avoids
   `ConvInteger`; static QDQ tanks this transformer — see export/CLAUDE.md). Full-utterance
   (fixed 30 s window — Emformer's data-dependent masks block dynamic-T export).
-- **Next options:** (1) **streaming export** (`Emformer.infer` + conv-cache — the
-  real-time on-device path); (2) in-house learner collection for the long surahs
-  (raises the learner ceiling); (3) the ~5 identical-phoneme ayat.
+- **4 s windowed export done** (`export/onnx/model_4s.int8.onnx`, 11 MB): `--fixed-frames
+  416 --tag _4s`. The SDK feeds 4 s sliding windows, so this right-sizes the model — **RTF
+  0.002 (~15× cheaper than the 30 s export), identical detections** (Emformer masks padding).
+  The demo dev-bundles it. See export/CLAUDE.md.
+- **Next options:** (1) **true streaming export** (`Emformer.infer` chunk-by-chunk — another
+  ~4× + lower latency, the battery/wearable path); (2) in-house learner collection for the
+  long surahs (raises the learner ceiling); (3) the ~5 identical-phoneme ayat.

@@ -46,7 +46,8 @@ def main():
     ap.add_argument("--checkpoint", default="training/exp/best_mic.pt")
     ap.add_argument("--opset", type=int, default=17)
     ap.add_argument("--dynamo", action="store_true", help="use torch.export-based exporter")
-    ap.add_argument("--fixed-frames", type=int, default=3000, help="fixed input window (10ms frames; 3000=30s)")
+    ap.add_argument("--fixed-frames", type=int, default=3000, help="fixed input window (10ms frames; 3000=30s, 400=4s)")
+    ap.add_argument("--tag", default="", help="output filename suffix, e.g. _4s -> model_4s{.int8}.onnx")
     args = ap.parse_args()
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -72,7 +73,7 @@ def main():
         return out, torch.tensor([valid], dtype=torch.long)
 
     feats, lengths = padded(0)
-    onnx_path = OUT_DIR / "model.onnx"
+    onnx_path = OUT_DIR / f"model{args.tag}.onnx"
     print(f"exporting ONNX (opset {args.opset}, fixed T={FIXED_T}) ...")
     torch.onnx.export(
         wrapper, (feats, lengths), str(onnx_path),
@@ -111,7 +112,7 @@ def main():
     # weights (so we keep the size win); leaving the small conv in fp32 costs ~0.2 MB and
     # removes the only unsupported op -> int8 runs everywhere AND stays lossless.
     from onnxruntime.quantization import quantize_dynamic, QuantType
-    int8_path = OUT_DIR / "model.int8.onnx"
+    int8_path = OUT_DIR / f"model{args.tag}.int8.onnx"
     print("quantizing (dynamic, weight-only, MatMul only) ...")
     quantize_dynamic(str(onnx_path), str(int8_path), weight_type=QuantType.QInt8,
                      op_types_to_quantize=["MatMul"])

@@ -44,16 +44,36 @@ parity holds across lengths. The app pads/crops each clip to the window. Cost: s
 clips pay 30 s of compute, but RTF is so low it doesn't matter. Needs `onnxscript`
 (torch 2.x) and `dynamo=False` (legacy exporter; opset 17).
 
-## TODO — streaming export (the real-time path)
+## 4 s windowed export — the SDK artifact (`--fixed-frames 416 --tag _4s`)
 
-Full-utterance is the offline / push-to-talk artifact. True low-latency streaming
-needs `Emformer.infer(chunk, states)` chunk-by-chunk, which is **fixed-shape and thus
-more ONNX-friendly** than the dynamic full-utterance path — but also requires:
+```bash
+python export/export_onnx.py --checkpoint training/exp/best_mic.pt --fixed-frames 416 --tag _4s
+# -> export/onnx/{model_4s.onnx, model_4s.int8.onnx}
+```
+
+The SDK runs the encoder over sliding **4 s windows**, so the 30 s full-utterance model wastes
+~7× compute padding each window to 3000 frames. Exporting at **416 frames (~4 s)** right-sizes
+it: since Emformer masks padded frames via `lengths`, the output for the valid frames is
+**identical** to the 30 s model — same detections — but far cheaper. 416 (not 400) gives a hair
+of headroom so a full 4 s window (~401 frames) is covered with no crop.
+
+Measured (best_mic, int8): **RTF 0.002** (vs 0.030 for 30 s — ~15× less compute; Emformer
+attention is O(U²) in length) and **11.0 MB** (vs 15.2 MB — the T-sized constants shrink).
+`test_detector` reproduces `114:1→2→3` with identical confidences (0.76/0.72/0.82). This is the
+model the demo dev-bundles and the SDK ships; the 30 s model stays for offline full-utterance
+eval / the conformance golden.
+
+## TODO — true streaming export (`Emformer.infer`)
+
+The 4 s window still **recomputes the whole window each hop**. True low-latency streaming needs
+`Emformer.infer(chunk, states)` chunk-by-chunk (segment_length=4 encoder frames ≈ 160 ms),
+processing only the *new* audio each step (~4× less than the 4 s window). It's fixed-shape and
+thus ONNX-friendly, but requires:
 - caching the `Conv2dSubsampling` boundary frames across chunks (stateful conv), and
 - threading the Emformer state list in/out of the ONNX graph as inputs/outputs.
-This is the natural next deliverable; the encoder is unchanged, so accuracy carries over.
-Alternative interim: re-run the fixed-window model on a growing buffer (simpler, wastes
-compute, but RTF headroom allows it).
+The encoder is unchanged, so accuracy carries over. Lower priority now that the 4 s window
+already hits RTF 0.002 (comfortably real-time even on watch silicon); this is the battery/latency
+optimization for always-on / wearable use.
 
 ## On-device notes
 

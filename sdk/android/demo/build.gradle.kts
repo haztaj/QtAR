@@ -36,19 +36,22 @@ dependencies {
 }
 
 // DEV-ONLY: bundle the exported int8 model into the demo so it runs fully offline (no server).
+// Uses the 4 s sliding-window model (model_4s.int8.onnx) — the SDK feeds 4 s windows, so this
+// is ~10x cheaper per hop than the 30 s full-utterance export with identical detections.
 // ModelManager prefers a bundled model at assets/quranrecite/model.int8.onnx over downloading.
 // Production consumers of the .aar instead use download-on-first-launch. The staged copy is
 // gitignored; if the model hasn't been exported yet, the task is skipped and the demo falls
 // back to ModelManager's (unset) download path.
 val devModel = rootProject.projectDir.parentFile.parentFile   // sdk/android -> repo root
-    .resolve("export/onnx/model.int8.onnx")
+    .resolve("export/onnx/model_4s.int8.onnx")
 val bundleDevModel by tasks.registering(Copy::class) {
     onlyIf { devModel.exists() }
-    from(devModel)
+    from(devModel) { rename { "model.int8.onnx" } }   // ModelManager expects this name
     into(layout.projectDirectory.dir("src/main/assets/quranrecite"))
     doFirst {
         if (!devModel.exists()) logger.warn(
-            "dev model not found at $devModel — run `python export/export_onnx.py`; " +
+            "dev model not found at $devModel — run " +
+                "`python export/export_onnx.py --fixed-frames 416 --tag _4s`; " +
                 "the demo won't run until a model is bundled or hosted.")
     }
 }

@@ -69,10 +69,12 @@ The **~15 MB `model.int8.onnx`** is *not* committed (repo rule) and is delivered
   versioned artifact — downloaded once, sha256-verified, cached under
   `filesDir/quranrecite/<version>/`. The library `.aar` ships model-free.
 - **Dev/offline (default for the demo):** the demo's `bundleDevModel` Gradle task copies
-  `export/onnx/model.int8.onnx` into the demo's assets at build time, so **the demo APK is
-  fully self-contained and runs with no network**. `ModelManager` prefers a bundled model
-  over downloading. Just run `python export/export_onnx.py` once, then build the demo. The
-  bundled copy is gitignored; the library `.aar` is unaffected.
+  the **4 s sliding-window model** (`export/onnx/model_4s.int8.onnx`, ~11 MB) into the demo's
+  assets at build time, so **the demo APK is fully self-contained and runs with no network**.
+  `ModelManager` prefers a bundled model over downloading. Run
+  `python export/export_onnx.py --fixed-frames 416 --tag _4s` once, then build the demo. The
+  bundled copy is gitignored; the library `.aar` is unaffected. (The 4 s model is ~15× cheaper
+  per hop than the 30 s full-utterance export with identical detections — see `export/CLAUDE.md`.)
 
 ## API (host app)
 
