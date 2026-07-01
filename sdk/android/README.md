@@ -107,7 +107,9 @@ sha256.
 NDK r27 (`-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON`) aligns `libquranrecite_jni.so` +
 `libc++_shared.so`, and ORT was bumped **1.18.0 → 1.22.0** (whose prebuilt `libonnxruntime.so`
 is 16 KB-aligned; 1.18 was 4 KB). Verified: ELF `p_align=0x4000` on every lib and
-`zipalign -c -P 16` passes on the APK.
+`zipalign -c -P 16` passes on the APK. The model output was re-validated on desktop ORT
+1.22 (CPU EP, same kernels as Android): conformance + `test_detector` are byte-identical to
+1.18 (`114:1→2→3`), so the ORT bump doesn't change detections.
 
 The demo APK is **self-contained and offline** — the int8 model is dev-bundled, so on launch
 it extracts the model + assets and is ready with no server. Install and recite:
