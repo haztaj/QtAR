@@ -43,5 +43,12 @@ icefall/
 # C++ build artifacts (keep vendored sources like third_party/)
 sdk/build/
 
+# Android — Gradle/AGP build outputs + bundled runtime assets (repopulated by bundleAssets)
+sdk/android/**/build/
+sdk/android/.gradle/
+sdk/android/local.properties
+sdk/android/**/.cxx/
+sdk/android/quranrecite/src/main/assets/quranrecite/
+
 # Local Claude settings
 .claude/settings.local.json

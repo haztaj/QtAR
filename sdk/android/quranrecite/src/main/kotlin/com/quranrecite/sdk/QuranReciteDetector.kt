@@ -1,6 +1,8 @@
 package com.quranrecite.sdk
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 
 /** Stable ayah identifier (surah:ayah). The host app owns mushaf text/rendering. */
 data class AyahId(val surah: Int, val ayah: Int)
@@ -46,20 +48,21 @@ class QuranReciteDetector(
     private var nativeHandle: Long = 0
     private var listener: Listener? = null
     private var capture: AudioCapture? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     fun setListener(listener: Listener) { this.listener = listener }
 
     /** Ensures the model is present (downloads on first launch), then creates the engine. */
     fun prepare() {
         ModelManager(context, config.corpus).ensureAsync(
-            onProgress = { listener?.onModelDownloadProgress(it) },
-            onReady = { assets ->
+            onProgress = { f -> mainHandler.post { listener?.onModelDownloadProgress(f) } },
+            onReady = { assets ->                       // worker thread: build engine here
                 nativeHandle = nativeCreate(
                     assets.modelPath, assets.lexiconPath, assets.tokensPath,
                     assets.filterbankPath, assets.hannPath)
-                listener?.onModelReady()
+                mainHandler.post { listener?.onModelReady() }
             },
-            onError = { listener?.onError(it) },
+            onError = { e -> mainHandler.post { listener?.onError(e) } },
         )
     }
 
@@ -86,14 +89,17 @@ class QuranReciteDetector(
         if (nativeHandle != 0L) { nativeDestroy(nativeHandle); nativeHandle = 0 }
     }
 
-    // Called from JNI (worker thread). Wrappers marshal to the main thread for the host.
+    // Called from JNI (engine worker thread). Marshal to the main thread for the host.
+    // NOTE: block body (returns Unit -> JVM void); the JNI lookup expects "(IIF)V"/"(IIII)V".
     @Suppress("unused")
-    private fun emitDetected(surah: Int, ayah: Int, confidence: Float) =
-        listener?.onAyahDetected(AyahId(surah, ayah), confidence)
+    private fun emitDetected(surah: Int, ayah: Int, confidence: Float) {
+        mainHandler.post { listener?.onAyahDetected(AyahId(surah, ayah), confidence) }
+    }
 
     @Suppress("unused")
-    private fun emitAdvance(fromS: Int, fromA: Int, toS: Int, toA: Int) =
-        listener?.onAyahAdvance(AyahId(fromS, fromA), AyahId(toS, toA))
+    private fun emitAdvance(fromS: Int, fromA: Int, toS: Int, toA: Int) {
+        mainHandler.post { listener?.onAyahAdvance(AyahId(fromS, fromA), AyahId(toS, toA)) }
+    }
 
     private external fun nativeCreate(
         modelPath: String, lexiconPath: String, tokensPath: String,

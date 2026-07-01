@@ -28,6 +28,10 @@ android {
         }
     }
 
+    // Consume the onnxruntime-android AAR's native module (headers + .so) via prefab, so
+    // the CMake `find_package(onnxruntime CONFIG)` resolves to `onnxruntime::onnxruntime`.
+    buildFeatures { prefab = true }
+
     buildTypes {
         release { isMinifyEnabled = false }
     }
@@ -56,3 +60,21 @@ publishing {
         }
     }
 }
+
+// Bundle the small runtime assets (lexicon, tokens, DSP filterbank/window) into the .aar.
+// They're produced by `python conformance/generate.py`; the ~15 MB model is downloaded at
+// runtime (ModelManager). Copied assets are gitignored — this task repopulates them.
+val bundleAssets by tasks.registering(Copy::class) {
+    val repoRoot = rootProject.projectDir.parentFile.parentFile   // sdk/android -> repo root
+    val assetsSrc = File(repoRoot, "conformance/assets")
+    doFirst {
+        require(File(assetsSrc, "mel_filterbank.bin").exists()) {
+            "Missing conformance/assets/*.bin — run `python conformance/generate.py` first."
+        }
+    }
+    from(assetsSrc) {
+        include("ayah_phonemes.json", "tokens.txt", "mel_filterbank.bin", "hann_window.bin")
+    }
+    into(layout.projectDirectory.dir("src/main/assets/quranrecite"))
+}
+tasks.named("preBuild") { dependsOn(bundleAssets) }

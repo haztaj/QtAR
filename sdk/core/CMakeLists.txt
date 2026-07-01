@@ -5,11 +5,13 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)   # required for the Android .so
 
-# --- ONNX Runtime (mobile) ---------------------------------------------------
-# Point ORT_HOME at the onnxruntime headers + lib for the target platform.
-# Desktop (for the conformance runner): a downloaded onnxruntime release.
-# Android: the AAR's prefab module is wired in android/.../cpp/CMakeLists.txt instead.
-set(ORT_HOME "" CACHE PATH "ONNX Runtime install (include/ + lib/)")
+# --- ONNX Runtime -----------------------------------------------------------
+# Two ways to provide ORT to the core, depending on platform:
+#   * QR_ORT_TARGET — an existing imported CMake target (its INTERFACE includes carry the
+#     headers). Android passes the onnxruntime-android prefab: `onnxruntime::onnxruntime`.
+#   * ORT_HOME     — a local install dir (include/ + lib/) for the desktop conformance build.
+set(ORT_HOME "" CACHE PATH "ONNX Runtime install (include/ + lib/) — desktop build")
+set(QR_ORT_TARGET "" CACHE STRING "Imported ORT target (e.g. Android prefab onnxruntime::onnxruntime)")
 
 # --- third-party FFT ---------------------------------------------------------
 # Use pffft or KissFFT for the STFT. Vendor under third_party/ and add here.
@@ -30,19 +32,25 @@ target_include_directories(quranrecite_core
     PRIVATE src third_party
 )
 
-# inference.cpp needs the ORT headers to compile; the desktop build links the DLL.
-# (Android consumes ORT via the onnxruntime-android prefab — see android/.../cpp/CMakeLists.txt.)
-if(NOT ORT_HOME)
-    message(FATAL_ERROR "Set -DORT_HOME=<onnxruntime> (include/ + lib/) to build the core.")
-endif()
-target_include_directories(quranrecite_core PRIVATE ${ORT_HOME}/include)
-if(MINGW)
-    # ORT's header uses `_stdcall` (single underscore) which g++ rejects; harmless on x64.
-    target_compile_definitions(quranrecite_core PRIVATE _stdcall=__stdcall)
-    target_link_libraries(quranrecite_core PRIVATE ${ORT_HOME}/lib/onnxruntime.dll)
+# inference.cpp needs the ORT headers to compile.
+if(QR_ORT_TARGET)
+    # Android (and any consumer supplying an imported ORT target): interface includes
+    # carry the headers; the target provides the runtime .so.
+    target_link_libraries(quranrecite_core PRIVATE ${QR_ORT_TARGET})
+elseif(ORT_HOME)
+    target_include_directories(quranrecite_core PRIVATE ${ORT_HOME}/include)
+    if(MINGW)
+        # ORT's header uses `_stdcall` (single underscore) which g++ rejects; harmless on x64.
+        target_compile_definitions(quranrecite_core PRIVATE _stdcall=__stdcall)
+        target_link_libraries(quranrecite_core PRIVATE ${ORT_HOME}/lib/onnxruntime.dll)
+    else()
+        target_link_directories(quranrecite_core PRIVATE ${ORT_HOME}/lib)
+        target_link_libraries(quranrecite_core PRIVATE onnxruntime)
+    endif()
 else()
-    target_link_directories(quranrecite_core PRIVATE ${ORT_HOME}/lib)
-    target_link_libraries(quranrecite_core PRIVATE onnxruntime)
+    message(FATAL_ERROR
+        "Provide ORT: -DQR_ORT_TARGET=<imported target> (Android prefab) "
+        "or -DORT_HOME=<install> (include/ + lib/, desktop).")
 endif()
 
 # --- desktop tests ----------------------------------------------------------

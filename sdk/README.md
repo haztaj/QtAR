@@ -31,7 +31,13 @@ sdk/
   MatMul (15.2 MB, argmax-lossless); avoids the `ConvInteger` op older ORT CPU builds reject.
   Static QDQ was tried and rejected (it tanks this transformer's accuracy). Validated through
   the C++ core end-to-end on the ORT that previously couldn't run the int8 model.
-- **TODO:** the Android `.aar` (JNI + Kotlin scaffold exists) + Compose demo, then iOS.
+- **Android `.aar` — wired (build in Android Studio).** CMake pulls the shared core in and
+  gets ORT from the onnxruntime-android prefab (`onnxruntime::onnxruntime`); the JNI bridge
+  marshals `detect`/`advance` events to the Kotlin API; managed capture + `ModelManager`
+  (asset extraction + download-on-first-launch + sha256) are implemented. The core CMake now
+  takes ORT from either an imported target (Android) or `ORT_HOME` (desktop) — desktop build
+  re-verified. Not yet run on a device (no Android toolchain here). See `android/README.md`.
+- **TODO:** bring the demo up on a device; host the model artifact; then iOS.
 
 ```bash
 cmake -S core -B build/cmake -G Ninja -DORT_HOME=$PWD/build/onnxruntime
