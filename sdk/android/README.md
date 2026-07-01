@@ -12,7 +12,14 @@ android/
 
 ## Prerequisites
 
-- **JDK 17** (AGP 8.5 requires it; a system JDK 8 is too old).
+- **JDK 17** — AGP 8.5 requires it. Note: it's not enough to have JDK 17 *installed*; Gradle
+  must **run on** it. If your machine default is older (e.g. JDK 8), `./gradlew` fails at
+  configuration with *"Could not resolve com.android.tools.build:gradle … compatible with
+  Java 8"*. Fix it one of two ways:
+  - set `JAVA_HOME` to the JDK 17 for the shell, e.g. (PowerShell)
+    `$env:JAVA_HOME="C:/path/to/jdk17"`, or
+  - add `org.gradle.java.home=C:/path/to/jdk17` (forward slashes) to your **user**
+    `~/.gradle/gradle.properties` — applies to every `./gradlew` without per-shell setup.
 - **Android SDK** (compileSdk 34, build-tools 34) + **NDK 26.1.10909125** + **CMake 3.22.1**
   (install via Android Studio's SDK Manager, or `sdkmanager`).
 - Point Gradle at the SDK: create `sdk/android/local.properties` with
@@ -20,7 +27,8 @@ android/
   set `ANDROID_HOME`. Android Studio writes this on first open.
 
 The committed Gradle **wrapper** (`./gradlew`) pins Gradle 8.7 — no separate Gradle install
-needed.
+needed. (Android Studio sidesteps the JDK issue entirely — it runs Gradle on its bundled
+JDK 17.)
 
 ## Build
 
