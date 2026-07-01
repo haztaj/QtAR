@@ -58,11 +58,12 @@ The **~15 MB `model.int8.onnx`** is *not* committed (repo rule) and is delivered
 
 - **Production:** set `MODEL_URL` + `MODEL_SHA256` in `ModelManager.kt` to a hosted,
   versioned artifact — downloaded once, sha256-verified, cached under
-  `filesDir/quranrecite/<version>/`.
-- **Dev/offline (to run now):** drop the model at
-  `quranrecite/src/main/assets/quranrecite/model.int8.onnx` (produced by
-  `python export/export_onnx.py`). `ModelManager` uses a bundled model directly, no network.
-  This path is gitignored.
+  `filesDir/quranrecite/<version>/`. The library `.aar` ships model-free.
+- **Dev/offline (default for the demo):** the demo's `bundleDevModel` Gradle task copies
+  `export/onnx/model.int8.onnx` into the demo's assets at build time, so **the demo APK is
+  fully self-contained and runs with no network**. `ModelManager` prefers a bundled model
+  over downloading. Just run `python export/export_onnx.py` once, then build the demo. The
+  bundled copy is gitignored; the library `.aar` is unaffected.
 
 ## API (host app)
 
@@ -93,7 +94,14 @@ The JNI bridge marshals `detect`/`advance` to Kotlin (main thread), managed capt
 the mic recommendations, and `ModelManager` implements asset extraction + download +
 sha256.
 
-Not yet **run** on a device — that needs the model (host it + set `MODEL_URL`/`MODEL_SHA256`,
-or dev-bundle it, see above) and a real mic. Next: install on a device/emulator and validate
-live detection; then package/publish; iOS after. The dedicated fixed **4 s streaming export**
-(vs the current 30 s window) is a perf follow-up before shipping.
+The demo APK is **self-contained and offline** — the int8 model is dev-bundled, so on launch
+it extracts the model + assets and is ready with no server. Install and recite:
+
+```bash
+./gradlew :demo:installDebug     # onto a connected device/emulator (grant the mic prompt)
+```
+
+Not yet **run** here (the dev container has no device/mic). Next: install on a device and
+validate live detection; then host the model + package/publish; iOS after. The dedicated
+fixed **4 s streaming export** (vs the current 30 s window) is a perf follow-up before
+shipping.

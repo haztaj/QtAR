@@ -49,6 +49,7 @@ sdk/android/.gradle/
 sdk/android/local.properties
 sdk/android/**/.cxx/
 sdk/android/quranrecite/src/main/assets/quranrecite/
+sdk/android/demo/src/main/assets/quranrecite/
 
 # Local Claude settings
 .claude/settings.local.json

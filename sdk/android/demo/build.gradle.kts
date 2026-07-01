@@ -15,6 +15,7 @@ android {
         versionName = "0.1.0"
     }
     buildFeatures { compose = true }
+    androidResources { noCompress += "onnx" }    // store the model uncompressed (clean extract)
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -29,3 +30,22 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.9.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.2")
 }
+
+// DEV-ONLY: bundle the exported int8 model into the demo so it runs fully offline (no server).
+// ModelManager prefers a bundled model at assets/quranrecite/model.int8.onnx over downloading.
+// Production consumers of the .aar instead use download-on-first-launch. The staged copy is
+// gitignored; if the model hasn't been exported yet, the task is skipped and the demo falls
+// back to ModelManager's (unset) download path.
+val devModel = rootProject.projectDir.parentFile.parentFile   // sdk/android -> repo root
+    .resolve("export/onnx/model.int8.onnx")
+val bundleDevModel by tasks.registering(Copy::class) {
+    onlyIf { devModel.exists() }
+    from(devModel)
+    into(layout.projectDirectory.dir("src/main/assets/quranrecite"))
+    doFirst {
+        if (!devModel.exists()) logger.warn(
+            "dev model not found at $devModel — run `python export/export_onnx.py`; " +
+                "the demo won't run until a model is bundled or hosted.")
+    }
+}
+tasks.named("preBuild") { dependsOn(bundleDevModel) }
