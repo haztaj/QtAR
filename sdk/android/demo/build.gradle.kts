@@ -13,6 +13,10 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0"
+        // Ship only real-phone (arm64) + emulator (x86_64) ABIs. Drops x86/armeabi-v7a
+        // (~34 MB of unused ONNX Runtime) and the x86 mismatch (no x86 quranrecite_jni).
+        // A Play release would instead use an App Bundle for per-device ABI delivery.
+        ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
     }
     buildFeatures { compose = true }
     androidResources { noCompress += "onnx" }    // store the model uncompressed (clean extract)
