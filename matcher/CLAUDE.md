@@ -31,6 +31,26 @@ python matcher/phoneme_matcher.py
 - Learner-error robustness: 10% err → top1 98.7% / top3 100%; 20% → 96/97; 30% → 92/93.
 - Early detection: true ayah in top-3 after **69%** of phonemes on average.
 
+## `find_ambiguous.py` — confusable-ayah map (corpus-agnostic)
+
+Precomputes which ayat are too phoneme-similar to tell apart on their own, and whether
+sequential context can break each tie. Runs on the Juz Amma lexicon now and the full-Quran
+lexicon later (length-pruned pairwise; `rapidfuzz` if installed, DP fallback otherwise).
+
+```bash
+python matcher/find_ambiguous.py            # -> data/lang/ambiguous_ayat.json
+python matcher/find_ambiguous.py --tau 0.12 --lexicon <full-quran.json> --out <path>
+```
+
+Metric = the matcher's own normalized Levenshtein (1/1/1), so "ambiguous" == what the runtime
+actually confuses. Per ambiguous ayah it emits `confusable_with` (the candidate set) and
+`resolvable_by`: **predecessor** (prior ayah pins it), **successor** (WAIT for the next ayah,
+then it pins it — retroactive), **both**, or **none** (context can't break the tie → needs an
+option fallback). This is the input to the deferral + centralized-highlight logic.
+
+Juz Amma @ tau 0.15: **26 ambiguous ayat / 13 pairs** (10 exact-duplicate). All resolvable by
+context except **99:8↔99:7** — consecutive *and* 99:8 ends the surah, so no neighbour helps.
+
 ## Commit policy (`CommitTracker`) — tuned
 
 Committing on a single margin crossing is unreliable: early in a recitation a

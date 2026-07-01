@@ -18,6 +18,7 @@ lhotse
 numpy
 pandas
 scipy
+rapidfuzz               # fast edit distance for matcher/find_ambiguous.py (optional; DP fallback if absent)
 
 # Augmentation
 audiomentations
