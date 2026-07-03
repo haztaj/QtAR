@@ -27,7 +27,10 @@ python matcher/phoneme_matcher.py
 
 - Exact-match top-1: **99.1%** (564 ayat). The ~5 misses are ayat with *identical*
   phoneme strings — indistinguishable by phonemes alone (repeated refrains), a real
-  property, not a bug.
+  property, not a bug. These are the exact-duplicate classes in `ambiguous_ayat.json`
+  (`82:13↔83:22`, `83:9↔83:20`, `83:23↔83:35`, `84:2↔84:5`, `109:3↔109:5`) and are all
+  resolved at the highlight layer by sequential context / deferral (see
+  `highlight_controller.py`) — the matcher isn't expected to break these ties alone.
 - Learner-error robustness: 10% err → top1 98.7% / top3 100%; 20% → 96/97; 30% → 92/93.
 - Early detection: true ayah in top-3 after **69%** of phonemes on average.
 

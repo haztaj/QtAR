@@ -217,6 +217,13 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   `golden/highlight/`), wired through `Detector::setHighlightCallback` + JNI + Kotlin
   `Listener.onHighlightState`; `.aar` builds + bundles the map. See matcher/CLAUDE.md,
   conformance/spec.md §Stage 3.
+- **Identical-phoneme ayat — resolved (2026-07-03), no longer a separate item.** The ~5
+  matcher-indistinguishable pairs are exactly the exact-duplicate classes in
+  `ambiguous_ayat.json` (`82:13↔83:22`, `83:9↔83:20`, `83:23↔83:35`, `84:2↔84:5`,
+  `109:3↔109:5`) and **all are context-resolvable** — the HighlightController pins the
+  in-order ones via sequential context and defers/retro-confirms the successor-only one
+  (`83:23↔83:35`). The only context-unresolvable Juz-Amma pair is `99:8↔99:7` (near-, not
+  identical-, phoneme; `99:8` ends its surah) → `needs_choice` manual fallback, by design.
 - **Next options:** (1) **true streaming export** (`Emformer.infer` chunk-by-chunk — another
   ~4× + lower latency, the battery/wearable path); (2) in-house learner collection for the
-  long surahs (raises the learner ceiling); (3) the ~5 identical-phoneme ayat.
+  long surahs (raises the learner ceiling).
