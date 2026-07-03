@@ -50,8 +50,16 @@ class MainActivity : ComponentActivity() {
                 }
 
                 val mic = rememberLauncherForPermission { granted ->
-                    if (granted) { detector.start(); listening = true }
-                    else status = "Mic permission denied"
+                    if (granted) {
+                        // Fresh session: clear the engine's rolling buffer + matcher/context/
+                        // highlight state (else session 2 inherits session 1's commits) and
+                        // clear the on-screen highlight.
+                        detector.reset()
+                        highlight = HighlightInfo()
+                        detector.start()
+                        listening = true
+                        status = "Listening…"
+                    } else status = "Mic permission denied"
                 }
 
                 LaunchedEffect(Unit) {

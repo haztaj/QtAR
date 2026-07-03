@@ -37,6 +37,7 @@ internal class AudioCapture(private val onPcm: (ShortArray, Int) -> Unit) {
             while (running) {
                 val n = rec.read(buf, 0, buf.size)
                 if (n > 0) onPcm(if (n == buf.size) buf else buf.copyOf(n), sampleRate)
+                else if (n < 0) break
             }
         }
     }
