@@ -18,7 +18,37 @@ struct Handle {
     jobject self = nullptr;         // global ref to the Kotlin QuranReciteDetector
     jmethodID midDetected = nullptr;  // emitDetected(surah, ayah, confidence)
     jmethodID midAdvance = nullptr;   // emitAdvance(fromS, fromA, toS, toA)
+    jmethodID midHighlight = nullptr; // emitHighlight(json) — the centralized snapshot
 };
+
+std::string ayahKey(const AyahId& a) {
+    return std::to_string(a.surah) + ":" + std::to_string(a.ayah);
+}
+
+// Serialize the snapshot to the same JSON shape as conformance/golden/highlight (parsed in
+// Kotlin). Keeping the marshalling as one string keeps the JNI surface trivial.
+std::string snapshotJson(const HighlightSnapshot& s) {
+    std::string j = "{\"confirmed\":[";
+    for (std::size_t i = 0; i < s.confirmed.size(); ++i)
+        j += (i ? ",\"" : "\"") + ayahKey(s.confirmed[i]) + "\"";
+    j += "],\"pending\":";
+    if (s.hasPending) {
+        j += "{\"ayah\":";
+        j += s.pending.hasAyah ? "\"" + ayahKey(s.pending.ayah) + "\"" : "null";
+        j += ",\"options\":[";
+        for (std::size_t i = 0; i < s.pending.options.size(); ++i)
+            j += (i ? ",\"" : "\"") + ayahKey(s.pending.options[i]) + "\"";
+        j += "],\"reason\":\"";
+        j += s.pending.reason == PendingReason::NeedsChoice ? "needs_choice" : "await_successor";
+        j += "\"}";
+    } else {
+        j += "null";
+    }
+    j += ",\"active\":";
+    j += s.hasActive ? "\"" + ayahKey(s.active) + "\"" : "null";
+    j += "}";
+    return j;
+}
 
 // Resolve a JNIEnv for the current thread, attaching if this is a foreign (non-Java)
 // thread. Returns whether we attached (caller must detach iff true).
@@ -45,6 +75,19 @@ void postEvent(Handle* h, const AyahEvent& e) {
     if (attached) h->vm->DetachCurrentThread();
 }
 
+void postHighlight(Handle* h, const HighlightSnapshot& snap) {
+    if (!h->self || !h->midHighlight) return;
+    JNIEnv* env = nullptr;
+    bool attached = envFor(h, &env);
+    if (env) {
+        jstring js = env->NewStringUTF(snapshotJson(snap).c_str());
+        env->CallVoidMethod(h->self, h->midHighlight, js);
+        env->DeleteLocalRef(js);
+        if (env->ExceptionCheck()) env->ExceptionClear();
+    }
+    if (attached) h->vm->DetachCurrentThread();
+}
+
 std::string jstr(JNIEnv* env, jstring s) {
     const char* c = env->GetStringUTFChars(s, nullptr);
     std::string r(c ? c : "");
@@ -56,13 +99,14 @@ std::string jstr(JNIEnv* env, jstring s) {
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_quranrecite_sdk_QuranReciteDetector_nativeCreate(
         JNIEnv* env, jobject thiz, jstring modelPath, jstring lexiconPath,
-        jstring tokensPath, jstring filterbankPath, jstring hannPath) {
+        jstring tokensPath, jstring filterbankPath, jstring hannPath, jstring ambiguousPath) {
     auto* h = new Handle();
     env->GetJavaVM(&h->vm);
     h->self = env->NewGlobalRef(thiz);
     jclass cls = env->GetObjectClass(thiz);
     h->midDetected = env->GetMethodID(cls, "emitDetected", "(IIF)V");
     h->midAdvance = env->GetMethodID(cls, "emitAdvance", "(IIII)V");
+    h->midHighlight = env->GetMethodID(cls, "emitHighlight", "(Ljava/lang/String;)V");
 
     Config cfg;
     cfg.modelPath = jstr(env, modelPath);
@@ -70,9 +114,11 @@ Java_com_quranrecite_sdk_QuranReciteDetector_nativeCreate(
     cfg.tokensPath = jstr(env, tokensPath);
     cfg.melFilterbankPath = jstr(env, filterbankPath);
     cfg.hannWindowPath = jstr(env, hannPath);
+    cfg.ambiguousPath = jstr(env, ambiguousPath);   // empty -> deferral disabled (confirm all)
 
     h->det = std::make_unique<Detector>(cfg);
     h->det->setEventCallback([h](const AyahEvent& e) { postEvent(h, e); });
+    h->det->setHighlightCallback([h](const HighlightSnapshot& s) { postHighlight(h, s); });
     return reinterpret_cast<jlong>(h);
 }
 

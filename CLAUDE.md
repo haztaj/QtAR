@@ -206,6 +206,17 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   416 --tag _4s`. The SDK feeds 4 s sliding windows, so this right-sizes the model — **RTF
   0.002 (~15× cheaper than the 30 s export), identical detections** (Emformer masks padding).
   The demo dev-bundles it. See export/CLAUDE.md.
+- **Ambiguity handling + centralized highlight — done.** (1) `matcher/find_ambiguous.py`
+  precomputes the corpus-agnostic confusable-ayah map (`data/lang/ambiguous_ayat.json`;
+  Juz Amma: 26 ambiguous / 13 classes, only 99:8↔99:7 context-unresolvable). (2)
+  `matcher/highlight_controller.py` (Stage-3) consumes committed detections and emits
+  render-ready `HighlightState` snapshots — the **centralized output contract** (state
+  snapshots, user-signed-off 2026-07-03) so platforms just render; **ambiguity is deferred,
+  never guessed** (predecessor pins now / successor retro-confirms / else manual choose).
+  Ported to `sdk/core/src/highlight.*` (C++ byte-identical, conformance-pinned in
+  `golden/highlight/`), wired through `Detector::setHighlightCallback` + JNI + Kotlin
+  `Listener.onHighlightState`; `.aar` builds + bundles the map. See matcher/CLAUDE.md,
+  conformance/spec.md §Stage 3.
 - **Next options:** (1) **true streaming export** (`Emformer.infer` chunk-by-chunk — another
   ~4× + lower latency, the battery/wearable path); (2) in-house learner collection for the
   long surahs (raises the learner ceiling); (3) the ~5 identical-phoneme ayat.

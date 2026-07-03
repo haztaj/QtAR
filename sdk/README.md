@@ -20,9 +20,15 @@ sdk/
 - **Inference (`inference.cpp`) — done + validated.** ONNX Runtime session + greedy CTC
   decode reproduce the Python phonemes exactly (same-model).
 - **Detector orchestration (`detector.cpp`) — done + validated end-to-end.** Rolling-window
-  loop (resample → buffer → front-end → inference → decode → segmenter → events). The full
-  pipeline reproduces `114:1 → 114:2 → 114:3` on the real quiet-mic session, fed in 100 ms
-  chunks. **The C++ core is complete.**
+  loop (resample → buffer → front-end → inference → decode → segmenter → highlight → events).
+  The full pipeline reproduces `114:1 → 114:2 → 114:3` on the real quiet-mic session, fed in
+  100 ms chunks. **The C++ core is complete.**
+- **Highlight controller (`highlight.cpp`) — done + conformance-validated.** Stage-3 state
+  machine (port of `matcher/highlight_controller.py`): consumes committed detections, emits
+  render-ready `HighlightSnapshot`s, and defers ambiguous ayat instead of guessing (see
+  `conformance/spec.md` §Stage 3). The C++ snapshots are byte-identical to the Python
+  reference. This is the **centralized output contract** platform UIs render — the granular
+  detect/advance events are retained for back-compat.
 - **Builds via CMake+Ninja** (needs `-DORT_HOME=<onnxruntime>`) or direct g++.
   `nlohmann/json` vendored under `core/third_party/`; desktop ORT fetched to
   `build/onnxruntime/` (gitignored). See `conformance/spec.md` for the int8/`ConvInteger`
@@ -72,4 +78,5 @@ python ../conformance/verify.py --candidate build/cmake_out      # -> ALL PASS
 | `decoder` (CTC greedy) | `eval/evaluate.py: greedy_phonemes` |
 | `matcher` (trie, edit dist, context) | `matcher/phoneme_matcher.py` |
 | `segmenter` (sliding window) | `demo/sliding.py` |
+| `highlight` (deferral + snapshots) | `matcher/highlight_controller.py` |
 | `inference` | `export/` (ONNX int8) |

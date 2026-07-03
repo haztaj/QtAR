@@ -22,6 +22,10 @@ std::string strOrEmpty(const json& j, const char* field) {
 }  // namespace
 
 HighlightController::HighlightController(const std::string& ambiguousJsonPath) {
+    if (ambiguousJsonPath.empty()) {   // no confusable map -> deferral disabled (confirm all)
+        reset();
+        return;
+    }
     std::ifstream f(ambiguousJsonPath);
     json data = json::parse(f);
     for (auto& [sa, info] : data["ambiguous"].items()) {

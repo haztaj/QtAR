@@ -7,6 +7,7 @@
 
 #include "decoder.h"
 #include "frontend.h"
+#include "highlight.h"
 #include "inference.h"
 #include "matcher.h"
 #include "segmenter.h"
@@ -15,6 +16,29 @@ namespace quranrecite {
 
 namespace {
 constexpr int kSr = 16000;
+
+std::string ayahKey(const AyahId& a) { return std::to_string(a.surah) + ":" + std::to_string(a.ayah); }
+
+AyahId parseAyah(const std::string& sa) {
+    auto c = sa.find(':');
+    return {std::stoi(sa.substr(0, c)), std::stoi(sa.substr(c + 1))};
+}
+
+// Convert the string-keyed reference state to the public AyahId snapshot.
+HighlightSnapshot toPublic(const HighlightState& s) {
+    HighlightSnapshot out;
+    for (auto& k : s.confirmed) out.confirmed.push_back(parseAyah(k));
+    if (s.active) { out.hasActive = true; out.active = parseAyah(*s.active); }
+    if (s.pending) {
+        out.hasPending = true;
+        auto& p = out.pending;
+        if (s.pending->ayah) { p.hasAyah = true; p.ayah = parseAyah(*s.pending->ayah); }
+        for (auto& o : s.pending->options) p.options.push_back(parseAyah(o));
+        p.reason = s.pending->reason == "needs_choice" ? PendingReason::NeedsChoice
+                                                        : PendingReason::AwaitSuccessor;
+    }
+    return out;
+}
 
 // Linear resample to 16 kHz (managed capture is already 16k; app-fed PCM may differ).
 std::vector<float> resampleTo16k(const float* x, std::size_t n, int inSr) {
@@ -35,12 +59,14 @@ std::vector<float> resampleTo16k(const float* x, std::size_t n, int inSr) {
 struct Detector::Impl {
     Config cfg;
     EventCallback cb;
+    HighlightCallback hlCb;
 
     FrontEnd frontend;
     AcousticModel model;
     Lexicon lex;
     SequentialContext ctx;
     SlidingSegmenter seg;
+    HighlightController hl;
 
     std::mutex mtx;
     std::vector<float> rolling;   // recent 16 kHz audio (>= 2 windows)
@@ -53,7 +79,8 @@ struct Detector::Impl {
           model(c.modelPath),
           lex(c.lexiconPath, c.tokensPath),
           ctx(lex, c),
-          seg(lex, ctx, c) {}
+          seg(lex, ctx, c),
+          hl(c.ambiguousPath) {}
 
     int windowSamples() const { return (int)(cfg.windowSec * kSr); }
 
@@ -73,7 +100,10 @@ struct Detector::Impl {
         int Tout, V;
         auto lp = model.run(lm, T, Tout, V);
         auto ids = ctcGreedy(lp, Tout, V);                         // ids share tokens.txt space
-        if (auto ev = seg.process(ids, timeSec); ev && cb) cb(*ev);
+        if (auto ev = seg.process(ids, timeSec)) {
+            if (cb) cb(*ev);                                       // back-compat granular event
+            if (hlCb) hlCb(toPublic(hl.detect(ayahKey(ev->ayah)))); // centralized snapshot
+        }
     }
 };
 
@@ -83,6 +113,7 @@ Detector::Detector(Detector&&) noexcept = default;
 Detector& Detector::operator=(Detector&&) noexcept = default;
 
 void Detector::setEventCallback(EventCallback cb) { impl_->cb = std::move(cb); }
+void Detector::setHighlightCallback(HighlightCallback cb) { impl_->hlCb = std::move(cb); }
 
 void Detector::feed(const float* pcm, std::size_t n, int sampleRate) {
     std::lock_guard<std::mutex> lk(impl_->mtx);
@@ -112,6 +143,7 @@ void Detector::reset() {
     impl_->rolling.clear();
     impl_->totalSamples = impl_->lastProc = 0;
     impl_->seg.reset();
+    impl_->hl.reset();
 }
 
 const char* Detector::version() { return "0.1.0"; }

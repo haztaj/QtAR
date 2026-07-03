@@ -14,6 +14,7 @@ data class ModelAssets(
     val tokensPath: String,
     val filterbankPath: String,
     val hannPath: String,
+    val ambiguousPath: String,   // Stage-3 confusable map; "" if not bundled (deferral off)
 )
 
 /**
@@ -43,8 +44,11 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
                 val tokens = extractBundled("tokens.txt")
                 val filterbank = extractBundled("mel_filterbank.bin")
                 val hann = extractBundled("hann_window.bin")
+                // Optional Stage-3 confusable map — enables ambiguity deferral if bundled.
+                val ambiguous = if (assetExists("quranrecite/ambiguous_ayat.json"))
+                    extractBundled("ambiguous_ayat.json") else ""
                 val model = resolveModel(onProgress)
-                onReady(ModelAssets(model, lexicon, tokens, filterbank, hann))
+                onReady(ModelAssets(model, lexicon, tokens, filterbank, hann, ambiguous))
             } catch (t: Throwable) {
                 onError(t)
             }

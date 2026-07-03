@@ -19,8 +19,15 @@ public:
     Detector(Detector&&) noexcept;
     Detector& operator=(Detector&&) noexcept;
 
-    // Register the event sink. Called from the engine's worker thread.
+    // Register the granular event sink (detect/advance/jump). Called from the engine's
+    // worker thread. Kept for back-compat; the snapshot callback below is the primary,
+    // centralized contract.
     void setEventCallback(EventCallback cb);
+
+    // Register the highlight-state sink: one render-ready snapshot per change (ambiguity
+    // deferred, never guessed — see quranrecite/types.h + conformance/spec.md §Stage 3).
+    // This is the contract UIs should render. Called from the engine's worker thread.
+    void setHighlightCallback(HighlightCallback cb);
 
     // Feed mono PCM (float -1..1). `sampleRate` may differ from 16k (resampled internally).
     // Thread-safe wrt the engine; intended to be called from one capture thread.

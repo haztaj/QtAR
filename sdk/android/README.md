@@ -58,9 +58,11 @@ ORT `.so` itself is packaged into the consuming app by the onnxruntime-android d
 
 ## Assets & the model
 
-The engine needs five files. The **four small ones** (`ayah_phonemes.json`, `tokens.txt`,
-`mel_filterbank.bin`, `hann_window.bin`) are copied into the `.aar` by the `bundleAssets`
-task from `conformance/assets/` and extracted to `filesDir` at runtime.
+The engine needs six files. The **five small ones** (`ayah_phonemes.json`, `tokens.txt`,
+`mel_filterbank.bin`, `hann_window.bin`, and `ambiguous_ayat.json` — the Stage-3 confusable
+map that enables ambiguity deferral) are copied into the `.aar` by the `bundleAssets` task
+from `conformance/assets/` and extracted to `filesDir` at runtime. (`ambiguous_ayat.json` is
+optional: if absent, deferral is disabled and every detection confirms immediately.)
 
 The **~15 MB `model.int8.onnx`** is *not* committed (repo rule) and is delivered by
 `ModelManager` at first launch:
@@ -82,8 +84,12 @@ The **~15 MB `model.int8.onnx`** is *not* committed (repo rule) and is delivered
 val detector = QuranReciteDetector(context, Config())
 detector.setListener(object : QuranReciteDetector.Listener {
     override fun onModelReady() { /* enable Listen */ }
-    override fun onAyahDetected(ayah: AyahId, confidence: Float) { highlight(ayah) }
-    override fun onAyahAdvance(from: AyahId, to: AyahId) { highlight(to) }
+    // Primary contract: render this snapshot wholesale. It already handles deferral +
+    // ambiguity (never guesses), so no per-UI logic is needed.
+    override fun onHighlightState(state: HighlightState) {
+        render(state.confirmed, state.active)          // highlight settled + current ayah
+        state.pending?.let { showOptions(it.options) } // deferred: surface the candidates
+    }
 })
 detector.prepare()                 // resolves assets (downloads model on first launch)
 // after onModelReady():
@@ -92,8 +98,13 @@ detector.start()                   // managed mic capture (needs RECORD_AUDIO)
 detector.release()
 ```
 
-Events are delivered on the main thread. The native core is the same one validated by
-`sdk/core` / `conformance` on desktop — see `sdk/README.md`.
+`onHighlightState` is the **centralized output contract** — one immutable `HighlightState`
+snapshot per change (`confirmed[]` · `pending{options,reason}` · `active`). The deferral,
+ambiguity handling and retroactive resolution live once in the shared C++ core
+(`matcher/highlight_controller.py` → `sdk/core`), so every platform/UI just renders the
+snapshot. The granular `onAyahDetected`/`onAyahAdvance` callbacks remain for back-compat /
+custom flows. Events are delivered on the main thread. The native core is the same one
+validated by `sdk/core` / `conformance` on desktop — see `sdk/README.md`.
 
 ## Status
 

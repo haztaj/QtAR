@@ -2,6 +2,7 @@
 #pragma once
 #include <functional>
 #include <string>
+#include <vector>
 
 namespace quranrecite {
 
@@ -22,6 +23,26 @@ struct AyahEvent {
     AyahId from{};             // for Advance: the previous ayah
 };
 
+// -- Highlight state (the centralized, platform-agnostic output contract) ---------------
+// Mirrors matcher/highlight_controller.py. The engine emits one immutable snapshot per
+// change; UIs just render it. Ambiguity is deferred (never guessed) — see spec.md §Stage 3.
+enum class PendingReason { AwaitSuccessor, NeedsChoice };
+
+struct HighlightPending {
+    bool hasAyah = false;             // resolved ayah once known, else deferred
+    AyahId ayah{};
+    std::vector<AyahId> options;      // the confusable set to choose among
+    PendingReason reason = PendingReason::AwaitSuccessor;
+};
+
+struct HighlightSnapshot {
+    std::vector<AyahId> confirmed;    // settled + highlighted, in confirm order
+    bool hasPending = false;
+    HighlightPending pending;         // valid iff hasPending
+    bool hasActive = false;           // the ayah to emphasize right now
+    AyahId active{};
+};
+
 enum class Mode {
     Sliding,   // fixed-window content segmentation; handles continuous (no-pause) recitation
     Buffer     // legacy growing-buffer + completion (reciters who pause between ayat)
@@ -34,6 +55,8 @@ struct Config {
     std::string tokensPath;       // tokens.txt          (phoneme <-> id)
     std::string melFilterbankPath;// mel_filterbank.bin  [201,80] f32 (conformance asset)
     std::string hannWindowPath;   // hann_window.bin     [400]   f32 (conformance asset)
+    std::string ambiguousPath;    // ambiguous_ayat.json (Stage-3 confusable map; optional —
+                                  // empty disables deferral, every detection confirms)
 
     Mode mode = Mode::Sliding;
     int sampleRate = 16000;
@@ -55,5 +78,6 @@ struct Config {
 };
 
 using EventCallback = std::function<void(const AyahEvent&)>;
+using HighlightCallback = std::function<void(const HighlightSnapshot&)>;
 
 }  // namespace quranrecite

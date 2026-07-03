@@ -3,9 +3,54 @@ package com.quranrecite.sdk
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import org.json.JSONObject
 
 /** Stable ayah identifier (surah:ayah). The host app owns mushaf text/rendering. */
-data class AyahId(val surah: Int, val ayah: Int)
+data class AyahId(val surah: Int, val ayah: Int) {
+    companion object {
+        fun parse(sa: String): AyahId {
+            val (s, a) = sa.split(":")
+            return AyahId(s.toInt(), a.toInt())
+        }
+    }
+}
+
+/** Why a detection is being deferred instead of highlighted (see [HighlightState]). */
+enum class PendingReason { AWAIT_SUCCESSOR, NEEDS_CHOICE }
+
+/** A deferred, ambiguous detection: the confusable [options] and why it's held. */
+data class HighlightPending(val ayah: AyahId?, val options: List<AyahId>, val reason: PendingReason)
+
+/**
+ * The centralized, render-ready highlight state — the SDK's primary output contract.
+ * The engine emits one immutable snapshot per change; the UI just renders it (ambiguity is
+ * deferred, never guessed). Mirrors matcher/highlight_controller.py (conformance-pinned).
+ */
+data class HighlightState(
+    val confirmed: List<AyahId>,   // settled + highlighted, in confirm order
+    val pending: HighlightPending?,// awaiting disambiguation (deferred), or null
+    val active: AyahId?,           // the ayah to emphasize right now, or null
+) {
+    companion object {
+        fun fromJson(json: String): HighlightState {
+            val o = JSONObject(json)
+            val confirmed = o.getJSONArray("confirmed").let { a ->
+                List(a.length()) { AyahId.parse(a.getString(it)) }
+            }
+            val pending = o.optJSONObject("pending")?.let { p ->
+                val opts = p.getJSONArray("options").let { a ->
+                    List(a.length()) { AyahId.parse(a.getString(it)) }
+                }
+                val reason = if (p.getString("reason") == "needs_choice")
+                    PendingReason.NEEDS_CHOICE else PendingReason.AWAIT_SUCCESSOR
+                val ayah = if (p.isNull("ayah")) null else AyahId.parse(p.getString("ayah"))
+                HighlightPending(ayah, opts, reason)
+            }
+            val active = if (o.isNull("active")) null else AyahId.parse(o.getString("active"))
+            return HighlightState(confirmed, pending, active)
+        }
+    }
+}
 
 /** Coverage of the bundled model/lexicon. */
 enum class Corpus { JUZ_AMMA, FULL_QURAN }
@@ -38,6 +83,12 @@ class QuranReciteDetector(
     private val config: Config = Config(),
 ) {
     interface Listener {
+        /**
+         * The centralized highlight snapshot — the primary contract. Render this wholesale;
+         * it already handles deferral + ambiguity so no per-UI logic is needed.
+         */
+        fun onHighlightState(state: HighlightState) {}
+        // Granular events (kept for back-compat / custom flows). Prefer onHighlightState.
         fun onAyahDetected(ayah: AyahId, confidence: Float) {}
         fun onAyahAdvance(from: AyahId, to: AyahId) {}
         fun onModelDownloadProgress(fraction: Float) {}
@@ -59,7 +110,7 @@ class QuranReciteDetector(
             onReady = { assets ->                       // worker thread: build engine here
                 nativeHandle = nativeCreate(
                     assets.modelPath, assets.lexiconPath, assets.tokensPath,
-                    assets.filterbankPath, assets.hannPath)
+                    assets.filterbankPath, assets.hannPath, assets.ambiguousPath)
                 mainHandler.post { listener?.onModelReady() }
             },
             onError = { e -> mainHandler.post { listener?.onError(e) } },
@@ -101,9 +152,16 @@ class QuranReciteDetector(
         mainHandler.post { listener?.onAyahAdvance(AyahId(fromS, fromA), AyahId(toS, toA)) }
     }
 
+    // Called from JNI with the serialized snapshot; parse + marshal to the main thread.
+    @Suppress("unused")
+    private fun emitHighlight(json: String) {
+        val state = HighlightState.fromJson(json)
+        mainHandler.post { listener?.onHighlightState(state) }
+    }
+
     private external fun nativeCreate(
         modelPath: String, lexiconPath: String, tokensPath: String,
-        filterbankPath: String, hannPath: String): Long
+        filterbankPath: String, hannPath: String, ambiguousPath: String): Long
     private external fun nativeFeed(handle: Long, pcm: ShortArray, sampleRate: Int)
     private external fun nativeReset(handle: Long)
     private external fun nativeDestroy(handle: Long)

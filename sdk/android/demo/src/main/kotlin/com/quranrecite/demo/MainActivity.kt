@@ -16,6 +16,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.quranrecite.sdk.AyahId
 import com.quranrecite.sdk.Config
+import com.quranrecite.sdk.HighlightState
+import com.quranrecite.sdk.PendingReason
 import com.quranrecite.sdk.QuranReciteDetector
 
 /**
@@ -45,8 +47,15 @@ class MainActivity : ComponentActivity() {
                             status = "Downloading model ${(fraction * 100).toInt()}%"
                         }
                         override fun onModelReady() { status = "Ready — tap Listen"; }
-                        override fun onAyahDetected(ayah: AyahId, confidence: Float) { current = ayah }
-                        override fun onAyahAdvance(from: AyahId, to: AyahId) { current = to }
+                        // The centralized snapshot is all the UI needs: render `active`, and
+                        // show the deferral (no highlight, options surfaced) while pending.
+                        override fun onHighlightState(state: HighlightState) {
+                            current = state.active
+                            status = state.pending?.let { p ->
+                                val opts = p.options.joinToString(" / ") { "${it.surah}:${it.ayah}" }
+                                if (p.reason == PendingReason.NEEDS_CHOICE) "Choose: $opts" else "Deciding… ($opts)"
+                            } ?: "Listening…"
+                        }
                         override fun onError(error: Throwable) { status = "Error: ${error.message}" }
                     })
                     detector.prepare()
