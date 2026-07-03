@@ -22,6 +22,7 @@ add_library(quranrecite_core STATIC
     src/decoder.cpp
     src/matcher.cpp
     src/segmenter.cpp
+    src/highlight.cpp
     src/inference.cpp
     src/assets.cpp
     src/detector.cpp

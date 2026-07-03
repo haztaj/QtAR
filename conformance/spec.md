@@ -77,6 +77,42 @@ are informational).
 
 ---
 
+## Stage 3 — highlight controller (detections → render-ready state)  [SDK output contract]
+
+Post-commit, model-independent: fixtures provide a sequence of *committed* detections
+directly, so this tests the pure state machine (`matcher/highlight_controller.py`, ported to
+`sdk/core/src/highlight.{h,cpp}`). It owns the deferral + ambiguity handling and emits the
+snapshot every platform renders — the centralized highlight logic.
+
+**Confusable map** — `assets/ambiguous_ayat.json` (produced by `matcher/find_ambiguous.py`).
+Per ambiguous ayah: `confusable_with`, `predecessor`, `successor`. The controller's class for
+a detected key = `{key} ∪ confusable_with`, deduped and sorted by `(surah, ayah)`.
+
+**Per-detection logic** (`detect(key)`):
+1. If a pending `await_successor` exists and `key` uniquely matches one option's `successor`
+   → retroactively **confirm** that option (else the pending downgrades to `needs_choice`).
+2. If `key` is **not** ambiguous → confirm it.
+3. Else, with `last` = the last confirmed ayah:
+   - predecessor pins it (exactly one option has `predecessor == last`) → confirm now;
+   - else if every option has a distinct non-empty `successor` → hold **pending**
+     `await_successor` (no guess: `active` stays unchanged — the deferral);
+   - else → **pending** `needs_choice` (surface `options` for a manual `choose(key)`).
+
+`choose(key)` confirms `key` iff it's in the pending options. `confirm` clears pending,
+appends to `confirmed`, and sets `active = key`.
+
+**Snapshot** — `HighlightState.to_dict()`:
+```json
+{ "confirmed": ["S:A", ...],
+  "pending": null | {"ayah": null|"S:A", "options": ["S:A", ...], "reason": "await_successor|needs_choice"},
+  "active": null | "S:A" }
+```
+**Comparison:** the full snapshot after each step must match **exactly** (`states` in
+`golden/highlight/<name>.states.json`). Fixtures: `fixtures/highlight/<name>.json`
+(`{"steps": [{"detect": "S:A"} | {"choose": "S:A"}, ...]}`).
+
+---
+
 ## Model inference (ONNX Runtime — same engine as Python)
 
 The acoustic model runs via **ONNX Runtime** on all platforms, so it isn't re-implemented.
@@ -116,8 +152,11 @@ Notes:
   `[201,80]`, `hann_window` `[400]`. Shapes are in `manifest.json`.
 - **`golden/matcher/*.events.json`** — `{"events": [ ... ]}` as above.
 - **`fixtures/matcher/*.json`** — `{"windows": [[ph,...], ...], "config": {...}}`.
+- **`golden/highlight/*.states.json`** — `{"states": [ <snapshot>, ... ]}`, one per step.
+- **`fixtures/highlight/*.json`** — `{"steps": [{"detect": "S:A"} | {"choose": "S:A"}, ...]}`.
 - **`assets/`** — `mel_filterbank.bin`, `hann_window.bin`, `tokens.txt`,
-  `ayah_phonemes.json` (the Stage-2 lexicon), `edit_cases.json`.
+  `ayah_phonemes.json` (the Stage-2 lexicon), `edit_cases.json`,
+  `ambiguous_ayat.json` (the Stage-3 confusable map).
 - **`manifest.json`** — front-end + matcher fixture index, all DSP params, tolerances.
 
 ## Candidate output layout (for `--candidate <dir>`)
@@ -126,6 +165,8 @@ Write, into `<dir>`, one file per fixture using the **basename** from golden:
 - front-end: `<name>.logmel.bin` (float32, shape per manifest).
 - matcher: `<name>.events.json` (`{"events": [...]}`), produced by running the candidate
   segmenter over that fixture's `windows`.
+- highlight: `<name>.states.json` (`{"states": [...]}`), produced by running the candidate
+  `HighlightController` over that fixture's `steps`.
 
 ## Notes
 

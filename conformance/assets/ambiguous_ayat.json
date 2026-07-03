@@ -1,0 +1,349 @@
+{
+  "meta": {
+    "lexicon": "data\\lang\\ayah_phonemes.json",
+    "tau": 0.15,
+    "metric": "normalized Levenshtein (1/1/1), matcher-consistent",
+    "rapidfuzz": false,
+    "n_ayat": 564
+  },
+  "summary": {
+    "n_ambiguous": 26,
+    "n_classes": 13,
+    "n_exact_duplicate": 10,
+    "resolvable_by": {
+      "both": 18,
+      "predecessor": 4,
+      "successor": 3,
+      "none": 1
+    }
+  },
+  "classes": [
+    {
+      "members": [
+        "79:33",
+        "80:32"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "79:39",
+        "79:41"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "81:6",
+        "82:3"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "82:13",
+        "83:22"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "83:9",
+        "83:20"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "83:23",
+        "83:35"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "84:2",
+        "84:5"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "84:25",
+        "95:6"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "91:4",
+        "92:1"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "92:7",
+        "92:10"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "94:5",
+        "94:6"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "99:7",
+        "99:8"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "109:3",
+        "109:5"
+      ],
+      "size": 2
+    }
+  ],
+  "ambiguous": {
+    "79:33": {
+      "confusable_with": [
+        "80:32"
+      ],
+      "max_norm_dist": 0.0345,
+      "predecessor": "79:32",
+      "successor": "79:34",
+      "resolvable_by": "both"
+    },
+    "79:39": {
+      "confusable_with": [
+        "79:41"
+      ],
+      "max_norm_dist": 0.1481,
+      "predecessor": "79:38",
+      "successor": "79:40",
+      "resolvable_by": "both"
+    },
+    "79:41": {
+      "confusable_with": [
+        "79:39"
+      ],
+      "max_norm_dist": 0.1481,
+      "predecessor": "79:40",
+      "successor": "79:42",
+      "resolvable_by": "both"
+    },
+    "80:32": {
+      "confusable_with": [
+        "79:33"
+      ],
+      "max_norm_dist": 0.0345,
+      "predecessor": "80:31",
+      "successor": "80:33",
+      "resolvable_by": "both"
+    },
+    "81:6": {
+      "confusable_with": [
+        "82:3"
+      ],
+      "max_norm_dist": 0.0455,
+      "predecessor": "81:5",
+      "successor": "81:7",
+      "resolvable_by": "both"
+    },
+    "82:3": {
+      "confusable_with": [
+        "81:6"
+      ],
+      "max_norm_dist": 0.0455,
+      "predecessor": "82:2",
+      "successor": "82:4",
+      "resolvable_by": "both"
+    },
+    "82:13": {
+      "confusable_with": [
+        "83:22"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "82:12",
+      "successor": "82:14",
+      "resolvable_by": "both"
+    },
+    "83:9": {
+      "confusable_with": [
+        "83:20"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "83:8",
+      "successor": "83:10",
+      "resolvable_by": "both"
+    },
+    "83:20": {
+      "confusable_with": [
+        "83:9"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "83:19",
+      "successor": "83:21",
+      "resolvable_by": "both"
+    },
+    "83:22": {
+      "confusable_with": [
+        "82:13"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "83:21",
+      "successor": "83:23",
+      "resolvable_by": "predecessor"
+    },
+    "83:23": {
+      "confusable_with": [
+        "83:35"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "83:22",
+      "successor": "83:24",
+      "resolvable_by": "successor"
+    },
+    "83:35": {
+      "confusable_with": [
+        "83:23"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "83:34",
+      "successor": "83:36",
+      "resolvable_by": "both"
+    },
+    "84:2": {
+      "confusable_with": [
+        "84:5"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "84:1",
+      "successor": "84:3",
+      "resolvable_by": "both"
+    },
+    "84:5": {
+      "confusable_with": [
+        "84:2"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "84:4",
+      "successor": "84:6",
+      "resolvable_by": "both"
+    },
+    "84:25": {
+      "confusable_with": [
+        "95:6"
+      ],
+      "max_norm_dist": 0.0317,
+      "predecessor": "84:24",
+      "successor": null,
+      "resolvable_by": "predecessor"
+    },
+    "91:4": {
+      "confusable_with": [
+        "92:1"
+      ],
+      "max_norm_dist": 0.1,
+      "predecessor": "91:3",
+      "successor": "91:5",
+      "resolvable_by": "both"
+    },
+    "92:1": {
+      "confusable_with": [
+        "91:4"
+      ],
+      "max_norm_dist": 0.1,
+      "predecessor": null,
+      "successor": "92:2",
+      "resolvable_by": "successor"
+    },
+    "92:7": {
+      "confusable_with": [
+        "92:10"
+      ],
+      "max_norm_dist": 0.0435,
+      "predecessor": "92:6",
+      "successor": "92:8",
+      "resolvable_by": "both"
+    },
+    "92:10": {
+      "confusable_with": [
+        "92:7"
+      ],
+      "max_norm_dist": 0.0435,
+      "predecessor": "92:9",
+      "successor": "92:11",
+      "resolvable_by": "both"
+    },
+    "94:5": {
+      "confusable_with": [
+        "94:6"
+      ],
+      "max_norm_dist": 0.08,
+      "predecessor": "94:4",
+      "successor": "94:6",
+      "resolvable_by": "predecessor"
+    },
+    "94:6": {
+      "confusable_with": [
+        "94:5"
+      ],
+      "max_norm_dist": 0.08,
+      "predecessor": "94:5",
+      "successor": "94:7",
+      "resolvable_by": "successor"
+    },
+    "95:6": {
+      "confusable_with": [
+        "84:25"
+      ],
+      "max_norm_dist": 0.0317,
+      "predecessor": "95:5",
+      "successor": "95:7",
+      "resolvable_by": "both"
+    },
+    "99:7": {
+      "confusable_with": [
+        "99:8"
+      ],
+      "max_norm_dist": 0.0789,
+      "predecessor": "99:6",
+      "successor": "99:8",
+      "resolvable_by": "predecessor"
+    },
+    "99:8": {
+      "confusable_with": [
+        "99:7"
+      ],
+      "max_norm_dist": 0.0789,
+      "predecessor": "99:7",
+      "successor": null,
+      "resolvable_by": "none"
+    },
+    "109:3": {
+      "confusable_with": [
+        "109:5"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "109:2",
+      "successor": "109:4",
+      "resolvable_by": "both"
+    },
+    "109:5": {
+      "confusable_with": [
+        "109:3"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "109:4",
+      "successor": "109:6",
+      "resolvable_by": "both"
+    }
+  }
+}

@@ -63,6 +63,22 @@ def check_matcher(man, get_events):
     return ok
 
 
+def check_highlight(man, get_states):
+    """State-snapshot sequences are compared EXACTLY (the SDK output contract)."""
+    ok = True
+    for fx in man.get("highlight", []):
+        gold = json.loads((CONF / fx["states"]).read_text(encoding="utf-8"))["states"]
+        cand = get_states(fx)
+        if cand is None:
+            print(f"  [highlight] {fx['name']:24} MISSING candidate output"); ok = False; continue
+        good = cand == gold
+        ok &= good
+        tail = gold[-1] if gold else {}
+        print(f"  [highlight] {fx['name']:24} {'OK' if good else 'FAIL'}  "
+              f"final(active={tail.get('active')}, pending={tail.get('pending')})")
+    return ok
+
+
 def self_check(man):
     """Recompute from the Python reference and compare to golden."""
     sys.path.insert(0, str(CONF.parent / "training"))
@@ -72,6 +88,7 @@ def self_check(man):
     from data import logmel_16k
     from phoneme_matcher import PhonemeTrie, SequentialContext
     from sliding import SlidingWindowSegmenter
+    from highlight_controller import HighlightController
     ap = json.loads((CONF / "assets" / "ayah_phonemes.json").read_text(encoding="utf-8"))
     ap = {k: v.split() for k, v in ap.items()}
     trie = PhonemeTrie.from_ayah_phonemes(ap)
@@ -92,7 +109,16 @@ def self_check(man):
                 out.append(ev)
         return out
 
-    return get_logmel, get_events
+    def get_states(fx):
+        hc = HighlightController(CONF.parent / "data" / "lang" / "ambiguous_ayat.json")
+        steps = json.loads((CONF / fx["steps"]).read_text(encoding="utf-8"))["steps"]
+        out = []
+        for s in steps:
+            snap = hc.detect(s["detect"]) if "detect" in s else hc.choose(s["choose"])
+            out.append(snap.to_dict())
+        return out
+
+    return get_logmel, get_events, get_states
 
 
 def candidate_loaders(cand_dir: Path, man):
@@ -104,7 +130,11 @@ def candidate_loaders(cand_dir: Path, man):
         p = cand_dir / Path(fx["events"]).name
         return json.loads(p.read_text(encoding="utf-8")).get("events") if p.exists() else None
 
-    return get_logmel, get_events
+    def get_states(fx):
+        p = cand_dir / Path(fx["states"]).name
+        return json.loads(p.read_text(encoding="utf-8")).get("states") if p.exists() else None
+
+    return get_logmel, get_events, get_states
 
 
 def main():
@@ -116,13 +146,14 @@ def main():
 
     if args.candidate:
         print(f"Verifying candidate: {args.candidate}")
-        gl, ge = candidate_loaders(Path(args.candidate), man)
+        gl, ge, gs = candidate_loaders(Path(args.candidate), man)
     else:
         print("SELF-CHECK (Python reference vs its own golden):")
-        gl, ge = self_check(man)
+        gl, ge, gs = self_check(man)
 
     ok = check_frontend(man, gl, tol)
     ok &= check_matcher(man, ge)
+    ok &= check_highlight(man, gs)
     print("\nRESULT:", "ALL PASS" if ok else "FAILURES")
     sys.exit(0 if ok else 1)
 

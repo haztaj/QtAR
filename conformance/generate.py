@@ -31,6 +31,59 @@ sys.path.insert(0, str(REPO / "training"))
 sys.path.insert(0, str(REPO / "matcher"))
 sys.path.insert(0, str(REPO / "demo"))
 
+
+def gen_highlight(CONF):
+    """Golden for the Stage-3 HighlightController (deferral + centralized snapshots).
+
+    Model-independent: drives the controller with committed-detection sequences and records
+    the render-ready snapshot after each step. Covers every deferral path so the C++ port is
+    pinned. Self-contained (needs only the ambiguity map) — safe to call without the model.
+    Returns the manifest fragment.
+    """
+    from highlight_controller import HighlightController   # matcher/ is on sys.path
+
+    (CONF / "assets").mkdir(parents=True, exist_ok=True)
+    (CONF / "fixtures" / "highlight").mkdir(parents=True, exist_ok=True)
+    (CONF / "golden" / "highlight").mkdir(parents=True, exist_ok=True)
+    ambig = REPO / "data" / "lang" / "ambiguous_ayat.json"
+    # self-contained copy so the C++ conformance_runner needs only the conformance dir
+    (CONF / "assets" / "ambiguous_ayat.json").write_text(ambig.read_text(encoding="utf-8"), encoding="utf-8")
+    hc = HighlightController(ambig)
+
+    # Each scenario is a list of input steps: {"detect": key} or {"choose": key}.
+    scenarios = {
+        # baseline: unambiguous ayat highlight immediately.
+        "unambiguous_run": [{"detect": "78:1"}, {"detect": "78:2"}, {"detect": "78:3"}],
+        # predecessor pins the ambiguous ayah -> confirm now, no deferral.
+        "resolve_predecessor": [{"detect": "83:21"}, {"detect": "83:22"}],
+        # successor pins it -> defer (active stays None), then retro-confirm on the next ayah.
+        "defer_then_successor": [{"detect": "83:23"}, {"detect": "83:24"}],
+        # context can't help (99:8 ends its surah) -> needs_choice, resolved manually.
+        "unresolvable_choice": [{"detect": "99:8"}, {"choose": "99:7"}],
+        # deferred ayah whose expected successor never comes -> falls back to needs_choice.
+        "defer_broken_sequence": [{"detect": "83:23"}, {"detect": "78:5"}],
+    }
+
+    entries = []
+    for name, steps in scenarios.items():
+        hc.reset()
+        states = []
+        for step in steps:
+            if "detect" in step:
+                snap = hc.detect(step["detect"])
+            else:
+                snap = hc.choose(step["choose"])
+            states.append(snap.to_dict())
+        (CONF / "fixtures" / "highlight" / f"{name}.json").write_text(
+            json.dumps({"steps": steps}, ensure_ascii=False, indent=1), encoding="utf-8")
+        (CONF / "golden" / "highlight" / f"{name}.states.json").write_text(
+            json.dumps({"states": states}, ensure_ascii=False, indent=1), encoding="utf-8")
+        entries.append({"name": name, "steps": f"fixtures/highlight/{name}.json",
+                        "states": f"golden/highlight/{name}.states.json", "n_steps": len(steps)})
+        print(f"  highlight/{name}: {len(steps)} steps -> "
+              f"final active={states[-1]['active']} pending={states[-1]['pending']}")
+    return entries
+
 from data import (logmel_16k, _mel, SAMPLE_RATE, N_MELS, N_FFT, HOP, WIN,  # noqa: E402
                   FMIN, FMAX, LOG_FLOOR, NORM_RMS, load_tokens, load_ayah_phonemes)
 from model import EmformerCTC                                              # noqa: E402
@@ -63,7 +116,10 @@ def main():
                 "stft": "center=True, pad_mode=reflect, power=2.0",
                 "tolerances": {"logmel_max_abs": TOL_LOGMEL, "phonemes": "exact", "events": "exact"},
                 "checkpoint": str(CKPT.relative_to(REPO)),
-                "frontend": [], "matcher": [], "edit_cases": "assets/edit_cases.json"}
+                "frontend": [], "matcher": [], "highlight": [], "edit_cases": "assets/edit_cases.json"}
+
+    # --- 0) highlight golden (model-independent — do it first) ---
+    manifest["highlight"] = gen_highlight(CONF)
 
     # --- exact constants the C++ should reuse verbatim ---
     mel = _mel(SAMPLE_RATE)

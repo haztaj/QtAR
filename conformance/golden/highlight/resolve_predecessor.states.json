@@ -1,0 +1,19 @@
+{
+ "states": [
+  {
+   "confirmed": [
+    "83:21"
+   ],
+   "pending": null,
+   "active": "83:21"
+  },
+  {
+   "confirmed": [
+    "83:21",
+    "83:22"
+   ],
+   "pending": null,
+   "active": "83:22"
+  }
+ ]
+}

@@ -51,6 +51,21 @@ option fallback). This is the input to the deferral + centralized-highlight logi
 Juz Amma @ tau 0.15: **26 ambiguous ayat / 13 pairs** (10 exact-duplicate). All resolvable by
 context except **99:8↔99:7** — consecutive *and* 99:8 ends the surah, so no neighbour helps.
 
+## `highlight_controller.py` — centralized highlight state machine (Stage 3)
+
+Sits ON TOP of the commit layer: consumes *committed* detections and emits render-ready
+`HighlightState` snapshots so **every platform/SDK version just draws the snapshot** — the
+deferral + ambiguity handling live here once, not re-coded per UI. This is the SDK's public
+output contract (state snapshots, signed off 2026-07-03). Ported to `sdk/core/src/highlight.*`
+and conformance-pinned (`golden/highlight/`, C++ byte-identical to this reference).
+
+Snapshot: `confirmed[]` (settled, highlighted) · `pending{ayah, options[], reason}` (deferred)
+· `active` (emphasize now). On an **ambiguous** detection (from `ambiguous_ayat.json`) it does
+NOT guess: predecessor pins it → confirm now; else successors distinct → hold
+`await_successor` (**`active` stays put — no highlight**) and the next ayah retro-confirms it;
+else `needs_choice` → surface `options` for a manual `choose(key)`. See the finder's
+`resolvable_by`. Self-test: `python matcher/highlight_controller.py` (drives all paths).
+
 ## Commit policy (`CommitTracker`) — tuned
 
 Committing on a single margin crossing is unreliable: early in a recitation a

@@ -1,0 +1,23 @@
+{
+ "states": [
+  {
+   "confirmed": [],
+   "pending": {
+    "ayah": null,
+    "options": [
+     "99:7",
+     "99:8"
+    ],
+    "reason": "needs_choice"
+   },
+   "active": null
+  },
+  {
+   "confirmed": [
+    "99:7"
+   ],
+   "pending": null,
+   "active": "99:7"
+  }
+ ]
+}

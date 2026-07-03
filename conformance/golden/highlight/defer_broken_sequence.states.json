@@ -1,0 +1,23 @@
+{
+ "states": [
+  {
+   "confirmed": [],
+   "pending": {
+    "ayah": null,
+    "options": [
+     "83:23",
+     "83:35"
+    ],
+    "reason": "await_successor"
+   },
+   "active": null
+  },
+  {
+   "confirmed": [
+    "78:5"
+   ],
+   "pending": null,
+   "active": "78:5"
+  }
+ ]
+}

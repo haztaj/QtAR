@@ -14,7 +14,8 @@
   "tolerances": {
     "logmel_max_abs": 0.01,
     "phonemes": "exact",
-    "events": "exact"
+    "events": "exact",
+    "states": "exact"
   },
   "checkpoint": "training\\exp\\best_mic.pt",
   "frontend": [
@@ -96,5 +97,37 @@
   ],
   "hann_window_shape": [
     400
+  ],
+  "highlight": [
+    {
+      "name": "unambiguous_run",
+      "steps": "fixtures/highlight/unambiguous_run.json",
+      "states": "golden/highlight/unambiguous_run.states.json",
+      "n_steps": 3
+    },
+    {
+      "name": "resolve_predecessor",
+      "steps": "fixtures/highlight/resolve_predecessor.json",
+      "states": "golden/highlight/resolve_predecessor.states.json",
+      "n_steps": 2
+    },
+    {
+      "name": "defer_then_successor",
+      "steps": "fixtures/highlight/defer_then_successor.json",
+      "states": "golden/highlight/defer_then_successor.states.json",
+      "n_steps": 2
+    },
+    {
+      "name": "unresolvable_choice",
+      "steps": "fixtures/highlight/unresolvable_choice.json",
+      "states": "golden/highlight/unresolvable_choice.states.json",
+      "n_steps": 2
+    },
+    {
+      "name": "defer_broken_sequence",
+      "steps": "fixtures/highlight/defer_broken_sequence.json",
+      "states": "golden/highlight/defer_broken_sequence.states.json",
+      "n_steps": 2
+    }
   ]
 }

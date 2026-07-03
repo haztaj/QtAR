@@ -17,6 +17,7 @@
 
 #include "assets.h"
 #include "frontend.h"
+#include "highlight.h"
 #include "matcher.h"
 #include "nlohmann/json.hpp"
 #include "quranrecite/types.h"
@@ -95,6 +96,25 @@ int main(int argc, char** argv) {
         }
         std::ofstream o(out + "/" + name + ".events.json");
         o << json{{"events", events}}.dump(1);
+    }
+
+    // --- highlight (Stage-3 controller) ---
+    if (man.contains("highlight")) {
+        HighlightController hc(conf + "/assets/ambiguous_ayat.json");
+        for (auto& fx : man["highlight"]) {
+            std::string name = fx["name"].get<std::string>();
+            auto spec = json::parse(readFile(conf + "/" + fx["steps"].get<std::string>()));
+            hc.reset();
+            json states = json::array();
+            for (auto& step : spec["steps"]) {
+                HighlightState s = step.contains("detect")
+                                       ? hc.detect(step["detect"].get<std::string>())
+                                       : hc.choose(step["choose"].get<std::string>());
+                states.push_back(s.toJson());
+            }
+            std::ofstream o(out + "/" + name + ".states.json");
+            o << json{{"states", states}}.dump(1);
+        }
     }
 
     std::printf("wrote conformance outputs -> %s\n", out.c_str());
