@@ -96,15 +96,21 @@ class MushafRepository private constructor(
             return MushafRepository(layout, words, context.assets)
         }
 
+        private const val ASSET_VERSION = 1   // bump to force a re-copy when the DBs change
+
         private fun openAssetDb(context: Context, assetPath: String): SQLiteDatabase {
             val name = assetPath.substringAfterLast('/')
             val out = File(context.filesDir, "mushaf/$name").apply { parentFile?.mkdirs() }
-            // Copy if missing or size changed (asset updated between builds).
-            val expected = context.assets.openFd(assetPath).use { it.length }
-            if (!out.exists() || out.length() != expected) {
+            val stamp = File(out.parentFile, "$name.v")
+            // Copy out of assets (once). `assets.open` transparently decompresses — unlike
+            // `openFd`, which fails on AAPT-compressed .db assets. Re-copy on version bump.
+            if (!out.exists() || stamp.readTextOrNull() != ASSET_VERSION.toString()) {
                 context.assets.open(assetPath).use { i -> out.outputStream().use { o -> i.copyTo(o) } }
+                stamp.writeText(ASSET_VERSION.toString())
             }
             return SQLiteDatabase.openDatabase(out.path, null, SQLiteDatabase.OPEN_READONLY)
         }
+
+        private fun File.readTextOrNull(): String? = if (exists()) readText() else null
     }
 }
