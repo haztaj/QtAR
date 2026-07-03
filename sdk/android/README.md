@@ -7,8 +7,31 @@ on the ONNX Runtime Android AAR (consumed through prefab).
 ```
 android/
 ├── quranrecite/   the SDK library (.aar) — Kotlin API, JNI bridge, CMake -> core
-└── demo/          Compose demo: mushaf view, live highlight + auto-advance
+└── demo/          Compose demo: real mushaf pages, live highlight + auto-advance
 ```
+
+## Demo — mushaf reader
+
+The demo renders **real Quran pages** with the KFGQPC V2 glyph fonts (604 page fonts,
+`QCF2001…QCF2604`) driven by a bundled layout DB. Swipe **right-to-left** between the 604
+pages, **jump to any page**, and **start/stop** live detection from the bottom bar; the
+detected ayah highlights on the page and the pager auto-advances to follow the reciter
+(wired to `onHighlightState`). The page auto-sizes its font to the screen, so it re-fits on
+**foldable postures and orientation changes** (the Activity handles config changes itself and
+the page measures via `BoxWithConstraints`, keeping the native detector alive across resize).
+
+**Assets (not committed — large third-party binaries, gitignored under
+`demo/src/main/assets/mushaf/`):**
+- `fonts/pN.ttf` — the 604 KFGQPC V2 page fonts (word glyphs are page-local PUA codepoints).
+- `layout.db` — `pages` table: per (page,line) the `line_type`, `is_centered`, and word-id range.
+- `words.db` — `words` table: per word (id 1..83668) its `surah`, `ayah`, and glyph `text`.
+
+Get these from [qul.tarteel.ai](https://qul.tarteel.ai): the *KFGQPC V2 mushaf-layout* (SQLite),
+the *QPC V2 page-by-page font* (TTF), and the *QPC V2 Glyph word-by-word* script (SQLite),
+placed as above. Rendering a line = concatenate each word's glyph in that page's font;
+surah-name headers use a simple placeholder (the KFGQPC surah-name font isn't bundled) and
+the basmalah uses the page font's glyph. The Juz-Amma model still detects across the whole
+mushaf; only ayat the model was trained on (78–114) will highlight.
 
 ## Prerequisites
 

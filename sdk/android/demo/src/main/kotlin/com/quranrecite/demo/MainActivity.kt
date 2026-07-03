@@ -5,24 +5,29 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
-import com.quranrecite.sdk.AyahId
+import com.quranrecite.demo.mushaf.HighlightInfo
+import com.quranrecite.demo.mushaf.MushafRepository
+import com.quranrecite.demo.mushaf.MushafScreen
+import com.quranrecite.demo.mushaf.ayahKey
 import com.quranrecite.sdk.Config
 import com.quranrecite.sdk.HighlightState
 import com.quranrecite.sdk.PendingReason
 import com.quranrecite.sdk.QuranReciteDetector
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
- * Minimal SDK demo: a mushaf-style list of ayat; the current ayah highlights and the view
- * auto-advances as you recite. Shows the whole SDK surface — prepare → listen → events.
+ * Mushaf demo: renders real Quran pages (KFGQPC V2 glyph fonts), swipe RTL between pages,
+ * jump to any page, and start/stop live ayah detection. The detected ayah highlights on the
+ * page and the view auto-advances — exercising the full SDK surface (prepare → listen →
+ * onHighlightState). The whole thing re-fits on foldable/orientation changes (see the
+ * Activity's configChanges + the page's BoxWithConstraints sizing).
  */
 class MainActivity : ComponentActivity() {
 
@@ -35,10 +40,18 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 var status by remember { mutableStateOf("Preparing model…") }
-                var current by remember { mutableStateOf<AyahId?>(null) }
+                var modelReady by remember { mutableStateOf(false) }
+                var listening by remember { mutableStateOf(false) }
+                var highlight by remember { mutableStateOf(HighlightInfo()) }
+
+                // Load the mushaf DBs/fonts off the main thread.
+                val repo by produceState<MushafRepository?>(null) {
+                    value = withContext(Dispatchers.IO) { MushafRepository.open(this@MainActivity) }
+                }
 
                 val mic = rememberLauncherForPermission { granted ->
-                    if (granted) detector.start() else status = "Mic permission denied"
+                    if (granted) { detector.start(); listening = true }
+                    else status = "Mic permission denied"
                 }
 
                 LaunchedEffect(Unit) {
@@ -46,26 +59,37 @@ class MainActivity : ComponentActivity() {
                         override fun onModelDownloadProgress(fraction: Float) {
                             status = "Downloading model ${(fraction * 100).toInt()}%"
                         }
-                        override fun onModelReady() { status = "Ready — tap Listen"; }
-                        // The centralized snapshot is all the UI needs: render `active`, and
-                        // show the deferral (no highlight, options surfaced) while pending.
+                        override fun onModelReady() { modelReady = true; status = "Ready — tap Start" }
                         override fun onHighlightState(state: HighlightState) {
-                            current = state.active
+                            highlight = state.toInfo()
                             status = state.pending?.let { p ->
                                 val opts = p.options.joinToString(" / ") { "${it.surah}:${it.ayah}" }
                                 if (p.reason == PendingReason.NEEDS_CHOICE) "Choose: $opts" else "Deciding… ($opts)"
-                            } ?: "Listening…"
+                            } ?: state.active?.let { "Listening — ${it.surah}:${it.ayah}" } ?: "Listening…"
                         }
                         override fun onError(error: Throwable) { status = "Error: ${error.message}" }
                     })
                     detector.prepare()
                 }
 
-                MushafScreen(
-                    status = status,
-                    current = current,
-                    onListen = { mic.launch(Manifest.permission.RECORD_AUDIO) },
-                )
+                val r = repo
+                if (r == null) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    MushafScreen(
+                        repo = r,
+                        highlight = highlight,
+                        status = status,
+                        modelReady = modelReady,
+                        listening = listening,
+                        onToggleListen = {
+                            if (listening) { detector.stop(); listening = false; status = "Stopped" }
+                            else mic.launch(Manifest.permission.RECORD_AUDIO)
+                        },
+                    )
+                }
             }
         }
     }
@@ -73,39 +97,14 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() { detector.release(); super.onDestroy() }
 }
 
+/** Map the SDK snapshot to the renderer's highlight sets (keys are "surah:ayah"). */
+private fun HighlightState.toInfo() = HighlightInfo(
+    active = active?.let { ayahKey(it.surah, it.ayah) },
+    confirmed = confirmed.map { ayahKey(it.surah, it.ayah) }.toSet(),
+    options = pending?.options?.map { ayahKey(it.surah, it.ayah) }?.toSet() ?: emptySet(),
+)
+
 @Composable
 private fun rememberLauncherForPermission(onResult: (Boolean) -> Unit) =
     androidx.activity.compose.rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(), onResult)
-
-@Composable
-private fun MushafScreen(status: String, current: AyahId?, onListen: () -> Unit) {
-    // Demo dataset: An-Nas (114) for illustration; a real app renders the mushaf text.
-    val surah = 114
-    val ayatText = listOf(
-        "قُلْ أَعُوذُ بِرَبِّ النَّاسِ",
-        "مَلِكِ النَّاسِ",
-        "إِلَٰهِ النَّاسِ",
-        "مِن شَرِّ الْوَسْوَاسِ الْخَنَّاسِ",
-        "الَّذِي يُوَسْوِسُ فِي صُدُورِ النَّاسِ",
-        "مِنَ الْجِنَّةِ وَالنَّاسِ",
-    )
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("QuranRecite SDK demo", style = MaterialTheme.typography.titleLarge)
-        Text(status, style = MaterialTheme.typography.bodyMedium)
-        Spacer(Modifier.height(12.dp))
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            ayatText.forEachIndexed { i, text ->
-                val isCurrent = current?.surah == surah && current?.ayah == i + 1
-                Surface(
-                    color = if (isCurrent) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                ) {
-                    Text("${i + 1}. $text", Modifier.padding(12.dp),
-                        style = MaterialTheme.typography.titleMedium)
-                }
-            }
-        }
-        Button(onClick = onListen, Modifier.fillMaxWidth()) { Text("Listen") }
-    }
-}

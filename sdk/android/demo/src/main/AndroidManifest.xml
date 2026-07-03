@@ -4,8 +4,15 @@
 
     <application
         android:label="QuranRecite Demo"
+        android:resizeableActivity="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
-        <activity android:name=".MainActivity" android:exported="true">
+        <!-- Handle resize/rotation/fold ourselves (Compose re-measures via BoxWithConstraints);
+             this keeps the native detector + model alive across config changes instead of
+             tearing the Activity down and re-initializing on every rotation/unfold. -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|density|uiMode">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
