@@ -283,12 +283,20 @@ streaming path. Test order: conv (done) -> one `StaticEmformerLayer` vs `_Emform
   opset 17); once `.item()` is gone the in-place mask assignments trace fine (no `cat`/`where`
   rewrite needed). On Windows set `PYTHONUTF8=1` — the dynamo path prints a ✅ that crashes cp1252.
   **The entire streaming-export feasibility risk is now retired.**
-- **Remaining (engineering, not research):** fold the streaming conv into the ONNX graph (or
-  ship it as a tiny separate step); int8 (weight-only dynamic MatMul as today; state stays fp32);
-  the runtime driver (feed 160 ms chunks, thread ~49 state tensors, CTC-collapse across chunk
-  boundaries); the SDK/C++ port + conformance golden; then the matcher redesign (Phase D) that
-  consumes the clean incremental stream — the part that actually unifies detection across ayah
-  lengths (fixes the 98:2-style mixed continuous case).
+- **Packaged model + runtime driver — DONE + validated** (`export/streaming_runtime.py`,
+  `python export/streaming_runtime.py`). Exports two graphs: `stream_conv.onnx` (Conv2dSubsampling,
+  dynamic T, 1.4 MB — plain export, no Emformer) and `stream_encoder.onnx` (one fixed-shape
+  stateful step, 38.3 MB) / `stream_encoder.int8.onnx` (10.1 MB, weight-only dynamic MatMul;
+  state tensors stay fp32). `StreamingRuntime` feeds log-mel frames -> cached streaming conv ->
+  encoder step per S-frame segment (threading the 48 state tensors) -> greedy CTC with
+  blank/repeat collapse across chunk boundaries. Validated: the runtime produces **phoneme-
+  identical** output to `EmformerCTC.forward` on held-out clips in **both fp32 AND int8**, RTF
+  ~0.015 (incl. conv). Gotcha fixed: the runtime must start from the **zero** state
+  (`layer._init_state`), not a dummy first step, or warm-up is corrupted.
+- **Remaining (on-device):** SDK/C++ port of the driver (thread state tensors through ORT I/O
+  binding; the two graphs) + conformance golden; then the Phase-D matcher redesign that consumes
+  the clean incremental stream — the part that actually unifies detection across ayah lengths
+  (fixes the 98:2-style mixed continuous case). The Python export + runtime are complete.
 
 ### Design-specific risks
 
