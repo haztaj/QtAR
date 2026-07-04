@@ -68,7 +68,8 @@ fun MushafScreen(
                         CircularProgressIndicator()
                     }
                 } else {
-                    MushafPageView(data.first, data.second, highlight)
+                    MushafPageView(data.first, data.second, highlight,
+                                   repo.surahHeaderTypeface, repo::surahHeaderGlyph)
                 }
             }
         }

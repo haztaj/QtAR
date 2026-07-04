@@ -42,9 +42,12 @@ fun MushafPageView(
     page: MushafPage,
     typeface: AndroidTypeface,
     highlight: HighlightInfo,
+    headerTypeface: AndroidTypeface,
+    headerGlyph: (Int) -> String,
     modifier: Modifier = Modifier,
 ) {
     val family = remember(typeface) { FontFamily(Typeface(typeface)) }
+    val headerFamily = remember(headerTypeface) { FontFamily(Typeface(headerTypeface)) }
     val activeBg = MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
     val confirmedBg = MaterialTheme.colorScheme.secondary.copy(alpha = 0.14f)
     val optionBg = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.22f)
@@ -74,7 +77,11 @@ fun MushafPageView(
         ) {
             page.lines.forEach { line ->
                 when (line.type) {
-                    LineType.SURAH_NAME -> SurahHeader(line.surahNumber)
+                    LineType.SURAH_NAME -> line.surahNumber?.let { s ->
+                        Text(headerGlyph(s), fontFamily = headerFamily,
+                             fontSize = fontSize * 1.6f, textAlign = TextAlign.Center,
+                             maxLines = 1, softWrap = false)
+                    }
                     LineType.BASMALLAH -> Text(
                         BASMALLAH_GLYPH, fontFamily = family, fontSize = fontSize,
                         textAlign = TextAlign.Center, maxLines = 1, softWrap = false,
@@ -106,23 +113,6 @@ fun MushafPageView(
 
 private fun lineString(line: MushafLine): String =
     line.words.joinToString(" ") { it.glyph }
-
-@Composable
-private fun SurahHeader(surahNumber: Int?) {
-    // Cosmetic placeholder — a real mushaf frames the Arabic surah name (KFGQPC surah-name
-    // font, not bundled here). The ayah text below is the authoritative content.
-    Box(
-        Modifier.fillMaxWidth(0.6f)
-            .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            "﴿ Sūrah ${surahNumber ?: "?"} ﴾",
-            Modifier.padding(vertical = 4.dp),
-            style = MaterialTheme.typography.titleSmall,
-        )
-    }
-}
 
 @Composable
 private fun LocalDensityValue(): Float = androidx.compose.ui.platform.LocalDensity.current.density

@@ -36,6 +36,19 @@ class MushafRepository private constructor(
         fontCache.put(page, tf); tf
     }
 
+    /** KFGQPC ornate surah-header font (COLR/CPAL color glyphs) + the "surah-N" -> glyph map. */
+    val surahHeaderTypeface: Typeface by lazy {
+        Typeface.createFromAsset(assetManager, "mushaf/fonts/surah-header.ttf")
+    }
+    private val surahHeaderGlyphs: Map<Int, String> by lazy {
+        val txt = assetManager.open("mushaf/surah-header-ligatures.json").bufferedReader().use { it.readText() }
+        val obj = org.json.JSONObject(txt)
+        (1..114).associateWith { obj.optString("surah-$it").trim() }
+    }
+
+    /** The single header glyph to render (in [surahHeaderTypeface]) for a surah, or "" if unknown. */
+    fun surahHeaderGlyph(surah: Int): String = surahHeaderGlyphs[surah] ?: ""
+
     fun loadPage(page: Int): MushafPage {
         val lines = ArrayList<MushafLine>()
         layout.rawQuery(
