@@ -266,6 +266,19 @@ ORT == PyTorch on the exported graph, then the `demo/regression.py` fixtures thr
 streaming path. Test order: conv (done) -> one `StaticEmformerLayer` vs `_EmformerLayer.infer`
 -> full stack -> ONNX.
 
+### Phase-B progress
+
+- **StaticEmformerLayer — DONE + validated** (`export/streaming_layer.py`, `python
+  export/streaming_layer.py` -> PASS). The static-mask reimplementation of
+  `_apply_attention_infer` is **bit-identical** to stock `_EmformerLayer.infer`: output diff
+  ~1e-6 through warm-up (past_length 4→48) and **exactly 0.0** in steady state (past_length ≥ L).
+  So the mask placement + ring-pack are correct and the `.item()` is gone. The single biggest
+  correctness risk is retired.
+- **Next:** stack 12 layers into `StreamingEmformerCTC` (thread mems between layers, add the
+  spike-proven streaming conv + CTC head), re-check full-encoder parity vs `forward`, then ONNX
+  export with state as graph I/O (watch the in-place mask assignments — rebuild with
+  `cat`/`where` if the tracer balks; see risks).
+
 ### Design-specific risks
 
 - **Mask placement** — `_gen_padding_mask` / `_EmformerAttention._forward` build the mask over
