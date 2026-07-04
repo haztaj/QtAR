@@ -15,6 +15,13 @@ Sequential context carries across ayat (after X, expect X+1; surah boundaries ha
 and completion (`ayah_progress`) drives auto-advance — the live realization of
 "detect ayah 11 done → present ayah 12, confirm as we go."
 
+**Pauses between ayat (`auto`/`stream`):** the loop resets on a **Silero VAD** speech-end
+(min-silence 500 ms, noise-robust) so each pause isolates the next ayah as a clean single-ayah
+decode (in-distribution). This replaced a crude energy + 2 s counter that missed sub-2 s pauses
+(a real recitation with 0.5–1.5 s gaps got stuck on the first ayah — the gaps never crossed 2 s,
+so the buffer never reset). Continuous recitation yields no VAD 'end' until the finish, so the
+content matchers (sliding+stream) run as before.
+
 **Continuous recitation (no pauses):** completion advances *immediately* — when an ayah
 completes the buffer is reset to a short tail (`--reset-tail`, 0.3 s) so the next ayah
 is detected fresh without waiting for a VAD pause. Completion keys off the **top**

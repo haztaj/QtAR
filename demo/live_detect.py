@@ -260,13 +260,13 @@ def main():
         W = int(args.window * SR)
         H = int(args.hop * SR)
         MAXBUF = int(30 * SR)
-        SILENCE_RESET = 2.0
         verbs = {"detect": "DETECTED", "advance": "→ NEXT", "jump": "JUMP →"}
         print(f"mode: auto  window={args.window}s hop={args.hop}s  (sliding+stream merged — any length)")
         print("Recite any Juz-Amma ayat. Ctrl-C to quit.\n" + "-" * 64)
+        vad.reset_states()   # Silero VAD segments ayat by pause (robust to the noise floor)
         slide_roll = np.zeros(0, dtype=np.float32)   # last audio, for the sliding window
         stream_buf = np.zeros(0, dtype=np.float32)   # anchored buffer, for the stream matcher
-        total = last_proc = silent_hops = 0
+        total = last_proc = 0
         with sd.InputStream(samplerate=SR, channels=1, blocksize=VAD_BLOCK,
                             dtype="float32", device=args.device, callback=cb):
             try:
@@ -274,19 +274,22 @@ def main():
                     block = q.get()
                     rec.feed(block)
                     total += len(block)
+                    # A pause between ayat (Silero VAD speech-end) resets, so each ayah is
+                    # isolated -> a clean single-ayah decode. Continuous recitation yields no
+                    # 'end' until the finish, so the content matchers (sliding+stream) run.
+                    v = vad(torch.from_numpy(block), return_seconds=True)
+                    if v and "end" in v:
+                        slide_roll = np.zeros(0, dtype=np.float32)
+                        stream_buf = np.zeros(0, dtype=np.float32)
+                        det.reset()
+                        continue
                     slide_roll = np.concatenate([slide_roll, block])[-2 * W:]
                     stream_buf = np.concatenate([stream_buf, block])[-MAXBUF:]
                     if total - last_proc < H:
                         continue
                     last_proc = total
                     if not vad_active(slide_roll[-int(1.0 * SR):]):
-                        silent_hops += 1
-                        if silent_hops * args.hop >= SILENCE_RESET and len(stream_buf):
-                            slide_roll = np.zeros(0, dtype=np.float32)
-                            stream_buf = np.zeros(0, dtype=np.float32)
-                            det.reset(); silent_hops = 0
                         continue
-                    silent_hops = 0
                     if len(stream_buf) < int(args.min_speech * SR):
                         continue
                     st = det.feed(decode_window(slide_roll[-W:]), total / SR,
@@ -320,12 +323,12 @@ def main():
                              min_progress=args.min_progress, commit_cost_max=args.commit_cost)
         H = int(args.hop * SR)
         MAXBUF = int(30 * SR)                 # hard cap (older audio slides out)
-        SILENCE_RESET = 2.0                   # s of silence -> new passage: clear buffer + context
         verbs = {"detect": "DETECTED", "advance": "→ NEXT", "jump": "JUMP →"}
         print(f"mode: stream  hop={args.hop}s  (prefix-anchored — early detection incl. long ayat)")
         print("Recite ayat (any length; continuous is fine). Ctrl-C to quit.\n" + "-" * 64)
+        vad.reset_states()   # Silero VAD segments ayat by pause (robust to the noise floor)
         buf = np.zeros(0, dtype=np.float32)
-        total = last_proc = silent_hops = 0
+        total = last_proc = 0
         with sd.InputStream(samplerate=SR, channels=1, blocksize=VAD_BLOCK,
                             dtype="float32", device=args.device, callback=cb):
             try:
@@ -333,18 +336,16 @@ def main():
                     block = q.get()
                     rec.feed(block)
                     total += len(block)
+                    if (v := vad(torch.from_numpy(block), return_seconds=True)) and "end" in v:
+                        buf = np.zeros(0, dtype=np.float32)     # pause -> fresh next ayah
+                        det.reset()
+                        continue
                     buf = np.concatenate([buf, block])[-MAXBUF:]
                     if total - last_proc < H:
                         continue
                     last_proc = total
                     if not vad_active(buf[-int(1.0 * SR):]):    # recent near-silence
-                        silent_hops += 1
-                        if silent_hops * args.hop >= SILENCE_RESET and len(buf):
-                            buf = np.zeros(0, dtype=np.float32)  # a real pause -> fresh passage
-                            det.reset()
-                            silent_hops = 0
                         continue
-                    silent_hops = 0
                     if len(buf) < int(args.min_speech * SR):
                         continue
                     st = det.feed(decode_window(buf))
