@@ -187,6 +187,96 @@ Options to weigh before committing Phase B:
 Given the goal is the mode-split (not battery), option (3) + a matcher-side effort may reach
 the goal sooner than the streaming reimpl; revisit streaming for the wearable/battery path.
 
+## Static-shape streaming module — design sketch
+
+Grounds the Phase-B reimplementation in the actual torchaudio internals
+(`torchaudio/models/emformer.py`). The whole blocker is two small methods on
+`_EmformerLayer`; everything else (attention math, FFN, layer norms, memory pooling) is
+already static and reused unchanged.
+
+### Where the data-dependence is
+
+Per-layer state is 4 fixed-shape tensors (confirmed): `[memory(M,B,D), lc_key(L,B,D),
+lc_val(L,B,D), past_length(1,B,int32)]` with `M=max_memory_size=4`, `L=left_context_length=32`,
+`D=256`. Only two methods touch it:
+
+- `_unpack_state` — reads `past_length.item()` and **trims leading zero-padding** off the
+  left-context / memory buffers so warm-up chunks don't attend to it. This `.item()` + the
+  data-dependent slice are the *entire* export blocker.
+- `_pack_state` — appends the new K/V, keeps the last `L` (and last `M` memory), increments
+  `past_length`. Its *output* shapes are already fixed (L, M); only the traced `shape[0]-L`
+  arithmetic needs to be written ring-buffer style.
+
+Steady state (`past_length >= L`) does no trimming — the buffers are simply full. So the trim
+matters only for the first `L/S = 32/4 = 8` chunks (~1.3 s of each session).
+
+### The fix: fixed buffers + a computed padding mask
+
+Replace "trim the zeros" with "keep the full buffers, and **mask** the not-yet-filled slots"
+— a mask built from `past_length` by tensor comparison (no `.item()`, ONNX-clean):
+
+```python
+# lengths as tensors, elementwise; arange(L)/arange(M) are constants folded into the graph
+real_lc  = past_length.clamp(max=L)                       # [1,B] int
+lc_pad   = torch.arange(L)  <  (L - real_lc)               # [L]  True = still-padding
+mem_len  = torch.ceil(past_length / S).clamp(max=M)
+mem_pad  = torch.arange(M)  <  (M - mem_len)               # [M]
+# fold lc_pad / mem_pad (as additive -inf) into the attention key-padding mask that the
+# layer already builds (_gen_padding_mask), so padded slots get zero attention weight.
+```
+
+`StaticEmformerLayer` then:
+1. `_unpack_state` -> returns the **full** `state[0]`, `state[1]`, `state[2]` (no slicing) plus
+   `lc_pad`/`mem_pad`.
+2. attention runs on the full fixed-size K/V, with `lc_pad`/`mem_pad` added (−inf) to the
+   existing key-padding mask — numerically identical to the trimmed version, but static shape.
+3. `_pack_state` -> ring update: `new = torch.cat([buf, next])[-L:]` (fixed output L) or an
+   `index_copy` into a rolling slot; `past_length += S`.
+
+Everything downstream (`_EmformerAttention.infer`, FFN, norms, `memory_op` AvgPool) is unchanged
+— same weights, same math.
+
+### Two build strategies (correctness vs speed to first export)
+
+- **(exact)** implement the mask above -> bit-parity with `forward`/`infer` including warm-up.
+- **(warm-up-approx)** skip the mask, always attend to the full (zero-padded early) buffers.
+  Only the first ~1.3 s of a session differs slightly; the matcher is error-tolerant, so this
+  may be acceptable and is a faster first export. Decide by measuring the warm-up argmax delta
+  against the parity golden. (Recommend building exact; keep approx as the fallback.)
+
+### The module + fixed I/O
+
+```
+StreamingEmformerCTC.step(chunk[1, S+R, F],  *state) -> (log_probs[1, S, V], *new_state)
+  conv_cache (RF-1 = 6 input frames)  ->  StreamingConv2dSubsampling  (spike-proven)
+  -> 12 x StaticEmformerLayer(state[i])                                (this sketch)
+  -> CTC head + log_softmax
+state = conv_cache + 12*4 layer tensors = 49 fixed-shape graph inputs/outputs
+```
+
+Export: all shapes constant -> `torch.onnx.export` (legacy, opset 17) with the ~49 state
+tensors as named I/O (dynamo not needed; there are no symbolic shapes once `.item()` is gone).
+int8 as today (weight-only dynamic MatMul; state tensors stay fp32).
+
+### Validation (the golden already exists)
+
+The spike's PyTorch parity is the acceptance test: `StreamingEmformerCTC` looped over a clip
+must reproduce `EmformerCTC.forward` — **argmax phonemes identical** (max|Δ| ~1e-6), then
+ORT == PyTorch on the exported graph, then the `demo/regression.py` fixtures through the
+streaming path. Test order: conv (done) -> one `StaticEmformerLayer` vs `_EmformerLayer.infer`
+-> full stack -> ONNX.
+
+### Design-specific risks
+
+- **Mask placement** — `_gen_padding_mask` / `_EmformerAttention._forward` build the mask over
+  a specific key order (`[mems, right_context, utterance]` + prepended left-context); the
+  `lc_pad`/`mem_pad` must land on the right key positions. Main correctness risk; caught by the
+  per-layer parity test.
+- **Ring update in ONNX** — `cat([buf,next])[-L:]` must fold to a static shape; if the tracer
+  balks, use `index_copy`/`slice-and-concat` with explicit constants.
+- **`past_length` int32 in-graph** — only used now for the mask comparison (no `.item()`); keep
+  it as a tensor I/O, incremented by the constant `S`.
+
 ## What it does NOT touch
 
 Front-end (log-mel params), tokens, the matcher lexicon, and the model weights are all
