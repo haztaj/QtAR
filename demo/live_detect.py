@@ -154,12 +154,15 @@ def main():
     ap.add_argument("--session-dir", default=str(REPO / "demo" / "sessions"),
                     help="where to record audio + detections (reset each run)")
     ap.add_argument("--no-record", action="store_true", help="disable session recording")
-    ap.add_argument("--mode", default="sliding", choices=["sliding", "buffer"],
-                    help="sliding: fixed-window segmentation (handles no-pause continuous "
-                         "recitation); buffer: legacy growing-buffer + completion-reset")
+    ap.add_argument("--mode", default="sliding", choices=["sliding", "stream", "buffer"],
+                    help="sliding: fixed-window whole-ayah matching (continuous short ayat); "
+                         "stream: prefix-anchored, early detection of ayat of ANY length "
+                         "(incl. long ayat the window can't see); buffer: legacy growing-buffer")
     ap.add_argument("--window", type=float, default=4.0, help="sliding window width (s)")
-    ap.add_argument("--hop", type=float, default=1.0, help="sliding hop (s)")
+    ap.add_argument("--hop", type=float, default=1.0, help="sliding/stream hop (s)")
     ap.add_argument("--window-cost", type=float, default=0.30, help="max edit-cost for a confident window")
+    ap.add_argument("--commit-cost", type=float, default=0.35,
+                    help="stream mode: max prefix-align cost to commit (rejects ambiguous leads)")
     args = ap.parse_args()
 
     try:
@@ -246,6 +249,58 @@ def main():
 
     def cb(indata, frames, t, status):
         q.put(indata[:, 0].copy())
+
+    # ---------------- stream mode (prefix-anchored; early detection, any ayah length) ----
+    if args.mode == "stream":
+        from streaming import StreamDetector
+        det = StreamDetector(trie, seq, ayah_ph, threshold=args.threshold, persistence=2,
+                             revise=4, min_progress=args.min_progress,
+                             complete_cost=args.complete_cost, commit_cost_max=args.commit_cost)
+        H = int(args.hop * SR)
+        MAXBUF = int(30 * SR)                 # a single ayah is < 30 s; cap the growing buffer
+        verbs = {"detect": "DETECTED", "advance": "→ NEXT", "jump": "JUMP →"}
+        print(f"mode: stream  hop={args.hop}s  (prefix-anchored — early detection incl. long ayat)")
+        print("Recite an ayah of any length. Ctrl-C to quit.\n" + "-" * 64)
+        buf = np.zeros(0, dtype=np.float32)
+        total = last_proc = 0
+        with sd.InputStream(samplerate=SR, channels=1, blocksize=VAD_BLOCK,
+                            dtype="float32", device=args.device, callback=cb):
+            try:
+                while True:
+                    block = q.get()
+                    rec.feed(block)
+                    total += len(block)
+                    buf = np.concatenate([buf, block])[-MAXBUF:]
+                    if total - last_proc < H or len(buf) < int(args.min_speech * SR):
+                        continue
+                    last_proc = total
+                    if not vad_active(buf[-int(1.0 * SR):]):    # recent near-silence -> skip
+                        continue
+                    st = det.feed(decode_window(buf))
+                    ctx = f"*{seq.streak}" if seq.current else "  "
+                    line = "  ".join(f"{name(k)}({c:.2f},{pr:.0%})" for k, c, pr in st["ranked"])
+                    print(f"\r{ctx}[{len(buf)/SR:4.1f}s] {line:<62}", end="", flush=True)
+                    ce = st["commit_event"]
+                    if ce:
+                        tag = "" if ce["committed"] else " (tentative)"
+                        print(f"\r✓ {verbs[ce['event']]}  {name(ce['ayah']):<26}(cost {ce['cost']}){tag}",
+                              flush=True)
+                        if ayah_text.get(ce["ayah"]):
+                            print(f"            {ayah_text[ce['ayah']]}")
+                        rec.record(detected=ce["ayah"], committed=ce["committed"],
+                                   completed=st["boundary"], expected=seq.current, streak=seq.streak,
+                                   top3=[[k, round(c, 3), round(pr, 3)] for k, c, pr in st["ranked"]],
+                                   phonemes="")
+                    if st["boundary"]:                          # ayah ended -> seed next from a tail
+                        tail = int(args.reset_tail * SR)
+                        buf = buf[-tail:] if len(buf) > tail else buf
+            except KeyboardInterrupt:
+                print("\nbye.")
+            finally:
+                rec.close()
+                if rec.enabled:
+                    print(f"session saved: {rec.index} ayat -> {args.session_dir}")
+        return
 
     # ---------------- sliding-window mode (continuous recitation, no pauses) -----------
     if args.mode == "sliding":
