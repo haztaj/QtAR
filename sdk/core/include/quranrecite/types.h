@@ -44,7 +44,8 @@ struct HighlightSnapshot {
 };
 
 enum class Mode {
-    Sliding,   // fixed-window content segmentation; handles continuous (no-pause) recitation
+    Auto,      // sliding + stream merged — handles any ayah length (default)
+    Sliding,   // fixed-window content segmentation; handles continuous short ayat
     Buffer     // legacy growing-buffer + completion (reciters who pause between ayat)
 };
 
@@ -58,7 +59,7 @@ struct Config {
     std::string ambiguousPath;    // ambiguous_ayat.json (Stage-3 confusable map; optional —
                                   // empty disables deferral, every detection confirms)
 
-    Mode mode = Mode::Sliding;
+    Mode mode = Mode::Auto;
     int sampleRate = 16000;
 
     // Sliding-window segmentation (see conformance/spec.md §Stage 2).
@@ -66,6 +67,16 @@ struct Config {
     float hopSec = 1.0f;
     float windowCost = 0.30f;     // max edit-cost for a confident window
     int jumpVotes = 2;
+
+    // Stream matcher (prefix-anchored; port of demo/streaming.py StreamDetector).
+    int streamPersistence = 3;    // hops the top-1 must lead to commit
+    int streamJumpPersistence = 5;// higher bar for a non-continuation jump
+    float streamMinProgress = 0.2f;
+    float commitCostMax = 0.75f;  // loose garbage ceiling (rank persistence is the real gate)
+    float lenTol = 0.6f;          // length prune: skip ayat shorter than lenTol * input
+    float keepLongSec = 11.0f;    // buffer tail on a long-ayah leader change
+    float keepDoneSec = 1.5f;     // buffer tail after a finished ayah
+    float doneProgress = 0.85f;   // progress at commit meaning "ayah finished"
 
     // Sequential context (sticky continuation prior).
     float contextBonus = 0.22f;

@@ -5,6 +5,7 @@
 #include <mutex>
 #include <vector>
 
+#include "autodet.h"
 #include "decoder.h"
 #include "frontend.h"
 #include "highlight.h"
@@ -66,12 +67,14 @@ struct Detector::Impl {
     Lexicon lex;
     SequentialContext ctx;
     SlidingSegmenter seg;
+    AutoDetector autod;
     HighlightController hl;
 
     std::mutex mtx;
-    std::vector<float> rolling;   // recent 16 kHz audio (>= 2 windows)
+    std::vector<float> rolling;   // recent 16 kHz audio (up to ~30 s; sliding uses the last window)
     long totalSamples = 0;
     long lastProc = 0;
+    long streamStartAbs = 0;      // absolute sample where the stream matcher's buffer begins
 
     explicit Impl(const Config& c)
         : cfg(c),
@@ -80,30 +83,66 @@ struct Detector::Impl {
           lex(c.lexiconPath, c.tokensPath),
           ctx(lex, c),
           seg(lex, ctx, c),
+          autod(lex, c),
           hl(c.ambiguousPath) {}
 
     int windowSamples() const { return (int)(cfg.windowSec * kSr); }
 
-    // One sliding step: decode the trailing window, feed the segmenter, emit on event.
+    std::vector<int> decodeWindow(const float* win, std::size_t wlen) {
+        int T;
+        auto lm = frontend.logMel(win, wlen, T);
+        int Tout, V;
+        auto lp = model.run(lm, T, Tout, V);
+        return ctcGreedy(lp, Tout, V);                             // ids share tokens.txt space
+    }
+
+    void emit(EventType type, const std::string& key, double timeSec) {
+        const auto c = key.find(':');
+        AyahEvent ev;
+        ev.type = type;
+        ev.ayah = {std::stoi(key.substr(0, c)), std::stoi(key.substr(c + 1))};
+        ev.timeSec = timeSec;
+        if (cb) cb(ev);
+        if (hlCb) hlCb(toPublic(hl.detect(key)));
+    }
+
+    // One sliding-only step (Mode::Sliding).
     void step(double timeSec) {
         const int W = windowSamples();
         if ((int)rolling.size() < kSr / 2) return;                 // < 0.5 s -> wait
         const std::size_t wlen = std::min<std::size_t>(W, rolling.size());
         const float* win = rolling.data() + (rolling.size() - wlen);
-
-        double ss = 0.0;                                            // energy gate (skip silence)
-        for (std::size_t i = 0; i < wlen; ++i) ss += (double)win[i] * win[i];
-        if (std::sqrt(ss / wlen) < 0.005) return;
-
-        int T;
-        auto lm = frontend.logMel(win, wlen, T);
-        int Tout, V;
-        auto lp = model.run(lm, T, Tout, V);
-        auto ids = ctcGreedy(lp, Tout, V);                         // ids share tokens.txt space
-        if (auto ev = seg.process(ids, timeSec)) {
-            if (cb) cb(*ev);                                       // back-compat granular event
-            if (hlCb) hlCb(toPublic(hl.detect(ayahKey(ev->ayah)))); // centralized snapshot
+        if (rms(win, wlen) < 0.005) return;
+        if (auto ev = seg.process(decodeWindow(win, wlen), timeSec)) {
+            if (cb) cb(*ev);
+            if (hlCb) hlCb(toPublic(hl.detect(ayahKey(ev->ayah))));
         }
+    }
+
+    // One auto step (Mode::Auto): decode the fixed sliding window AND the stream anchored
+    // buffer, merge. Refocus advances the stream buffer start. Port of the auto live loop.
+    void stepAuto(double timeSec) {
+        const int W = windowSamples();
+        if ((int)rolling.size() < kSr / 2) return;
+        const long rollStart = totalSamples - (long)rolling.size();
+        const std::size_t wlen = std::min<std::size_t>(W, rolling.size());
+        const float* swin = rolling.data() + (rolling.size() - wlen);
+        if (rms(swin, wlen) < 0.005) return;                       // recent silence -> skip
+
+        const long sIdx = std::max<long>(0, streamStartAbs - rollStart);
+        const float* stwin = rolling.data() + sIdx;
+        const std::size_t stlen = rolling.size() - (std::size_t)sIdx;
+
+        auto st = autod.feed(decodeWindow(swin, wlen), timeSec, decodeWindow(stwin, stlen));
+        if (st.commit) emit(st.commit->event, st.commit->ayah, timeSec);
+        if (st.refocusSec)
+            streamStartAbs = std::max<long>(streamStartAbs, totalSamples - (long)(*st.refocusSec * kSr));
+    }
+
+    static double rms(const float* x, std::size_t n) {
+        double ss = 0.0;
+        for (std::size_t i = 0; i < n; ++i) ss += (double)x[i] * x[i];
+        return std::sqrt(ss / std::max<std::size_t>(1, n));
     }
 };
 
@@ -121,14 +160,17 @@ void Detector::feed(const float* pcm, std::size_t n, int sampleRate) {
     impl_->rolling.insert(impl_->rolling.end(), r.begin(), r.end());
     impl_->totalSamples += (long)r.size();
 
-    const std::size_t cap = (std::size_t)(2 * impl_->windowSamples());  // keep ~2 windows
+    // Auto keeps up to ~30 s (the stream matcher's max buffer); sliding needs only ~2 windows.
+    const std::size_t cap = impl_->cfg.mode == Mode::Auto
+        ? (std::size_t)(30 * kSr) : (std::size_t)(2 * impl_->windowSamples());
     if (impl_->rolling.size() > cap)
         impl_->rolling.erase(impl_->rolling.begin(), impl_->rolling.end() - cap);
 
     const long hop = (long)(impl_->cfg.hopSec * kSr);
     if (impl_->totalSamples - impl_->lastProc >= hop) {
         impl_->lastProc = impl_->totalSamples;
-        impl_->step((double)impl_->totalSamples / kSr);
+        if (impl_->cfg.mode == Mode::Auto) impl_->stepAuto((double)impl_->totalSamples / kSr);
+        else impl_->step((double)impl_->totalSamples / kSr);
     }
 }
 
@@ -141,8 +183,9 @@ void Detector::feedPcm16(const short* pcm, std::size_t n, int sampleRate) {
 void Detector::reset() {
     std::lock_guard<std::mutex> lk(impl_->mtx);
     impl_->rolling.clear();
-    impl_->totalSamples = impl_->lastProc = 0;
+    impl_->totalSamples = impl_->lastProc = impl_->streamStartAbs = 0;
     impl_->seg.reset();
+    impl_->autod.reset();
     impl_->hl.reset();
 }
 
