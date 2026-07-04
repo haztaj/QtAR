@@ -56,24 +56,30 @@ python demo/live_detect.py --device 3            # e.g. Logitech BRIO
   (114:1→2→3). The single-ayah model decodes each window well; the long growing-buffer
   under-decodes past ayah 1, which is why this mode exists.
 - **`stream`** — **prefix-anchored** early detection (`demo/streaming.py` `StreamDetector`).
-  Accumulates the decode of the *current* ayah and scores each ayah by PREFIX ALIGNMENT
-  (`prefix_align`: min cost to turn the input into a *prefix* of the ayah, input fully
-  consumed, ayah free to end anywhere). So an ayah of **any length** surfaces as soon as its
-  prefix is discriminative — *before it finishes* — and a short ayah drops out once the input
-  outgrows it (its tail becomes insertion cost; "commit on divergence"). This is the mode for
-  **long ayat the sliding window can't see**: sliding matches each 4 s window as a *whole*
-  against *whole* ayat, so a long ayah (e.g. 78:40, 105 phonemes) is length-pruned from every
-  window and never detected — `stream` detects it at ~20 % recited. Commits use **per-hop**
-  persistence (same top-1 holds margin ≥ `--threshold` for K=2 hops) plus an absolute
-  cost gate (`--commit-cost` 0.35) so a high-cost ambiguous fragment never commits (no false
-  detections). On completion the buffer resets to a short tail (`--reset-tail`) to seed the
-  next ayah. Validated offline: the 78:40 solo session (undetected in sliding) → clean single
-  `detect 78:40 @21 %`; the 114 continuous fixture → `114:1` cleanly (with the 113:1
-  shared-prefix precursor), no false commits. Why not just the matcher's `partial_candidates`:
-  its min-over-nodes scoring doesn't penalize a short ayah when the input runs past it, so
-  short ayat match a tiny early decode at cost ~0 and cause false early commits — prefix
-  alignment consumes the whole input and avoids that. (C++ core still uses the sliding
-  segmenter; porting `stream` is a follow-up.)
+  Scores each ayah by PREFIX ALIGNMENT (`prefix_align`: min cost to turn the input into a
+  *prefix* of the ayah, input fully consumed, ayah free to end anywhere). So an ayah of **any
+  length** surfaces as soon as its prefix is discriminative — *before it finishes* — and a
+  short ayah drops out once the input outgrows it (its tail becomes insertion cost). This is
+  the mode for **long ayat the sliding window can't see**: sliding matches each 4 s window as
+  a *whole* against *whole* ayat, so a long ayah (e.g. 78:40, 105 phonemes) is length-pruned
+  from every window and never detected — `stream` detects it at ~20 % recited.
+  Commit policy is **rank persistence**, not absolute cost: on a quiet mic the cost is high
+  (~0.4–0.6) with small margins to confusables, yet the correct ayah holds **#1 for many
+  hops**, so an ayah commits when it leads for K hops (`persistence` 3; a non-continuation
+  **jump** needs `jump_persistence` 5; a **backward** step to an earlier ayah of the same
+  surah is suppressed as decode noise). The buffer is **not reset per ayah** (resetting to a
+  tail decodes garbage) — it grows (capped 30 s) and the top-1 naturally hands off
+  A→A+1→A+2, so a continuous recitation is committed ayah by ayah; sequential context biases
+  the expected next and resists backward flickers. A ≥ 2 s silence resets buffer + context (a
+  new passage). `--commit-cost` (0.55) is only a loose garbage gate. Validated offline:
+  **78:38→78:39→78:40** continuous → `detect 78:38 / advance 78:39 / advance 78:40` (clean,
+  no noise); 78:40 solo → `detect 78:40 @21 %`; 114 continuous → `114:1` (no false commits).
+  Why not the matcher's `partial_candidates`: its min-over-nodes scoring doesn't penalize a
+  short ayah when the input runs past it, so short ayat match a tiny early decode at cost ~0
+  and cause false early commits — prefix alignment consumes the whole input and avoids that.
+  Known limit: a *very* quiet continuous recording may still miss weaker continuations (they
+  never lead); the acoustic decode is the ceiling there, not the matcher. (C++ core still uses
+  the sliding segmenter; porting `stream` is a follow-up.)
 - **`buffer` (legacy)** — growing buffer + completion-decoupled advance + revisable
   commit + ayah-end detection. Works when reciters pause between ayat (VAD segments
   each); gets stuck on the first ayah in true no-pause continuous recitation. Kept as a

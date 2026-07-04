@@ -161,8 +161,9 @@ def main():
     ap.add_argument("--window", type=float, default=4.0, help="sliding window width (s)")
     ap.add_argument("--hop", type=float, default=1.0, help="sliding/stream hop (s)")
     ap.add_argument("--window-cost", type=float, default=0.30, help="max edit-cost for a confident window")
-    ap.add_argument("--commit-cost", type=float, default=0.35,
-                    help="stream mode: max prefix-align cost to commit (rejects ambiguous leads)")
+    ap.add_argument("--commit-cost", type=float, default=0.55,
+                    help="stream mode: max prefix-align cost to commit (loose garbage gate; "
+                         "rank persistence is the real commit signal)")
     args = ap.parse_args()
 
     try:
@@ -253,16 +254,16 @@ def main():
     # ---------------- stream mode (prefix-anchored; early detection, any ayah length) ----
     if args.mode == "stream":
         from streaming import StreamDetector
-        det = StreamDetector(trie, seq, ayah_ph, threshold=args.threshold, persistence=2,
-                             revise=4, min_progress=args.min_progress,
-                             complete_cost=args.complete_cost, commit_cost_max=args.commit_cost)
+        det = StreamDetector(trie, seq, ayah_ph, persistence=3, jump_persistence=5,
+                             min_progress=args.min_progress, commit_cost_max=args.commit_cost)
         H = int(args.hop * SR)
-        MAXBUF = int(30 * SR)                 # a single ayah is < 30 s; cap the growing buffer
+        MAXBUF = int(30 * SR)                 # cap the growing buffer (older audio slides out)
+        SILENCE_RESET = 2.0                   # s of silence -> new passage: clear buffer + context
         verbs = {"detect": "DETECTED", "advance": "→ NEXT", "jump": "JUMP →"}
         print(f"mode: stream  hop={args.hop}s  (prefix-anchored — early detection incl. long ayat)")
-        print("Recite an ayah of any length. Ctrl-C to quit.\n" + "-" * 64)
+        print("Recite ayat (any length; continuous is fine). Ctrl-C to quit.\n" + "-" * 64)
         buf = np.zeros(0, dtype=np.float32)
-        total = last_proc = 0
+        total = last_proc = silent_hops = 0
         with sd.InputStream(samplerate=SR, channels=1, blocksize=VAD_BLOCK,
                             dtype="float32", device=args.device, callback=cb):
             try:
@@ -271,10 +272,18 @@ def main():
                     rec.feed(block)
                     total += len(block)
                     buf = np.concatenate([buf, block])[-MAXBUF:]
-                    if total - last_proc < H or len(buf) < int(args.min_speech * SR):
+                    if total - last_proc < H:
                         continue
                     last_proc = total
-                    if not vad_active(buf[-int(1.0 * SR):]):    # recent near-silence -> skip
+                    if not vad_active(buf[-int(1.0 * SR):]):    # recent near-silence
+                        silent_hops += 1
+                        if silent_hops * args.hop >= SILENCE_RESET and len(buf):
+                            buf = np.zeros(0, dtype=np.float32)  # a real pause -> fresh passage
+                            det.reset()
+                            silent_hops = 0
+                        continue
+                    silent_hops = 0
+                    if len(buf) < int(args.min_speech * SR):
                         continue
                     st = det.feed(decode_window(buf))
                     ctx = f"*{seq.streak}" if seq.current else "  "
@@ -282,18 +291,14 @@ def main():
                     print(f"\r{ctx}[{len(buf)/SR:4.1f}s] {line:<62}", end="", flush=True)
                     ce = st["commit_event"]
                     if ce:
-                        tag = "" if ce["committed"] else " (tentative)"
-                        print(f"\r✓ {verbs[ce['event']]}  {name(ce['ayah']):<26}(cost {ce['cost']}){tag}",
+                        print(f"\r✓ {verbs[ce['event']]}  {name(ce['ayah']):<26}(cost {ce['cost']})",
                               flush=True)
                         if ayah_text.get(ce["ayah"]):
                             print(f"            {ayah_text[ce['ayah']]}")
-                        rec.record(detected=ce["ayah"], committed=ce["committed"],
-                                   completed=st["boundary"], expected=seq.current, streak=seq.streak,
+                        rec.record(detected=ce["ayah"], committed=True, completed=False,
+                                   expected=seq.current, streak=seq.streak,
                                    top3=[[k, round(c, 3), round(pr, 3)] for k, c, pr in st["ranked"]],
                                    phonemes="")
-                    if st["boundary"]:                          # ayah ended -> seed next from a tail
-                        tail = int(args.reset_tail * SR)
-                        buf = buf[-tail:] if len(buf) > tail else buf
             except KeyboardInterrupt:
                 print("\nbye.")
             finally:
