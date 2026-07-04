@@ -87,6 +87,28 @@ python demo/live_detect.py --device 3            # e.g. Logitech BRIO
 
 Interactive — must be run in a real terminal (mic access). Ctrl-C to quit.
 
+## Regression check (`regression.py`)
+
+Guards the tricky detection cases against silent matcher/model regressions:
+
+```bash
+python demo/regression.py            # -> ALL PASS / FAILURES (exit 0/1)
+```
+
+Runs each preserved `test_fixtures/*.wav` through the relevant mode and asserts the committed
+ayah sequence matches a golden:
+
+| fixture | mode | expected |
+|---|---|---|
+| `user_78_40_naba_long` | stream | `78:40` (a long ayah sliding can't see) |
+| `user_78_38to40_naba_continuous` | stream | `78:38 → 78:39 → 78:40` (continuous long ayat) |
+| `user_114_quietmic` | stream | `114:1` |
+| `user_114_quietmic` | sliding | `114:1 → 114:2 → 114:3` |
+
+The `.wav` files are gitignored (audio rule), so a missing fixture is **skipped, not failed**
+— it runs wherever the audio is present (the committed `*_events.jsonl` document each case).
+Add a case in `CASES` when a new fixture is preserved.
+
 ## Session recording + investigation
 
 Each run records to `demo/sessions/` (reset/overwritten each session — one copy):
