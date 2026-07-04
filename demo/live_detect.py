@@ -161,7 +161,7 @@ def main():
     ap.add_argument("--window", type=float, default=4.0, help="sliding window width (s)")
     ap.add_argument("--hop", type=float, default=1.0, help="sliding/stream hop (s)")
     ap.add_argument("--window-cost", type=float, default=0.30, help="max edit-cost for a confident window")
-    ap.add_argument("--commit-cost", type=float, default=0.55,
+    ap.add_argument("--commit-cost", type=float, default=0.75,
                     help="stream mode: max prefix-align cost to commit (loose garbage gate; "
                          "rank persistence is the real commit signal)")
     args = ap.parse_args()
@@ -257,7 +257,8 @@ def main():
         det = StreamDetector(trie, seq, ayah_ph, persistence=3, jump_persistence=5,
                              min_progress=args.min_progress, commit_cost_max=args.commit_cost)
         H = int(args.hop * SR)
-        MAXBUF = int(30 * SR)                 # cap the growing buffer (older audio slides out)
+        KEEP = int(11 * SR)                   # on refocus, bound the buffer to its recent tail
+        MAXBUF = int(30 * SR)                 # hard cap (older audio slides out)
         SILENCE_RESET = 2.0                   # s of silence -> new passage: clear buffer + context
         verbs = {"detect": "DETECTED", "advance": "→ NEXT", "jump": "JUMP →"}
         print(f"mode: stream  hop={args.hop}s  (prefix-anchored — early detection incl. long ayat)")
@@ -299,6 +300,8 @@ def main():
                                    expected=seq.current, streak=seq.streak,
                                    top3=[[k, round(c, 3), round(pr, 3)] for k, c, pr in st["ranked"]],
                                    phonemes="")
+                    if st["refocus"]:              # new ayah started -> refocus decode on it
+                        buf = buf[-KEEP:]
             except KeyboardInterrupt:
                 print("\nbye.")
             finally:

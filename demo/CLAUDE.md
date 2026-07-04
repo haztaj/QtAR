@@ -71,7 +71,11 @@ python demo/live_detect.py --device 3            # e.g. Logitech BRIO
   tail decodes garbage) — it grows (capped 30 s) and the top-1 naturally hands off
   A→A+1→A+2, so a continuous recitation is committed ayah by ayah; sequential context biases
   the expected next and resists backward flickers. A ≥ 2 s silence resets buffer + context (a
-  new passage). `--commit-cost` (0.55) is only a loose garbage gate. Validated offline:
+  new passage). The buffer is bounded on a **refocus** signal (when a new forward leader holds
+  2 hops, the driver clips the buffer to its recent ~11 s tail) — an unbounded buffer decodes
+  worse and worse on multi-ayah audio and buries later ayat (a louder 2nd take of 78:38→40
+  committed nothing until this was added). `--commit-cost` (0.75) is only a loose garbage gate.
+  Validated offline:
   **78:38→78:39→78:40** continuous → `detect 78:38 / advance 78:39 / advance 78:40` (clean,
   no noise); 78:40 solo → `detect 78:40 @21 %`; 114 continuous → `114:1` (no false commits).
   Why not the matcher's `partial_candidates`: its min-over-nodes scoring doesn't penalize a

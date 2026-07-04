@@ -44,6 +44,7 @@ NORM_RMS = 0.1
 CASES = [
     ("user_78_40_naba_long.wav",             "stream",  ["78:40"]),
     ("user_78_38to40_naba_continuous.wav",   "stream",  ["78:38", "78:39", "78:40"]),
+    ("user_78_38to40_naba_continuous_b.wav", "stream",  ["78:38", "78:39", "78:40"]),
     ("user_114_quietmic.wav",                "stream",  ["114:1"]),
     ("user_114_quietmic.wav",                "sliding", ["114:1", "114:2", "114:3"]),
 ]

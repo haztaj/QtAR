@@ -70,8 +70,8 @@ class StreamDetector:
     """
 
     def __init__(self, trie, seq: SequentialContext, ayah_phonemes: dict, *,
-                 persistence: int = 3, jump_persistence: int = 5, min_progress: float = 0.15,
-                 commit_cost_max: float = 0.55, len_tol: float = 0.6, **_ignored):
+                 persistence: int = 3, jump_persistence: int = 5, min_progress: float = 0.2,
+                 commit_cost_max: float = 0.75, len_tol: float = 0.6, **_ignored):
         self.seq = seq
         self._keys = list(ayah_phonemes)
         self._ph = [ayah_phonemes[k] for k in self._keys]
@@ -115,7 +115,7 @@ class StreamDetector:
             scored.append((cost - self.seq.bonus_for(key), key, bk / L))
         if not scored:
             return {"ranked": [], "detected": None, "committed": self._committed,
-                    "progress": 0.0, "commit_event": None, "boundary": False}
+                    "progress": 0.0, "commit_event": None, "refocus": False, "boundary": False}
         scored.sort(key=lambda s: s[0])
         ranked = [(k, c, pr) for c, k, pr in scored[:3]]
         top, top_cost, top_prog = scored[0][1], scored[0][0], scored[0][2]
@@ -123,6 +123,13 @@ class StreamDetector:
         self._run = self._run + 1 if top == self._leader else 1     # rank persistence
         self._leader = top
         rel = self._relation(top)
+
+        # Refocus signal: a NEW forward leader (not the committed ayah) that has held for 2
+        # hops -> tell the driver to bound the audio window to its recent tail. An unbounded
+        # growing buffer decodes worse and worse (out-of-distribution multi-ayah audio),
+        # burying later ayat; refocusing keeps each ayah's decode ~single-ayah and clean.
+        refocus = (top != self._committed and rel in ("continuation", "jump") and self._run == 2)
+
         need = self.persistence if rel in ("cold", "current", "continuation") else self.jump_persistence
         eligible = (top_prog >= self.min_progress and top_cost <= self.commit_cost_max
                     and rel != "backward")
@@ -138,22 +145,26 @@ class StreamDetector:
         detected = self._committed or (top if top_prog >= self.min_progress else None)
         prog = next((pr for c, k, pr in scored if k == detected), 0.0) if detected else 0.0
         return {"ranked": ranked, "detected": detected, "committed": self._committed,
-                "progress": prog, "commit_event": commit_event, "boundary": False}
+                "progress": prog, "commit_event": commit_event, "refocus": refocus,
+                "boundary": False}
 
 
 def run_offline(audio, sr, decode_fn, trie, seq, ayah_phonemes, *,
-                hop_s: float = 1.0, min_speech_s: float = 0.5, on_status=None, **kw):
+                hop_s: float = 1.0, min_speech_s: float = 0.5, keep_s: float = 11.0,
+                on_status=None, **kw):
     """Drive a StreamDetector over a whole recording (for testing/analysis).
 
-    `decode_fn(audio_buffer) -> list[phoneme]`. Grows a buffer from the start and decodes it
-    every `hop_s`. Returns the committed detect/advance/jump events with the time + progress at
-    which each fired. (Live capture caps the buffer and can reset on a VAD pause; see
-    live_detect.py.)"""
+    `decode_fn(audio_buffer) -> list[phoneme]`. Grows a buffer and decodes it every `hop_s`;
+    on the detector's `refocus` signal, bounds the buffer to its last `keep_s` seconds (so the
+    decode refocuses on the current ayah instead of degrading over the whole recording).
+    Returns the committed detect/advance/jump events with the time + progress at which each
+    fired. (Live capture mirrors this + resets on a VAD pause; see live_detect.py.)"""
     det = StreamDetector(trie, seq, ayah_phonemes, **kw)
-    H, pos, events = int(hop_s * sr), 0, []
+    H, keep = int(hop_s * sr), int(keep_s * sr)
+    start, pos, events = 0, 0, []
     while pos < len(audio):
         pos = min(pos + H, len(audio))
-        buf = audio[:pos]
+        buf = audio[start:pos]
         if len(buf) < int(min_speech_s * sr):
             continue
         st = det.feed(decode_fn(buf))
@@ -162,4 +173,6 @@ def run_offline(audio, sr, decode_fn, trie, seq, ayah_phonemes, *,
         if st["commit_event"]:
             events.append({**st["commit_event"], "t": round(pos / sr, 2),
                            "progress": round(st["progress"], 2)})
+        if st["refocus"]:
+            start = max(start, pos - keep)
     return events
