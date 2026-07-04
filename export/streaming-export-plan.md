@@ -294,9 +294,28 @@ streaming path. Test order: conv (done) -> one `StaticEmformerLayer` vs `_Emform
   ~0.015 (incl. conv). Gotcha fixed: the runtime must start from the **zero** state
   (`layer._init_state`), not a dummy first step, or warm-up is corrupted.
 - **Remaining (on-device):** SDK/C++ port of the driver (thread state tensors through ORT I/O
-  binding; the two graphs) + conformance golden; then the Phase-D matcher redesign that consumes
-  the clean incremental stream — the part that actually unifies detection across ayah lengths
-  (fixes the 98:2-style mixed continuous case). The Python export + runtime are complete.
+  binding; the two graphs) + conformance golden. The Python export + runtime are complete.
+
+### Phase D (matcher on the stream) — INVESTIGATED, not viable as a mode-split fix (2026-07-04)
+
+Checked the crux before building: does the clean streaming stream contain each ayah? It does
+**only for the first ayah**; continuations under-decode. Measured (normalized edit of the
+stream vs each ayah): 78:40 solo CLEAN 0.31; 114:1 CLEAN 0.23 but 114:2/3 partial; 85:12 CLEAN
+0.25 but **85:13–16 MISSING** (0.5–0.76); 98:1 partial, **98:2 MISSING** (0.69); 78:38 MISSING.
+Stream lengths are ~half the true phoneme count (98: 122 vs 217).
+
+**Root cause:** the model was trained on **single ayat**, so a *continuous* multi-ayah stream is
+out-of-distribution and the acoustic decode under-produces the continuations — the streaming
+decode == `forward` decode (validated), and both degrade after the first ayah. The windowed
+`auto` mode works on continuous recitation *because* each 4 s window is a single-ayah fragment
+(in-distribution) and decodes well; the whole-stream decode is *worse*. So a matcher on the
+streaming stream (Phase D) would **regress** vs `auto`, not unify.
+
+**Conclusion:** streaming export's detection value is **single-ayah / push-to-talk** (decode is
+in-distribution and clean) + **battery/latency/wearable** — not the continuous mode-split. The
+real lever for robust *continuous* recitation is **training data** (continuous-recitation
+examples / streaming-consistent training; ties into the known learner-data gap), not the matcher
+and not the streaming export. `auto` remains the best continuous solution today.
 
 ### Design-specific risks
 
