@@ -81,9 +81,15 @@ python demo/live_detect.py --device 3            # e.g. Logitech BRIO
   Why not the matcher's `partial_candidates`: its min-over-nodes scoring doesn't penalize a
   short ayah when the input runs past it, so short ayat match a tiny early decode at cost ~0
   and cause false early commits — prefix alignment consumes the whole input and avoids that.
-  Known limit: a *very* quiet continuous recording may still miss weaker continuations (they
-  never lead); the acoustic decode is the ceiling there, not the matcher. (C++ core still uses
-  the sliding segmenter; porting `stream` is a follow-up.)
+  **Known limit — short back-to-back ayat:** a run of short ayat (~4 s each, e.g. Al-Buruj
+  85:12–16) degrades the growing buffer faster than refocus recovers, so `stream` typically
+  gets only the first couple. **Use `sliding` for short-ayah passages** (its 4 s whole-window
+  matching gets all of 85:12→16); `stream` is for long/individual ayat that sliding can't see.
+  A *very* quiet continuous recording can also miss weaker continuations (they never lead) —
+  the acoustic decode is the ceiling there, not the matcher. **Mode choice: sliding = short
+  continuous; stream = long/individual.** A single mode for both needs the streaming-Emformer
+  + CTC-alignment path (the flagged next step). (C++ core still uses sliding; porting `stream`
+  is a follow-up.)
 - **`buffer` (legacy)** — growing buffer + completion-decoupled advance + revisable
   commit + ayah-end detection. Works when reciters pause between ayat (VAD segments
   each); gets stuck on the first ayah in true no-pause continuous recitation. Kept as a

@@ -45,8 +45,10 @@ CASES = [
     ("user_78_40_naba_long.wav",             "stream",  ["78:40"]),
     ("user_78_38to40_naba_continuous.wav",   "stream",  ["78:38", "78:39", "78:40"]),
     ("user_78_38to40_naba_continuous_b.wav", "stream",  ["78:38", "78:39", "78:40"]),
-    ("user_114_quietmic.wav",                "stream",  ["114:1"]),
+    ("user_114_quietmic.wav",                "stream",  ["114:1", "114:2"]),
     ("user_114_quietmic.wav",                "sliding", ["114:1", "114:2", "114:3"]),
+    # short back-to-back ayat: sliding's home turf (stream only gets the first couple).
+    ("user_85_12to16_buruj.wav",             "sliding", ["85:12", "85:13", "85:14", "85:15", "85:16"]),
 ]
 
 

@@ -257,7 +257,6 @@ def main():
         det = StreamDetector(trie, seq, ayah_ph, persistence=3, jump_persistence=5,
                              min_progress=args.min_progress, commit_cost_max=args.commit_cost)
         H = int(args.hop * SR)
-        KEEP = int(11 * SR)                   # on refocus, bound the buffer to its recent tail
         MAXBUF = int(30 * SR)                 # hard cap (older audio slides out)
         SILENCE_RESET = 2.0                   # s of silence -> new passage: clear buffer + context
         verbs = {"detect": "DETECTED", "advance": "→ NEXT", "jump": "JUMP →"}
@@ -301,7 +300,7 @@ def main():
                                    top3=[[k, round(c, 3), round(pr, 3)] for k, c, pr in st["ranked"]],
                                    phonemes="")
                     if st["refocus"]:              # new ayah started -> refocus decode on it
-                        buf = buf[-KEEP:]
+                        buf = buf[-int(st["refocus"] * SR):]
             except KeyboardInterrupt:
                 print("\nbye.")
             finally:
