@@ -35,6 +35,7 @@ from model import EmformerCTC                                  # noqa: E402
 from phoneme_matcher import PhonemeTrie, SequentialContext     # noqa: E402
 import sliding                                                 # noqa: E402
 import streaming                                               # noqa: E402
+import auto                                                    # noqa: E402
 
 FIX = REPO / "demo" / "test_fixtures"
 CKPT = REPO / "training" / "exp" / "best_mic.pt"
@@ -42,13 +43,17 @@ NORM_RMS = 0.1
 
 # (wav filename, mode, expected committed ayah sequence). Goldens verified 2026-07-04.
 CASES = [
+    # auto (default) — one mode across every ayah length; this is what the demo runs.
+    ("user_78_40_naba_long.wav",             "auto",    ["78:40"]),
+    ("user_78_38to40_naba_continuous.wav",   "auto",    ["78:38", "78:39", "78:40"]),
+    ("user_78_38to40_naba_continuous_b.wav", "auto",    ["78:38", "78:39", "78:40"]),
+    ("user_85_12to16_buruj.wav",             "auto",    ["85:12", "85:13", "85:14", "85:15", "85:16"]),
+    ("user_114_quietmic.wav",                "auto",    ["114:1", "114:2", "114:3"]),
+    # the underlying single modes (what auto merges): sliding = short, stream = long.
     ("user_78_40_naba_long.wav",             "stream",  ["78:40"]),
     ("user_78_38to40_naba_continuous.wav",   "stream",  ["78:38", "78:39", "78:40"]),
-    ("user_78_38to40_naba_continuous_b.wav", "stream",  ["78:38", "78:39", "78:40"]),
-    ("user_114_quietmic.wav",                "stream",  ["114:1", "114:2"]),
-    ("user_114_quietmic.wav",                "sliding", ["114:1", "114:2", "114:3"]),
-    # short back-to-back ayat: sliding's home turf (stream only gets the first couple).
     ("user_85_12to16_buruj.wav",             "sliding", ["85:12", "85:13", "85:14", "85:15", "85:16"]),
+    ("user_114_quietmic.wav",                "sliding", ["114:1", "114:2", "114:3"]),
 ]
 
 
@@ -58,11 +63,13 @@ def make_context(trie):
 
 
 def run_case(wav, sr, decode, trie, ap, mode):
-    seq = make_context(trie)
-    if mode == "stream":
-        ev = streaming.run_offline(wav, sr, decode, trie, seq, ap, hop_s=1.0)
+    if mode == "auto":
+        ev = auto.run_offline(wav, sr, decode, trie, ap, window_s=4.0, hop_s=1.0)
+    elif mode == "stream":
+        ev = streaming.run_offline(wav, sr, decode, trie, make_context(trie), ap, hop_s=1.0)
     elif mode == "sliding":
-        ev = sliding.run_offline(wav, sr, decode, ap, seq, window_s=4.0, hop_s=1.0, max_cost=0.30)
+        ev = sliding.run_offline(wav, sr, decode, ap, make_context(trie),
+                                 window_s=4.0, hop_s=1.0, max_cost=0.30)
     else:
         raise ValueError(mode)
     return [e["ayah"] for e in ev]

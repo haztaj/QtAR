@@ -37,14 +37,30 @@ deliberately jump, the revisable commit still corrects it (and resets the streak
 ## Run
 
 ```bash
-python demo/live_detect.py                       # sliding mode (default), default mic
-python demo/live_detect.py --mode stream         # prefix-anchored: early detection, any length
+python demo/live_detect.py                       # auto mode (default) — any ayah length
+python demo/live_detect.py --mode sliding        # short continuous ayat only
+python demo/live_detect.py --mode stream         # prefix-anchored: long/individual ayat
 python demo/live_detect.py --mode buffer         # legacy growing-buffer approach
 python demo/live_detect.py --list-devices        # pick a mic index
 python demo/live_detect.py --device 3            # e.g. Logitech BRIO
 ```
 
-## Three modes (`--mode`)
+## Four modes (`--mode`)
+
+- **`auto` (default)** — runs `sliding` **and** `stream` per hop and merges their commits
+  (`demo/auto.py` `AutoDetector`), so **one mode handles any ayah length**. It works because
+  the two are complementary and never conflict: `sliding` is *silent* on long ayat (a 4 s
+  window of a 100+-phoneme ayah is length-pruned — it fires nothing, not garbage) and gets all
+  short ayat; `stream` gets long ayat and an agreeing subset on short ones. The merge is a
+  union with dedup (a `recent` window blocks repeats/belated dupes) + a tiebreak for the rare
+  hop where both fire *different* new ayat (prefer the continuation of the last commit, else
+  lower cost). Each sub-matcher keeps its own window + sequential context; the driver decodes
+  both the fixed 4 s window and the stream's anchored buffer each hop (2 decodes; negligible at
+  RTF 0.002). Validated on every fixture in one mode (78:40, 78:38→40 ×2, 85:12→16, 114:1→3 —
+  see `regression.py`). Why not a single merged *scorer*: the difference is buffer discipline
+  (stateless fixed window vs anchored buffer), not the cost metric — one buffer can't be both
+  (prototyped; stayed stuck). A principled single detector still wants the streaming-Emformer
+  decode (see `export/streaming-export-plan.md`); `auto` reaches the same behaviour now.
 
 - **`sliding` (default)** — fixed-window segmentation for **continuous (no-pause)
   recitation**. Slides a window (`--window` 4 s, `--hop` 1 s) across the stream; each

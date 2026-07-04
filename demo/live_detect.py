@@ -154,10 +154,10 @@ def main():
     ap.add_argument("--session-dir", default=str(REPO / "demo" / "sessions"),
                     help="where to record audio + detections (reset each run)")
     ap.add_argument("--no-record", action="store_true", help="disable session recording")
-    ap.add_argument("--mode", default="sliding", choices=["sliding", "stream", "buffer"],
-                    help="sliding: fixed-window whole-ayah matching (continuous short ayat); "
-                         "stream: prefix-anchored, early detection of ayat of ANY length "
-                         "(incl. long ayat the window can't see); buffer: legacy growing-buffer")
+    ap.add_argument("--mode", default="auto", choices=["auto", "sliding", "stream", "buffer"],
+                    help="auto (default): run sliding+stream and merge — handles ANY ayah "
+                         "length; sliding: fixed-window whole-ayah (short ayat); stream: "
+                         "prefix-anchored early detection (long/individual ayat); buffer: legacy")
     ap.add_argument("--window", type=float, default=4.0, help="sliding window width (s)")
     ap.add_argument("--hop", type=float, default=1.0, help="sliding/stream hop (s)")
     ap.add_argument("--window-cost", type=float, default=0.30, help="max edit-cost for a confident window")
@@ -250,6 +250,68 @@ def main():
 
     def cb(indata, frames, t, status):
         q.put(indata[:, 0].copy())
+
+    # ---------------- auto mode (sliding || stream, merged — any ayah length) ----------
+    if args.mode == "auto":
+        from auto import AutoDetector
+        det = AutoDetector(trie, ayah_ph, window_cost=args.window_cost, persistence=3,
+                           jump_persistence=5, min_progress=args.min_progress,
+                           commit_cost_max=args.commit_cost)
+        W = int(args.window * SR)
+        H = int(args.hop * SR)
+        MAXBUF = int(30 * SR)
+        SILENCE_RESET = 2.0
+        verbs = {"detect": "DETECTED", "advance": "→ NEXT", "jump": "JUMP →"}
+        print(f"mode: auto  window={args.window}s hop={args.hop}s  (sliding+stream merged — any length)")
+        print("Recite any Juz-Amma ayat. Ctrl-C to quit.\n" + "-" * 64)
+        slide_roll = np.zeros(0, dtype=np.float32)   # last audio, for the sliding window
+        stream_buf = np.zeros(0, dtype=np.float32)   # anchored buffer, for the stream matcher
+        total = last_proc = silent_hops = 0
+        with sd.InputStream(samplerate=SR, channels=1, blocksize=VAD_BLOCK,
+                            dtype="float32", device=args.device, callback=cb):
+            try:
+                while True:
+                    block = q.get()
+                    rec.feed(block)
+                    total += len(block)
+                    slide_roll = np.concatenate([slide_roll, block])[-2 * W:]
+                    stream_buf = np.concatenate([stream_buf, block])[-MAXBUF:]
+                    if total - last_proc < H:
+                        continue
+                    last_proc = total
+                    if not vad_active(slide_roll[-int(1.0 * SR):]):
+                        silent_hops += 1
+                        if silent_hops * args.hop >= SILENCE_RESET and len(stream_buf):
+                            slide_roll = np.zeros(0, dtype=np.float32)
+                            stream_buf = np.zeros(0, dtype=np.float32)
+                            det.reset(); silent_hops = 0
+                        continue
+                    silent_hops = 0
+                    if len(stream_buf) < int(args.min_speech * SR):
+                        continue
+                    st = det.feed(decode_window(slide_roll[-W:]), total / SR,
+                                  decode_window(stream_buf))
+                    line = "  ".join(f"{name(k)}({c:.2f},{pr:.0%})" for k, c, pr in st["ranked"])
+                    print(f"\r[{len(stream_buf)/SR:4.1f}s] {line:<62}", end="", flush=True)
+                    ce = st["commit"]
+                    if ce:
+                        print(f"\r✓ {verbs[ce['event']]}  {name(ce['ayah']):<24}({ce['source']})",
+                              flush=True)
+                        if ayah_text.get(ce["ayah"]):
+                            print(f"            {ayah_text[ce['ayah']]}")
+                        rec.record(detected=ce["ayah"], committed=True, completed=False,
+                                   expected=None, streak=0,
+                                   top3=[[k, round(c, 3), round(pr, 3)] for k, c, pr in st["ranked"]],
+                                   phonemes="")
+                    if st["refocus"]:
+                        stream_buf = stream_buf[-int(st["refocus"] * SR):]
+            except KeyboardInterrupt:
+                print("\nbye.")
+            finally:
+                rec.close()
+                if rec.enabled:
+                    print(f"session saved: {rec.index} ayat -> {args.session_dir}")
+        return
 
     # ---------------- stream mode (prefix-anchored; early detection, any ayah length) ----
     if args.mode == "stream":

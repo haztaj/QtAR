@@ -62,6 +62,13 @@ class SlidingWindowSegmenter:
         self._pending: str | None = None
         self._votes = 0
 
+    def reset(self) -> None:
+        """New session: forget the current ayah + votes and clear the context streak."""
+        self.seq.set_current(None)
+        self.current = None
+        self._pending = None
+        self._votes = 0
+
     def _window_best(self, phonemes):
         """Best (key, cost) by context-biased whole-window edit distance, length-pruned."""
         n = len(phonemes)
