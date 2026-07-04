@@ -94,6 +94,7 @@ class StreamDetector:
         self._leader: str | None = None
         self._run = 0
         self._committed: str | None = None
+        self._done_ref = False       # have we released the buffer for the current commit yet?
 
     def _relation(self, key: str) -> str:
         cur = self.seq.current
@@ -147,13 +148,22 @@ class StreamDetector:
             self._committed = top
             self.seq.set_current(top)                 # advance context (streak grows on continuation)
             self._run = 0
+            self._done_ref = False
             kind = "detect" if rel == "cold" else ("advance" if rel == "continuation" else "jump")
             commit_event = {"event": kind, "ayah": top, "committed": True, "cost": round(top_cost, 3)}
             if top_prog >= self.done_progress:
                 refocus = self.keep_done
+                self._done_ref = True
 
         detected = self._committed or (top if top_prog >= self.min_progress else None)
         prog = next((pr for c, k, pr in scored if k == detected), 0.0) if detected else 0.0
+        # A committed ayah (esp. a long one committed early) that has now been fully recited
+        # keeps hogging #1 because the buffer still starts with it -> release the buffer once
+        # its progress completes, so the next ayah can surface.
+        if self._committed is not None and not self._done_ref and detected == self._committed \
+                and prog >= 0.95:
+            refocus = self.keep_done
+            self._done_ref = True
         return {"ranked": ranked, "detected": detected, "committed": self._committed,
                 "progress": prog, "commit_event": commit_event, "refocus": refocus,
                 "boundary": False}

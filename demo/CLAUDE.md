@@ -61,6 +61,15 @@ python demo/live_detect.py --device 3            # e.g. Logitech BRIO
   (stateless fixed window vs anchored buffer), not the cost metric — one buffer can't be both
   (prototyped; stayed stuck). A principled single detector still wants the streaming-Emformer
   decode (see `export/streaming-export-plan.md`); `auto` reaches the same behaviour now.
+  **Known limit — mixed long+short *continuous*:** a passage that mixes a long ayah then
+  shorter ones with no pauses (e.g. Al-Bayyinah 98:1→4) is partial. After a long ayah, the
+  stream buffer stays *locked* on it (the buffer starts with it and its prefix keeps matching
+  as the degrading decode lags), so a **medium** continuation in the gap (too long for the 4 s
+  window, not reachable before the buffer refocuses late) is missed. A completion-refocus
+  (release the buffer once a committed ayah's progress hits ~100%) recovers the *next* long
+  ayah — 98:1→4 gets 3/4 (98:1, 98:3, 98:4; misses the medium 98:2). This is the growing-buffer
+  decode lag, the case streaming-export fixes. **Workaround today:** a brief pause between ayat
+  triggers the 2 s silence-reset, so each ayah is a clean single-ayah detection (any length).
 
 - **`sliding` (default)** — fixed-window segmentation for **continuous (no-pause)
   recitation**. Slides a window (`--window` 4 s, `--hop` 1 s) across the stream; each

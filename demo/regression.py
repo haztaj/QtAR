@@ -49,6 +49,10 @@ CASES = [
     ("user_78_38to40_naba_continuous_b.wav", "auto",    ["78:38", "78:39", "78:40"]),
     ("user_85_12to16_buruj.wav",             "auto",    ["85:12", "85:13", "85:14", "85:15", "85:16"]),
     ("user_114_quietmic.wav",                "auto",    ["114:1", "114:2", "114:3"]),
+    # mixed long+medium+short continuous: KNOWN PARTIAL (3/4) — 98:2 (medium) is in the gap;
+    # the growing-buffer decode lag is the limit (streaming-export would fix). Guards against
+    # regressing below this; bump the golden if 98:2 gets recovered.
+    ("user_98_1to4_bayyinah_mixed.wav",      "auto",    ["98:1", "98:3", "98:4"]),
     # the underlying single modes (what auto merges): sliding = short, stream = long.
     ("user_78_40_naba_long.wav",             "stream",  ["78:40"]),
     ("user_78_38to40_naba_continuous.wav",   "stream",  ["78:38", "78:39", "78:40"]),
