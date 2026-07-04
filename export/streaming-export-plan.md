@@ -274,10 +274,21 @@ streaming path. Test order: conv (done) -> one `StaticEmformerLayer` vs `_Emform
   ~1e-6 through warm-up (past_length 4→48) and **exactly 0.0** in steady state (past_length ≥ L).
   So the mask placement + ring-pack are correct and the `.item()` is gone. The single biggest
   correctness risk is retired.
-- **Next:** stack 12 layers into `StreamingEmformerCTC` (thread mems between layers, add the
-  spike-proven streaming conv + CTC head), re-check full-encoder parity vs `forward`, then ONNX
-  export with state as graph I/O (watch the in-place mask assignments — rebuild with
-  `cat`/`where` if the tracer balks; see risks).
+- **StreamingEmformerCTC full-stack + ONNX export — DONE + validated** (`export/streaming_encoder.py`,
+  `python export/streaming_encoder.py` -> both PASS). Streaming the whole pipeline (cached conv +
+  12 `StaticEmformerLayer`s driven like `_EmformerImpl.infer` + CTC head) reproduces
+  `EmformerCTC.forward` **100% argmax** (maxdiff ~1.5e-5). And the **stateful encoder step
+  exports to ONNX and LOADS in onnxruntime** — the exact thing that was blocked — round-tripping
+  vs PyTorch at log_probs 5.7e-6 / state 2.4e-6. Notes: use the **legacy exporter** (`dynamo=False`,
+  opset 17); once `.item()` is gone the in-place mask assignments trace fine (no `cat`/`where`
+  rewrite needed). On Windows set `PYTHONUTF8=1` — the dynamo path prints a ✅ that crashes cp1252.
+  **The entire streaming-export feasibility risk is now retired.**
+- **Remaining (engineering, not research):** fold the streaming conv into the ONNX graph (or
+  ship it as a tiny separate step); int8 (weight-only dynamic MatMul as today; state stays fp32);
+  the runtime driver (feed 160 ms chunks, thread ~49 state tensors, CTC-collapse across chunk
+  boundaries); the SDK/C++ port + conformance golden; then the matcher redesign (Phase D) that
+  consumes the clean incremental stream — the part that actually unifies detection across ayah
+  lengths (fixes the 98:2-style mixed continuous case).
 
 ### Design-specific risks
 
