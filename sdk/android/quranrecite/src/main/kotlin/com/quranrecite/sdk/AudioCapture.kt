@@ -26,6 +26,8 @@ internal class AudioCapture(private val onPcm: (ShortArray, Int) -> Unit) {
     private val blockSize = 512   // 32 ms @ 16 kHz, matches the engine's hop granularity
     private var record: AudioRecord? = null
     @Volatile private var running = false
+    private var reader: Thread? = null
+    private var worker: Thread? = null
     // ~2 s of headroom; drop-oldest if inference ever falls behind realtime (logged).
     private val queue = ArrayBlockingQueue<ShortArray>(sampleRate * 2 / blockSize)
 
@@ -47,7 +49,7 @@ internal class AudioCapture(private val onPcm: (ShortArray, Int) -> Unit) {
         rec.startRecording()
 
         // Reader: read + enqueue only. Never blocked by inference.
-        thread(name = "quranrecite-capture") {
+        reader = thread(name = "quranrecite-capture") {
             val buf = ShortArray(blockSize)
             var dropped = 0
             while (running) {
@@ -64,18 +66,25 @@ internal class AudioCapture(private val onPcm: (ShortArray, Int) -> Unit) {
             }
         }
 
-        // Worker: drain the queue into the engine (model inference lives here).
-        thread(name = "quranrecite-infer") {
-            while (running || queue.isNotEmpty()) {
+        // Worker: drain the queue into the engine (model inference lives here). Stops promptly on
+        // stop() — any queued audio after the user stops is dropped (not fed/decoded post-stop).
+        worker = thread(name = "quranrecite-infer") {
+            while (running) {
                 val block = queue.poll(100, java.util.concurrent.TimeUnit.MILLISECONDS) ?: continue
                 onPcm(block, sampleRate)
             }
         }
     }
 
+    // Blocks until both threads have exited, so no onPcm callback (nativeFeed / debug write) can
+    // fire after stop() returns — the caller may then close/destroy resources safely.
     fun stop() {
         running = false
-        record?.run { stop(); release() }
+        record?.stop()                 // unblock a pending rec.read()
+        reader?.join(500); reader = null
+        worker?.join(500); worker = null
+        record?.release()              // release only after the reader has exited
         record = null
+        queue.clear()
     }
 }
