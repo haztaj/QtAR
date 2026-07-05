@@ -73,6 +73,28 @@ class MushafRepository private constructor(
             .use { if (it.moveToFirst()) it.getInt(0) else 1 }
     }
 
+    /** The last [count] distinct ayat on a page ("surah:ayah" keys, page-order) — to detect when
+     *  the reader is nearing the end of the page. Empty if the page has no words. */
+    fun pageLastAyat(page: Int, count: Int): List<String> {
+        val lo = layout.rawQuery(
+            "select min(cast(first_word_id as integer)) from pages " +
+                "where page_number=? and first_word_id is not null and first_word_id!=''",
+            arrayOf(page.toString()),
+        ).use { if (it.moveToFirst() && !it.isNull(0)) it.getInt(0) else return emptyList() }
+        val hi = layout.rawQuery(
+            "select max(cast(last_word_id as integer)) from pages " +
+                "where page_number=? and last_word_id is not null and last_word_id!=''",
+            arrayOf(page.toString()),
+        ).use { if (it.moveToFirst() && !it.isNull(0)) it.getInt(0) else return emptyList() }
+        val keys = ArrayList<String>()
+        words.rawQuery(
+            "select surah, ayah from words where id between ? and ? " +
+                "group by surah, ayah order by min(id)",
+            arrayOf(lo.toString(), hi.toString()),
+        ).use { c -> while (c.moveToNext()) keys += "${c.getInt(0)}:${c.getInt(1)}" }
+        return keys.takeLast(count)
+    }
+
     /** The juz a page falls in (1..30), from the standard 604-page Madani juz start pages. */
     fun pageJuz(page: Int): Int {
         var j = 1
@@ -147,7 +169,7 @@ class MushafRepository private constructor(
             return MushafRepository(layout, words, context.assets, pageFont)
         }
 
-        private const val ASSET_VERSION = 1   // bump to force a re-copy when the DBs change
+        private const val ASSET_VERSION = 2   // bump to force a re-copy when the DBs change
 
         // Standard 604-page Madani mushaf: first page of each juz (index 0 = juz 1).
         private val JUZ_START_PAGES = intArrayOf(

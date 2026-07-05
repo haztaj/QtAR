@@ -5,14 +5,19 @@ package com.quranrecite.demo.mushaf
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontFamily
@@ -27,6 +32,8 @@ import kotlinx.coroutines.withContext
 
 private val ARABIC_DIGITS = charArrayOf('٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩')
 private fun Int.easternArabic(): String = toString().map { ARABIC_DIGITS[it - '0'] }.joinToString("")
+
+private const val PREVIEW_LINES = 4        // next-page preview: how many top lines to show
 
 /**
  * The mushaf reader. Chrome is a printed-mushaf frame: the top strip shows the page's surah name
@@ -53,6 +60,8 @@ fun MushafScreen(
     val scope = rememberCoroutineScope()
     var showJump by remember { mutableStateOf(false) }
     var chrome by remember { mutableStateOf(false) }   // both control panels visible
+    var contentWidth by remember { mutableStateOf(0.dp) }   // rendered mushaf width (chrome aligns to it)
+    var pageFontSize by remember { mutableStateOf(0.sp) }   // the page's fitted font size (preview reuses it)
 
     val surahNameFamily = remember(repo) { FontFamily(Typeface(repo.surahNameTypeface)) }
     val quranCommonFamily = remember(repo) { FontFamily(Typeface(repo.quranCommonTypeface)) }
@@ -60,6 +69,20 @@ fun MushafScreen(
     val page = pagerState.currentPage + 1
     val topSurah by produceState(1, page) { value = withContext(Dispatchers.IO) { repo.pageTopSurah(page) } }
     val juz = repo.pageJuz(page)
+
+    // Next-page preview: once the reciter reaches the last two ayat of the page, peek at the next
+    // page's first lines (bordered overlay over the top of the current page). Dismissable per page.
+    val lastAyat by produceState<List<String>>(emptyList(), page) {
+        value = withContext(Dispatchers.IO) { repo.pageLastAyat(page, 2) }
+    }
+    var previewDismissed by remember(page) { mutableStateOf(false) }
+    val showPreview = listening && !previewDismissed &&
+        highlight.active != null && highlight.active in lastAyat && page < repo.pageCount
+    val previewData by produceState<Pair<MushafPage, android.graphics.Typeface>?>(null, showPreview, page) {
+        value = if (showPreview) withContext(Dispatchers.IO) {
+            repo.loadPage(page + 1) to repo.typefaceForPage(page + 1)
+        } else null
+    }
 
     // Follow the reciter: when the active ayah changes, page to where it lives.
     LaunchedEffect(highlight.active) {
@@ -71,20 +94,24 @@ fun MushafScreen(
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            // Top strip: surah name (left) + juz (right).
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(repo.surahNameGlyph(topSurah), fontFamily = surahNameFamily, fontSize = 22.sp,
-                     maxLines = 1, softWrap = false)
-                Spacer(Modifier.weight(1f))
-                Text(repo.juzGlyph(juz), fontFamily = quranCommonFamily, fontSize = 22.sp,
-                     maxLines = 1, softWrap = false)
+            // Top strip: surah name (left) + juz (right), aligned to the mushaf page width.
+            Box(Modifier.fillMaxWidth().padding(vertical = 2.dp), contentAlignment = Alignment.Center) {
+                Row(
+                    if (contentWidth > 0.dp) Modifier.width(contentWidth)
+                    else Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(repo.surahNameGlyph(topSurah), fontFamily = surahNameFamily, fontSize = 26.sp,
+                         maxLines = 1, softWrap = false)
+                    Spacer(Modifier.weight(1f))
+                    Text(repo.juzGlyph(juz), fontFamily = quranCommonFamily, fontSize = 22.sp,
+                         maxLines = 1, softWrap = false)
+                }
             }
 
             // Page area: RTL pager + the parity-placed page number at the bottom.
-            Box(Modifier.weight(1f).fillMaxWidth()) {
+            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                val pageAreaHeight = maxHeight
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { index ->
                         val loaded by produceState<Pair<MushafPage, android.graphics.Typeface>?>(null, index) {
@@ -100,19 +127,53 @@ fun MushafScreen(
                         ) {
                             if (data == null) CircularProgressIndicator()
                             else MushafPageView(data.first, data.second, highlight,
-                                                repo.surahHeaderTypeface, repo::surahHeaderGlyph)
+                                                repo.surahHeaderTypeface, repo.quranCommonTypeface,
+                                                repo::surahHeaderGlyph,
+                                                onContentWidth = { contentWidth = it },
+                                                onFontSize = { pageFontSize = it })
                         }
                     }
                 }
-                // Page number — odd pages on the right, even on the left (physical mushaf).
-                Text(
-                    page.easternArabic(),
-                    fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .align(if (page % 2 == 1) Alignment.BottomEnd else Alignment.BottomStart)
-                        .padding(horizontal = 20.dp, vertical = 6.dp),
-                )
+                // Page number — odd pages on the right, even on the left, aligned to the page width.
+                Box(
+                    Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 6.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Row(if (contentWidth > 0.dp) Modifier.width(contentWidth)
+                        else Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+                        val num: @Composable () -> Unit = {
+                            Text(page.easternArabic(), fontSize = 15.sp,
+                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (page % 2 == 1) { Spacer(Modifier.weight(1f)); num() }
+                        else { num(); Spacer(Modifier.weight(1f)) }
+                    }
+                }
+
+                // Next-page preview overlay — only the next page's first lines, rendered at the SAME
+                // font size as the page (so scale matches) and top-aligned. Height wraps the lines.
+                previewData?.let { (nextPage, nextTf) ->
+                    if (pageFontSize > 0.sp) {
+                        val shape = RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp)
+                        Box(
+                            Modifier
+                                .align(Alignment.TopCenter)
+                                .fillMaxWidth()
+                                .clip(shape)
+                                .background(MaterialTheme.colorScheme.surface)
+                                .border(BorderStroke(2.dp, MaterialTheme.colorScheme.primary), shape)
+                                .pointerInput(Unit) { detectTapGestures { previewDismissed = true } }
+                                .padding(bottom = 4.dp),
+                        ) {
+                            MushafPagePreview(nextPage, nextTf, repo.surahHeaderTypeface,
+                                              repo.quranCommonTypeface, repo::surahHeaderGlyph,
+                                              fontSize = pageFontSize, lineCount = PREVIEW_LINES)
+                            Text("▾ ${(page + 1).easternArabic()}",
+                                 fontSize = 13.sp, color = MaterialTheme.colorScheme.primary,
+                                 modifier = Modifier.align(Alignment.BottomCenter))
+                        }
+                    }
+                }
             }
         }
 
@@ -140,8 +201,14 @@ fun MushafScreen(
                 Column(Modifier.fillMaxWidth().padding(16.dp)) {
                     Text(status, style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(8.dp))
-                    Button(onClick = onToggleListen, enabled = modelReady,
-                           modifier = Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = {
+                            if (!listening) chrome = false   // hide both panels when starting
+                            onToggleListen()
+                        },
+                        enabled = modelReady,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
                         Text(if (listening) "Stop detection" else "Start detection")
                     }
                 }
