@@ -21,6 +21,7 @@ class MushafRepository private constructor(
     private val layout: SQLiteDatabase,
     private val words: SQLiteDatabase,
     private val assetManager: android.content.res.AssetManager,
+    private val pageFont: (Int) -> Typeface,   // page fonts: from assets (dev) or downloaded files
 ) {
     val pageCount: Int by lazy {
         layout.rawQuery("select max(page_number) from pages", null).use {
@@ -32,7 +33,7 @@ class MushafRepository private constructor(
     private val fontCache = object : LruCache<Int, Typeface>(12) {}
 
     fun typefaceForPage(page: Int): Typeface = fontCache.get(page) ?: run {
-        val tf = Typeface.createFromAsset(assetManager, "mushaf/fonts/p$page.ttf")
+        val tf = pageFont(page)
         fontCache.put(page, tf); tf
     }
 
@@ -48,6 +49,36 @@ class MushafRepository private constructor(
 
     /** The single header glyph to render (in [surahHeaderTypeface]) for a surah, or "" if unknown. */
     fun surahHeaderGlyph(surah: Int): String = surahHeaderGlyphs[surah] ?: ""
+
+    /** Compact surah-name font (top bar): render [surahNameGlyph] in this. Ligature "surahNNN". */
+    val surahNameTypeface: Typeface by lazy {
+        Typeface.createFromAsset(assetManager, "mushaf/fonts/surah-name.ttf")
+    }
+    fun surahNameGlyph(surah: Int): String = "surah%03d".format(surah)
+
+    /** Common Quran font (top bar juz number): render [juzGlyph] in this. Ligature "juzNNN". */
+    val quranCommonTypeface: Typeface by lazy {
+        Typeface.createFromAsset(assetManager, "mushaf/fonts/quran-common.ttf")
+    }
+    fun juzGlyph(juz: Int): String = "juz%03d".format(juz)
+
+    /** The surah at the top of a page (surah of its first word) — for the top-bar name. */
+    fun pageTopSurah(page: Int): Int {
+        val wid = layout.rawQuery(
+            "select min(cast(first_word_id as integer)) from pages " +
+                "where page_number=? and first_word_id is not null and first_word_id!=''",
+            arrayOf(page.toString()),
+        ).use { if (it.moveToFirst() && !it.isNull(0)) it.getInt(0) else return 1 }
+        return words.rawQuery("select surah from words where id=?", arrayOf(wid.toString()))
+            .use { if (it.moveToFirst()) it.getInt(0) else 1 }
+    }
+
+    /** The juz a page falls in (1..30), from the standard 604-page Madani juz start pages. */
+    fun pageJuz(page: Int): Int {
+        var j = 1
+        for (i in JUZ_START_PAGES.indices) if (page >= JUZ_START_PAGES[i]) j = i + 1
+        return j
+    }
 
     fun loadPage(page: Int): MushafPage {
         val lines = ArrayList<MushafLine>()
@@ -102,14 +133,26 @@ class MushafRepository private constructor(
     }
 
     companion object {
-        /** Copies the two DBs out of assets (once) and opens them read-only. Call off the main thread. */
-        fun open(context: Context): MushafRepository {
+        /** Copies the two DBs out of assets (once) and opens them read-only, and wires the page-font
+         *  loader to [fonts] (bundled assets for dev, or the downloaded dir). Call off the main thread. */
+        fun open(context: Context, fonts: FontSource): MushafRepository {
             val layout = openAssetDb(context, "mushaf/layout.db")
             val words = openAssetDb(context, "mushaf/words.db")
-            return MushafRepository(layout, words, context.assets)
+            val pageFont: (Int) -> Typeface = when (fonts) {
+                is FontSource.Bundled ->
+                    { p -> Typeface.createFromAsset(context.assets, "mushaf/fonts/p$p.ttf") }
+                is FontSource.Downloaded ->
+                    { p -> Typeface.createFromFile(File(fonts.dir, "p$p.ttf")) }
+            }
+            return MushafRepository(layout, words, context.assets, pageFont)
         }
 
         private const val ASSET_VERSION = 1   // bump to force a re-copy when the DBs change
+
+        // Standard 604-page Madani mushaf: first page of each juz (index 0 = juz 1).
+        private val JUZ_START_PAGES = intArrayOf(
+            1, 22, 42, 62, 82, 102, 121, 142, 162, 182, 201, 222, 242, 262, 282,
+            302, 322, 342, 362, 382, 402, 422, 442, 462, 482, 502, 522, 542, 562, 582)
 
         private fun openAssetDb(context: Context, assetPath: String): SQLiteDatabase {
             val name = assetPath.substringAfterLast('/')

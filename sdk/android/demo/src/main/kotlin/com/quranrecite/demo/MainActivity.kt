@@ -2,16 +2,19 @@ package com.quranrecite.demo
 
 import android.Manifest
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import com.quranrecite.demo.mushaf.HighlightInfo
+import com.quranrecite.demo.mushaf.MushafFonts
 import com.quranrecite.demo.mushaf.MushafRepository
 import com.quranrecite.demo.mushaf.MushafScreen
 import com.quranrecite.demo.mushaf.ayahKey
@@ -44,9 +47,33 @@ class MainActivity : ComponentActivity() {
                 var listening by remember { mutableStateOf(false) }
                 var highlight by remember { mutableStateOf(HighlightInfo()) }
 
-                // Load the mushaf DBs/fonts off the main thread.
-                val repo by produceState<MushafRepository?>(null) {
-                    value = withContext(Dispatchers.IO) { MushafRepository.open(this@MainActivity) }
+                // Debug toggles (persisted) — control logcat + session recording at runtime from
+                // the top control panel, so the instrumentation stays in the build, off by default.
+                val prefs = remember { getSharedPreferences("qr_debug", MODE_PRIVATE) }
+                var debugLogging by remember { mutableStateOf(prefs.getBoolean("logging", false)) }
+                var recording by remember { mutableStateOf(prefs.getBoolean("recording", false)) }
+
+                // Ensure the page fonts (downloaded once, ~199 MB — survives app updates) then open
+                // the mushaf DBs — all off the main thread. First launch shows download progress;
+                // failures surface a retryable error rather than an endless spinner.
+                var loadMsg by remember { mutableStateOf("Loading…") }
+                var loadFrac by remember { mutableStateOf<Float?>(null) }   // 0..1 while downloading, else null
+                var loadFailed by remember { mutableStateOf(false) }
+                var retryKey by remember { mutableStateOf(0) }
+                val repo by produceState<MushafRepository?>(null, retryKey) {
+                    loadFailed = false; loadFrac = null; loadMsg = "Loading…"
+                    value = withContext(Dispatchers.IO) {
+                        try {
+                            val fonts = MushafFonts.ensure(this@MainActivity) { p ->
+                                loadMsg = "Downloading text (one time)"; loadFrac = p
+                            }
+                            loadFrac = null; loadMsg = "Opening mushaf…"
+                            MushafRepository.open(this@MainActivity, fonts)
+                        } catch (t: Throwable) {
+                            loadMsg = "Couldn’t download text: ${t.message}"; loadFailed = true
+                            null
+                        }
+                    }
                 }
 
                 val mic = rememberLauncherForPermission { granted ->
@@ -67,23 +94,58 @@ class MainActivity : ComponentActivity() {
                         override fun onModelDownloadProgress(fraction: Float) {
                             status = "Downloading model ${(fraction * 100).toInt()}%"
                         }
-                        override fun onModelReady() { modelReady = true; status = "Ready — tap Start" }
+                        override fun onModelReady() {
+                            if (debugLogging) Log.i("QRDemo", "onModelReady")
+                            modelReady = true; status = "Ready — tap Start"
+                        }
                         override fun onHighlightState(state: HighlightState) {
+                            if (debugLogging) Log.i("QRDemo", "highlight active=${state.active?.let { "${it.surah}:${it.ayah}" }}" +
+                                " upNext=${state.upNext?.let { "${it.surah}:${it.ayah}" }}" +
+                                " confirmed=${state.confirmed.joinToString(",") { "${it.surah}:${it.ayah}" }}" +
+                                " pending=${state.pending?.let { p -> "${p.reason}:${p.options.joinToString("/") { "${it.surah}:${it.ayah}" }}" }}")
                             highlight = state.toInfo()
                             status = state.pending?.let { p ->
                                 val opts = p.options.joinToString(" / ") { "${it.surah}:${it.ayah}" }
                                 if (p.reason == PendingReason.NEEDS_CHOICE) "Choose: $opts" else "Deciding… ($opts)"
                             } ?: state.active?.let { "Listening — ${it.surah}:${it.ayah}" } ?: "Listening…"
                         }
-                        override fun onError(error: Throwable) { status = "Error: ${error.message}" }
+                        override fun onError(error: Throwable) {
+                            if (debugLogging) Log.e("QRDemo", "onError", error)
+                            status = "Error: ${error.message}"
+                        }
                     })
+                    detector.setDebugLogging(debugLogging)   // carried to the engine at onReady
+                    detector.setRecording(recording)
                     detector.prepare()
                 }
 
                 val r = repo
                 if (r == null) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
+                    Column(
+                        Modifier.fillMaxSize().padding(32.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        when {
+                            loadFailed -> {
+                                Text(loadMsg, textAlign = TextAlign.Center)
+                                Spacer(Modifier.height(16.dp))
+                                Button(onClick = { retryKey++ }) { Text("Retry") }
+                            }
+                            loadFrac != null -> {   // determinate download progress
+                                LinearProgressIndicator(
+                                    progress = { loadFrac ?: 0f },
+                                    modifier = Modifier.fillMaxWidth(0.7f))
+                                Spacer(Modifier.height(12.dp))
+                                Text("$loadMsg — ${((loadFrac ?: 0f) * 100).toInt()}%",
+                                     textAlign = TextAlign.Center)
+                            }
+                            else -> {               // indeterminate (opening DBs, etc.)
+                                CircularProgressIndicator()
+                                Spacer(Modifier.height(16.dp))
+                                Text(loadMsg)
+                            }
+                        }
                     }
                 } else {
                     MushafScreen(
@@ -93,9 +155,25 @@ class MainActivity : ComponentActivity() {
                         modelReady = modelReady,
                         listening = listening,
                         onToggleListen = {
-                            if (listening) { detector.stop(); listening = false; status = "Stopped" }
-                            else mic.launch(Manifest.permission.RECORD_AUDIO)
+                            if (listening) {
+                                if (debugLogging) Log.i("QRDemo", "STOP pressed")
+                                detector.stop(); listening = false; status = "Stopped"
+                            } else {
+                                if (debugLogging) Log.i("QRDemo", "START pressed")
+                                mic.launch(Manifest.permission.RECORD_AUDIO)
+                            }
                         },
+                        debugLogging = debugLogging,
+                        onDebugLoggingChange = {
+                            debugLogging = it; detector.setDebugLogging(it)
+                            prefs.edit().putBoolean("logging", it).apply()
+                        },
+                        recording = recording,
+                        onRecordingChange = {
+                            recording = it; detector.setRecording(it)
+                            prefs.edit().putBoolean("recording", it).apply()
+                        },
+                        onShareRecording = { shareRecording() },
                     )
                 }
             }
@@ -103,6 +181,24 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() { detector.release(); super.onDestroy() }
+
+    /** Share the most recent debug session WAV (record a session first). */
+    private fun shareRecording() {
+        val path = detector.lastRecording()
+        if (path == null) {
+            android.widget.Toast.makeText(this, "No recording yet — enable 'Record session audio' and run detection",
+                android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+        val uri = androidx.core.content.FileProvider.getUriForFile(
+            this, "$packageName.fileprovider", java.io.File(path))
+        val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "audio/wav"
+            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        startActivity(android.content.Intent.createChooser(send, "Share recording"))
+    }
 }
 
 /** Map the SDK snapshot to the renderer's highlight sets (keys are "surah:ayah"). Two-phase:

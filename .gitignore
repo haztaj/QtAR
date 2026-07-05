@@ -52,6 +52,8 @@ sdk/android/quranrecite/src/main/assets/quranrecite/
 sdk/android/demo/src/main/assets/quranrecite/
 # KFGQPC V2 mushaf assets (fonts + layout/words DBs) — large third-party binaries
 sdk/android/demo/src/main/assets/mushaf/
+# Page fonts relocated out of the APK (downloaded once at runtime; -PbundleFonts re-adds them)
+sdk/android/demo/mushaf-fonts/
 
 # Local Claude settings
 .claude/settings.local.json

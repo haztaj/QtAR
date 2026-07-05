@@ -101,18 +101,41 @@ class QuranReciteDetector(
     private var nativeHandle: Long = 0
     private var listener: Listener? = null
     private var capture: AudioCapture? = null
+    private var debugRec: DebugWavRecorder? = null
+    @Volatile private var debugLogging = false   // logcat: engine assets + native per-hop stats
+    @Volatile private var recording = false      // dump each session's PCM to a WAV (takes effect at start)
+    private var lastRecordingPath: String? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
     fun setListener(listener: Listener) { this.listener = listener }
+
+    /** Toggle runtime debug logging (host UI). Gates the SDK's logcat lines and the native engine's
+     *  per-hop/VAD/commit logs (tag "QuranReciteCore"). Off by default; safe to call any time. */
+    fun setDebugLogging(enabled: Boolean) {
+        debugLogging = enabled
+        if (nativeHandle != 0L) nativeSetDebug(nativeHandle, enabled)
+    }
+
+    /** Toggle dumping the exact 16 kHz PCM fed to the engine to a WAV (host UI). Applies to the next
+     *  [start]; the file lands under getExternalFilesDir and is returned by [lastRecording]. */
+    fun setRecording(enabled: Boolean) { recording = enabled }
+
+    /** Absolute path of the most recently recorded session WAV, or null. */
+    fun lastRecording(): String? = lastRecordingPath
 
     /** Ensures the model is present (downloads on first launch), then creates the engine. */
     fun prepare() {
         ModelManager(context, config.corpus).ensureAsync(
             onProgress = { f -> mainHandler.post { listener?.onModelDownloadProgress(f) } },
             onReady = { assets ->                       // worker thread: build engine here
+                if (debugLogging) android.util.Log.i("QuranRecite",
+                    "engine assets: model=${assets.modelPath.substringAfterLast('/')} " +
+                        "vad=${if (assets.vadPath.isEmpty()) "<none>" else assets.vadPath.substringAfterLast('/')} " +
+                        "ambiguous=${assets.ambiguousPath.isNotEmpty()}")
                 nativeHandle = nativeCreate(
                     assets.modelPath, assets.lexiconPath, assets.tokensPath,
                     assets.filterbankPath, assets.hannPath, assets.ambiguousPath, assets.vadPath)
+                nativeSetDebug(nativeHandle, debugLogging)      // carry the current flag to the engine
                 mainHandler.post { listener?.onModelReady() }
             },
             onError = { e -> mainHandler.post { listener?.onError(e) } },
@@ -123,11 +146,23 @@ class QuranReciteDetector(
     fun start() {
         check(nativeHandle != 0L) { "call prepare() and await onModelReady() first" }
         if (config.managedCapture) {
-            capture = AudioCapture { pcm, sr -> nativeFeed(nativeHandle, pcm, sr) }.also { it.start() }
+            val rec = if (recording) DebugWavRecorder(context) else null
+            capture = AudioCapture { pcm, sr ->
+                rec?.write(pcm)
+                nativeFeed(nativeHandle, pcm, sr)
+            }.also { it.start() }
+            debugRec = rec
         }
     }
 
-    fun stop() { capture?.stop(); capture = null }
+    fun stop() {
+        capture?.stop(); capture = null       // joins threads before we close the recorder
+        debugRec?.close()?.let {
+            lastRecordingPath = it
+            if (debugLogging) android.util.Log.i("QuranRecite", "debug audio saved: $it")
+        }
+        debugRec = null
+    }
 
     /** Advanced: feed mono 16-bit PCM yourself (app-managed capture). */
     fun feed(pcm: ShortArray, sampleRate: Int) {
@@ -166,9 +201,43 @@ class QuranReciteDetector(
         filterbankPath: String, hannPath: String, ambiguousPath: String, vadPath: String): Long
     private external fun nativeFeed(handle: Long, pcm: ShortArray, sampleRate: Int)
     private external fun nativeReset(handle: Long)
+    private external fun nativeSetDebug(handle: Long, enabled: Boolean)
     private external fun nativeDestroy(handle: Long)
 
     companion object {
         init { System.loadLibrary("quranrecite_jni") }
+    }
+}
+
+/** Streams captured 16 kHz mono PCM16 to a WAV (patching sizes on close), for the debug
+ *  "record session" toggle. Created only while recording is enabled (see [setRecording]). */
+private class DebugWavRecorder(context: Context) {
+    private val file = java.io.File(
+        context.getExternalFilesDir(null),
+        "session_${System.currentTimeMillis()}.wav")
+    private val out = java.io.RandomAccessFile(file, "rw").apply {
+        write(ByteArray(44))   // placeholder header, patched in close()
+    }
+    private var dataBytes = 0
+    private var closed = false
+
+    @Synchronized fun write(pcm: ShortArray) {
+        if (closed) return                          // ignore a late write after close (no EBADF)
+        val b = java.nio.ByteBuffer.allocate(pcm.size * 2).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        for (s in pcm) b.putShort(s)
+        out.write(b.array()); dataBytes += pcm.size * 2
+    }
+
+    @Synchronized fun close(): String {
+        closed = true
+        val sr = 16000; val ch = 1; val bps = 16
+        val byteRate = sr * ch * bps / 8
+        val h = java.nio.ByteBuffer.allocate(44).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        h.put("RIFF".toByteArray()); h.putInt(36 + dataBytes); h.put("WAVE".toByteArray())
+        h.put("fmt ".toByteArray()); h.putInt(16); h.putShort(1); h.putShort(ch.toShort())
+        h.putInt(sr); h.putInt(byteRate); h.putShort((ch * bps / 8).toShort()); h.putShort(bps.toShort())
+        h.put("data".toByteArray()); h.putInt(dataBytes)
+        out.seek(0); out.write(h.array()); out.close()
+        return file.absolutePath
     }
 }

@@ -20,6 +20,13 @@ android {
     }
     buildFeatures { compose = true }
     androidResources { noCompress += "onnx" }    // store the model uncompressed (clean extract)
+
+    // The 604 page fonts (~199 MB) live OUTSIDE the packaged assets (in mushaf-fonts/) and are
+    // downloaded once at runtime into external files, which survives app updates — so they are not
+    // in the APK and updates don't re-ship them (see MushafFonts). `-PbundleFonts` adds them back as
+    // an asset source for offline local dev (loaded straight from assets, no download).
+    if (project.hasProperty("bundleFonts"))
+        sourceSets["main"].assets.srcDir("mushaf-fonts")
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -58,3 +65,13 @@ val bundleDevModel by tasks.registering(Copy::class) {
     }
 }
 tasks.named("preBuild") { dependsOn(bundleDevModel) }
+
+// Package the 604 page fonts into a single zip for hosting (upload to the assets host, then set
+// MushafFonts.FONTS_URL/SHA256/VERSION). Entries are p1.ttf..p604.ttf at the zip root.
+//   ./gradlew :demo:zipMushafFonts   ->  build/mushaf-fonts.zip
+tasks.register<Zip>("zipMushafFonts") {
+    from(layout.projectDirectory.dir("mushaf-fonts/mushaf/fonts")) { include("p*.ttf") }
+    archiveFileName.set("mushaf-fonts.zip")
+    destinationDirectory.set(layout.buildDirectory)
+    doLast { logger.lifecycle("wrote ${destinationDirectory.get().file(archiveFileName.get()).asFile}") }
+}

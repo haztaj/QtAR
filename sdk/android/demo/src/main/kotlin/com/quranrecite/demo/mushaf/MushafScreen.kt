@@ -2,6 +2,10 @@
 
 package com.quranrecite.demo.mushaf
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -9,17 +13,27 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.Typeface
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+private val ARABIC_DIGITS = charArrayOf('٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩')
+private fun Int.easternArabic(): String = toString().map { ARABIC_DIGITS[it - '0'] }.joinToString("")
+
 /**
- * The mushaf reader: a right-to-left page pager, a jump-to-page control, and a start/stop
- * detection button. The page auto-advances to follow the detected ayah (from [highlight]).
+ * The mushaf reader. Chrome is a printed-mushaf frame: the top strip shows the page's surah name
+ * (left) and juz number (right); the page number sits at the bottom, mirrored by parity (odd →
+ * right, even → left). Tapping the page toggles two control panels — top (jump + debug), bottom
+ * (start/stop detection) — that slide in over the frame. The page auto-advances to follow the
+ * detected ayah (from [highlight]).
  */
 @Composable
 fun MushafScreen(
@@ -29,10 +43,23 @@ fun MushafScreen(
     modelReady: Boolean,
     listening: Boolean,
     onToggleListen: () -> Unit,
+    debugLogging: Boolean,
+    onDebugLoggingChange: (Boolean) -> Unit,
+    recording: Boolean,
+    onRecordingChange: (Boolean) -> Unit,
+    onShareRecording: () -> Unit,
 ) {
     val pagerState = rememberPagerState(pageCount = { repo.pageCount })
     val scope = rememberCoroutineScope()
     var showJump by remember { mutableStateOf(false) }
+    var chrome by remember { mutableStateOf(false) }   // both control panels visible
+
+    val surahNameFamily = remember(repo) { FontFamily(Typeface(repo.surahNameTypeface)) }
+    val quranCommonFamily = remember(repo) { FontFamily(Typeface(repo.quranCommonTypeface)) }
+
+    val page = pagerState.currentPage + 1
+    val topSurah by produceState(1, page) { value = withContext(Dispatchers.IO) { repo.pageTopSurah(page) } }
+    val juz = repo.pageJuz(page)
 
     // Follow the reciter: when the active ayah changes, page to where it lives.
     LaunchedEffect(highlight.active) {
@@ -42,47 +69,83 @@ fun MushafScreen(
         if (pg - 1 != pagerState.currentPage) pagerState.animateScrollToPage(pg - 1)
     }
 
-    Column(Modifier.fillMaxSize()) {
-        // Top bar — page indicator + jump.
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("Page ${pagerState.currentPage + 1} / ${repo.pageCount}",
-                style = MaterialTheme.typography.labelLarge)
-            Spacer(Modifier.weight(1f))
-            TextButton(onClick = { showJump = true }) { Text("Jump to page") }
-        }
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()) {
+            // Top strip: surah name (left) + juz (right).
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(repo.surahNameGlyph(topSurah), fontFamily = surahNameFamily, fontSize = 22.sp,
+                     maxLines = 1, softWrap = false)
+                Spacer(Modifier.weight(1f))
+                Text(repo.juzGlyph(juz), fontFamily = quranCommonFamily, fontSize = 22.sp,
+                     maxLines = 1, softWrap = false)
+            }
 
-        // Pages — RTL so it reads like a physical mushaf (swipe right→left to advance).
-        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-            HorizontalPager(state = pagerState, modifier = Modifier.weight(1f).fillMaxWidth()) { index ->
-                val loaded by produceState<Pair<MushafPage, android.graphics.Typeface>?>(null, index) {
-                    value = withContext(Dispatchers.IO) {
-                        repo.loadPage(index + 1) to repo.typefaceForPage(index + 1)
+            // Page area: RTL pager + the parity-placed page number at the bottom.
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { index ->
+                        val loaded by produceState<Pair<MushafPage, android.graphics.Typeface>?>(null, index) {
+                            value = withContext(Dispatchers.IO) {
+                                repo.loadPage(index + 1) to repo.typefaceForPage(index + 1)
+                            }
+                        }
+                        val data = loaded
+                        Box(
+                            Modifier.fillMaxSize()
+                                .pointerInput(Unit) { detectTapGestures { chrome = !chrome } },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (data == null) CircularProgressIndicator()
+                            else MushafPageView(data.first, data.second, highlight,
+                                                repo.surahHeaderTypeface, repo::surahHeaderGlyph)
+                        }
                     }
                 }
-                val data = loaded
-                if (data == null) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
-                } else {
-                    MushafPageView(data.first, data.second, highlight,
-                                   repo.surahHeaderTypeface, repo::surahHeaderGlyph)
-                }
+                // Page number — odd pages on the right, even on the left (physical mushaf).
+                Text(
+                    page.easternArabic(),
+                    fontSize = 15.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .align(if (page % 2 == 1) Alignment.BottomEnd else Alignment.BottomStart)
+                        .padding(horizontal = 20.dp, vertical = 6.dp),
+                )
             }
         }
 
-        // Bottom — status + start/stop detection.
-        Column(Modifier.fillMaxWidth().padding(12.dp)) {
-            Text(status, style = MaterialTheme.typography.bodyMedium)
-            Spacer(Modifier.height(6.dp))
-            Button(
-                onClick = onToggleListen,
-                enabled = modelReady,
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text(if (listening) "Stop detection" else "Start detection") }
+        // Top panel (jump + debug) slides down over the top strip.
+        AnimatedVisibility(
+            visible = chrome,
+            enter = slideInVertically { -it }, exit = slideOutVertically { -it },
+            modifier = Modifier.align(Alignment.TopCenter),
+        ) {
+            TopControls(
+                onJump = { showJump = true },
+                debugLogging = debugLogging, onDebugLoggingChange = onDebugLoggingChange,
+                recording = recording, onRecordingChange = onRecordingChange,
+                onShareRecording = onShareRecording,
+            )
+        }
+
+        // Bottom panel (detection) slides up over the page number.
+        AnimatedVisibility(
+            visible = chrome,
+            enter = slideInVertically { it }, exit = slideOutVertically { it },
+            modifier = Modifier.align(Alignment.BottomCenter),
+        ) {
+            Surface(tonalElevation = 3.dp, shadowElevation = 8.dp) {
+                Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                    Text(status, style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(8.dp))
+                    Button(onClick = onToggleListen, enabled = modelReady,
+                           modifier = Modifier.fillMaxWidth()) {
+                        Text(if (listening) "Stop detection" else "Start detection")
+                    }
+                }
+            }
         }
     }
 
@@ -92,6 +155,32 @@ fun MushafScreen(
             onDismiss = { showJump = false },
             onJump = { pg -> showJump = false; scope.launch { pagerState.scrollToPage(pg - 1) } },
         )
+    }
+}
+
+@Composable
+private fun TopControls(
+    onJump: () -> Unit,
+    debugLogging: Boolean, onDebugLoggingChange: (Boolean) -> Unit,
+    recording: Boolean, onRecordingChange: (Boolean) -> Unit,
+    onShareRecording: () -> Unit,
+) {
+    Surface(tonalElevation = 3.dp, shadowElevation = 8.dp) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+            TextButton(onClick = onJump) { Text("Jump to page") }
+            ToggleRow("Debug logging", debugLogging, onDebugLoggingChange)
+            ToggleRow("Record session audio", recording, onRecordingChange)
+            TextButton(onClick = onShareRecording) { Text("Share last recording") }
+        }
+    }
+}
+
+@Composable
+private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Text(label, style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.weight(1f))
+        Switch(checked = checked, onCheckedChange = onChange)
     }
 }
 

@@ -34,7 +34,10 @@ data class HighlightInfo(
 
 private const val BASMALLAH_GLYPH = "ﭐ"   // page fonts map this codepoint to the basmalah glyph
 private const val LINES_PER_PAGE = 15
-private const val FIT = 0.98f                   // leave a hair of margin so nothing clips
+// Safety margin on the auto-fit. The fit measures line widths with TextPaint.measureText, which
+// under-measures vs Compose's actual RTL layout, so the widest (justified) line could overflow and
+// its glyphs collapse/overlap — worst on wide/landscape screens. 0.90 keeps enough headroom.
+private const val FIT = 0.90f
 private const val HEADER_SCALE = 4.8f           // surah-name glyph size, x the ayah font (3x prior)
 
 /**
@@ -139,7 +142,6 @@ fun MushafPageView(
                         },
                         fontFamily = family, fontSize = fontSize,
                         textAlign = TextAlign.Center, maxLines = 1, softWrap = false,
-                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             }

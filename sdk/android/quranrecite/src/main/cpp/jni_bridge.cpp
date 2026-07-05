@@ -142,6 +142,11 @@ Java_com_quranrecite_sdk_QuranReciteDetector_nativeReset(JNIEnv*, jobject, jlong
 }
 
 extern "C" JNIEXPORT void JNICALL
+Java_com_quranrecite_sdk_QuranReciteDetector_nativeSetDebug(JNIEnv*, jobject, jlong handle, jboolean on) {
+    reinterpret_cast<Handle*>(handle)->det->setDebug(on == JNI_TRUE);
+}
+
+extern "C" JNIEXPORT void JNICALL
 Java_com_quranrecite_sdk_QuranReciteDetector_nativeDestroy(JNIEnv* env, jobject, jlong handle) {
     auto* h = reinterpret_cast<Handle*>(handle);
     h->det.reset();  // stop the engine (and its callback) before releasing the global ref

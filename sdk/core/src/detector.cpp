@@ -1,6 +1,7 @@
 #include "quranrecite/detector.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <mutex>
 #include <vector>
@@ -13,6 +14,13 @@
 #include "matcher.h"
 #include "segmenter.h"
 #include "vad.h"
+
+#ifdef __ANDROID__
+#include <android/log.h>
+#define QR_LOG(...) __android_log_print(ANDROID_LOG_INFO, "QuranReciteCore", __VA_ARGS__)
+#else
+#define QR_LOG(...) ((void)0)
+#endif
 
 namespace quranrecite {
 
@@ -82,6 +90,7 @@ struct Detector::Impl {
     HighlightSnapshot lastSnap;   // last emitted highlight; re-emitted per hop to reveal upNext
     std::string curActive;        // committed ayah whose completion gates the darker "up next"
     bool upNextShown = false;     // upNext already revealed for the current active ayah
+    std::atomic<bool> debug{false};   // runtime debug logging (see setDebug)
 
     explicit Impl(const Config& c)
         : cfg(c),
@@ -99,6 +108,7 @@ struct Detector::Impl {
     // A Silero speech-END: paused ayah boundary. Drop the buffered ayah + trailing silence and
     // re-anchor the matcher so the next ayah decodes fresh (mirrors demo/live_detect.py auto loop).
     void boundaryReset() {
+        if (debug) QR_LOG("VAD speech-END -> boundaryReset at %.1fs", (double)totalSamples / kSr);
         rolling.clear();
         vadBuf.clear();
         streamStartAbs = totalSamples;
@@ -117,6 +127,8 @@ struct Detector::Impl {
     }
 
     void emit(EventType type, const std::string& key, double timeSec) {
+        if (debug) QR_LOG("COMMIT %s (%s) at %.1fs", key.c_str(),
+               type == EventType::Detect ? "detect" : type == EventType::Advance ? "advance" : "jump", timeSec);
         const auto c = key.find(':');
         AyahEvent ev;
         ev.type = type;
@@ -175,13 +187,21 @@ struct Detector::Impl {
         const long rollStart = totalSamples - (long)rolling.size();
         const std::size_t wlen = std::min<std::size_t>(W, rolling.size());
         const float* swin = rolling.data() + (rolling.size() - wlen);
-        if (rms(swin, wlen) < 0.005) return;                       // recent silence -> skip
+        const double r = rms(swin, wlen);
+        if (r < 0.005) {
+            if (debug) QR_LOG("hop t=%.1fs rms=%.4f -> silent, skip", timeSec, r);
+            return;
+        }
 
         const long sIdx = std::max<long>(0, streamStartAbs - rollStart);
         const float* stwin = rolling.data() + sIdx;
         const std::size_t stlen = rolling.size() - (std::size_t)sIdx;
 
-        auto st = autod.feed(decodeWindow(swin, wlen), timeSec, decodeWindow(stwin, stlen));
+        auto slidePh = decodeWindow(swin, wlen);
+        auto streamPh = decodeWindow(stwin, stlen);
+        if (debug) QR_LOG("hop t=%.1fs rms=%.4f slidePh=%zu streamPh=%zu (streamBuf=%.1fs)",
+               timeSec, r, slidePh.size(), streamPh.size(), (double)stlen / kSr);
+        auto st = autod.feed(slidePh, timeSec, streamPh);
         if (st.commit) emit(st.commit->event, st.commit->ayah, timeSec);
         maybeUpNext(st.progress);          // reveal the darker "up next" once active is near-complete
         if (st.refocusSec)
@@ -257,6 +277,8 @@ void Detector::reset() {
     impl_->upNextShown = false;
     if (impl_->vad) impl_->vad->reset();
 }
+
+void Detector::setDebug(bool enabled) { impl_->debug.store(enabled); }
 
 const char* Detector::version() { return "0.1.0"; }
 

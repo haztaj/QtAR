@@ -39,6 +39,10 @@ public:
     // Clear the rolling buffer + sequential context (start a fresh recitation session).
     void reset();
 
+    // Runtime debug logging (Android logcat, tag "QuranReciteCore"): per-hop decode stats, VAD
+    // resets, commits. Off by default (zero overhead); toggle live from the host. No-op elsewhere.
+    void setDebug(bool enabled);
+
     static const char* version();
 
 private:
