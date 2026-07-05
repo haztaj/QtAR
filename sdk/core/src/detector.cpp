@@ -79,6 +79,10 @@ struct Detector::Impl {
     long lastProc = 0;
     long streamStartAbs = 0;      // absolute sample where the stream matcher's buffer begins
 
+    HighlightSnapshot lastSnap;   // last emitted highlight; re-emitted per hop to reveal upNext
+    std::string curActive;        // committed ayah whose completion gates the darker "up next"
+    bool upNextShown = false;     // upNext already revealed for the current active ayah
+
     explicit Impl(const Config& c)
         : cfg(c),
           frontend(c.melFilterbankPath, c.hannWindowPath, c.normRms),
@@ -119,7 +123,35 @@ struct Detector::Impl {
         ev.ayah = {std::stoi(key.substr(0, c)), std::stoi(key.substr(c + 1))};
         ev.timeSec = timeSec;
         if (cb) cb(ev);
-        if (hlCb) hlCb(toPublic(hl.detect(key)));
+        if (hlCb) {
+            lastSnap = toPublic(hl.detect(key));   // new active ayah (lighter); upNext hidden until
+            curActive = key;                       //   this ayah nears completion (see maybeUpNext)
+            upNextShown = false;
+            hlCb(lastSnap);
+        }
+    }
+
+    // Once the active ayah is near-complete, reveal its same-surah successor as the darker "up
+    // next" highlight (the ayah being verified now). Re-emits the cached snapshot with upNext set.
+    void maybeUpNext(const std::vector<std::pair<std::string, float>>& progress) {
+        if (!hlCb || curActive.empty() || upNextShown) return;
+        const auto c = curActive.find(':');
+        const int surah = std::stoi(curActive.substr(0, c));
+        const int ayah = std::stoi(curActive.substr(c + 1));
+        const std::string nxt = std::to_string(surah) + ":" + std::to_string(ayah + 1);
+        if (lex.orderIndex(nxt) < 0) return;               // last ayah of the surah -> no upNext
+        // Reveal the darker "up next" once the active ayah is near-complete via its own progress,
+        // OR once the successor has become the leading candidate — i.e. the reciter has moved on,
+        // so the active ayah is effectively done. The latter is what catches short ayat, which
+        // drop out of the top-k before their own progress is ever seen crossing the threshold.
+        float activeP = -1.0f;
+        for (const auto& [k, pr] : progress) if (k == curActive) { activeP = pr; break; }
+        const bool nextLeads = !progress.empty() && progress.front().first == nxt;
+        if (activeP < cfg.doneProgress && !nextLeads) return;
+        lastSnap.hasUpNext = true;
+        lastSnap.upNext = {surah, ayah + 1};
+        upNextShown = true;
+        hlCb(lastSnap);
     }
 
     // One sliding-only step (Mode::Sliding).
@@ -151,6 +183,7 @@ struct Detector::Impl {
 
         auto st = autod.feed(decodeWindow(swin, wlen), timeSec, decodeWindow(stwin, stlen));
         if (st.commit) emit(st.commit->event, st.commit->ayah, timeSec);
+        maybeUpNext(st.progress);          // reveal the darker "up next" once active is near-complete
         if (st.refocusSec)
             streamStartAbs = std::max<long>(streamStartAbs, totalSamples - (long)(*st.refocusSec * kSr));
     }
@@ -219,6 +252,9 @@ void Detector::reset() {
     impl_->seg.reset();
     impl_->autod.reset();
     impl_->hl.reset();
+    impl_->lastSnap = HighlightSnapshot{};
+    impl_->curActive.clear();
+    impl_->upNextShown = false;
     if (impl_->vad) impl_->vad->reset();
 }
 

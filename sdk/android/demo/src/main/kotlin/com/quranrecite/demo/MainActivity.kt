@@ -105,10 +105,11 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() { detector.release(); super.onDestroy() }
 }
 
-/** Map the SDK snapshot to the renderer's highlight sets (keys are "surah:ayah"). */
+/** Map the SDK snapshot to the renderer's highlight sets (keys are "surah:ayah"). Two-phase:
+ *  only the detected ayah (lighter) and the predicted next (darker) are shown — no trail. */
 private fun HighlightState.toInfo() = HighlightInfo(
     active = active?.let { ayahKey(it.surah, it.ayah) },
-    confirmed = confirmed.map { ayahKey(it.surah, it.ayah) }.toSet(),
+    upNext = upNext?.let { ayahKey(it.surah, it.ayah) },
     options = pending?.options?.map { ayahKey(it.surah, it.ayah) }?.toSet() ?: emptySet(),
 )
 

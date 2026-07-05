@@ -21,6 +21,9 @@ struct AutoCommit {
 struct AutoStatus {
     std::optional<AutoCommit> commit;   // the merged detection this hop
     std::optional<float> refocusSec;    // from the stream sub-matcher (driver clips its buffer)
+    // Per-ayah completion progress this hop (key -> 0..1, from the stream matcher's top-k). Lets
+    // the driver reveal the darker "up next" highlight once the active ayah is near-complete.
+    std::vector<std::pair<std::string, float>> progress;
 };
 
 class AutoDetector {

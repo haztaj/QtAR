@@ -46,6 +46,8 @@ std::string snapshotJson(const HighlightSnapshot& s) {
     }
     j += ",\"active\":";
     j += s.hasActive ? "\"" + ayahKey(s.active) + "\"" : "null";
+    j += ",\"upNext\":";
+    j += s.hasUpNext ? "\"" + ayahKey(s.upNext) + "\"" : "null";
     j += "}";
     return j;
 }

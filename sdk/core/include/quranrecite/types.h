@@ -39,8 +39,10 @@ struct HighlightSnapshot {
     std::vector<AyahId> confirmed;    // settled + highlighted, in confirm order
     bool hasPending = false;
     HighlightPending pending;         // valid iff hasPending
-    bool hasActive = false;           // the ayah to emphasize right now
+    bool hasActive = false;           // the ayah just detected (lighter highlight)
     AyahId active{};
+    bool hasUpNext = false;           // the predicted next ayah, shown only once `active` is
+    AyahId upNext{};                  //   near-complete (darker highlight); same surah only
 };
 
 enum class Mode {

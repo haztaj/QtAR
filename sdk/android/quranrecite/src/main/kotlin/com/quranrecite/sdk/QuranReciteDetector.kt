@@ -29,7 +29,8 @@ data class HighlightPending(val ayah: AyahId?, val options: List<AyahId>, val re
 data class HighlightState(
     val confirmed: List<AyahId>,   // settled + highlighted, in confirm order
     val pending: HighlightPending?,// awaiting disambiguation (deferred), or null
-    val active: AyahId?,           // the ayah to emphasize right now, or null
+    val active: AyahId?,           // the ayah just detected (lighter highlight), or null
+    val upNext: AyahId? = null,    // predicted next ayah, set once `active` nears completion (darker)
 ) {
     companion object {
         fun fromJson(json: String): HighlightState {
@@ -47,7 +48,8 @@ data class HighlightState(
                 HighlightPending(ayah, opts, reason)
             }
             val active = if (o.isNull("active")) null else AyahId.parse(o.getString("active"))
-            return HighlightState(confirmed, pending, active)
+            val upNext = if (o.isNull("upNext")) null else AyahId.parse(o.getString("upNext"))
+            return HighlightState(confirmed, pending, active, upNext)
         }
     }
 }

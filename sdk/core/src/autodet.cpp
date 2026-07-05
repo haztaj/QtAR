@@ -77,6 +77,7 @@ AutoStatus AutoDetector::feed(const std::vector<int>& slidePh, double t,
     AutoStatus out;
     out.refocusSec = ss.refocusSec;
     out.commit = reconcile(cands);
+    for (const auto& [key, cost, prog] : ss.ranked) out.progress.emplace_back(key, prog);
     return out;
 }
 
