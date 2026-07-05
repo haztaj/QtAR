@@ -57,3 +57,6 @@ sdk/android/demo/mushaf-fonts/
 
 # Local Claude settings
 .claude/settings.local.json
+
+# Local revert snapshots (models/exports/manifests) — not for git
+backups/
