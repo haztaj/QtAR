@@ -15,6 +15,7 @@ data class ModelAssets(
     val filterbankPath: String,
     val hannPath: String,
     val ambiguousPath: String,   // Stage-3 confusable map; "" if not bundled (deferral off)
+    val vadPath: String,         // Silero VAD; "" if not bundled (no paused-recitation reset)
 )
 
 /**
@@ -47,8 +48,11 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
                 // Optional Stage-3 confusable map — enables ambiguity deferral if bundled.
                 val ambiguous = if (assetExists("quranrecite/ambiguous_ayat.json"))
                     extractBundled("ambiguous_ayat.json") else ""
+                // Optional Silero VAD — enables paused ayah-by-ayah boundary reset if bundled.
+                val vad = if (assetExists("quranrecite/silero_vad.onnx"))
+                    extractBundled("silero_vad.onnx") else ""
                 val model = resolveModel(onProgress)
-                onReady(ModelAssets(model, lexicon, tokens, filterbank, hann, ambiguous))
+                onReady(ModelAssets(model, lexicon, tokens, filterbank, hann, ambiguous, vad))
             } catch (t: Throwable) {
                 onError(t)
             }

@@ -89,7 +89,8 @@ val bundleAssets by tasks.registering(Copy::class) {
     }
     from(assetsSrc) {
         include("ayah_phonemes.json", "tokens.txt", "mel_filterbank.bin", "hann_window.bin",
-                "ambiguous_ayat.json")   // Stage-3 confusable map (enables ambiguity deferral)
+                "ambiguous_ayat.json",   // Stage-3 confusable map (enables ambiguity deferral)
+                "silero_vad.onnx")       // VAD: paused ayah-by-ayah boundary reset (Auto mode)
     }
     into(layout.projectDirectory.dir("src/main/assets/quranrecite"))
 }

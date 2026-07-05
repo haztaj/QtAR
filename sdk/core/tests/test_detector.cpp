@@ -56,6 +56,7 @@ int main(int argc, char** argv) {
     cfg.tokensPath = conf + "/assets/tokens.txt";
     cfg.melFilterbankPath = conf + "/assets/mel_filterbank.bin";
     cfg.hannWindowPath = conf + "/assets/hann_window.bin";
+    if (argc >= 5) cfg.vadPath = argv[4];   // optional Silero VAD (paused-recitation reset)
 
     Detector det(cfg);
     std::vector<std::string> seq;

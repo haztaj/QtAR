@@ -99,7 +99,8 @@ std::string jstr(JNIEnv* env, jstring s) {
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_quranrecite_sdk_QuranReciteDetector_nativeCreate(
         JNIEnv* env, jobject thiz, jstring modelPath, jstring lexiconPath,
-        jstring tokensPath, jstring filterbankPath, jstring hannPath, jstring ambiguousPath) {
+        jstring tokensPath, jstring filterbankPath, jstring hannPath, jstring ambiguousPath,
+        jstring vadPath) {
     auto* h = new Handle();
     env->GetJavaVM(&h->vm);
     h->self = env->NewGlobalRef(thiz);
@@ -115,6 +116,7 @@ Java_com_quranrecite_sdk_QuranReciteDetector_nativeCreate(
     cfg.melFilterbankPath = jstr(env, filterbankPath);
     cfg.hannWindowPath = jstr(env, hannPath);
     cfg.ambiguousPath = jstr(env, ambiguousPath);   // empty -> deferral disabled (confirm all)
+    cfg.vadPath = jstr(env, vadPath);               // empty -> no VAD (energy gate only)
 
     h->det = std::make_unique<Detector>(cfg);
     h->det->setEventCallback([h](const AyahEvent& e) { postEvent(h, e); });

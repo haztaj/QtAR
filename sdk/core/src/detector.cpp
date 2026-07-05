@@ -12,6 +12,7 @@
 #include "inference.h"
 #include "matcher.h"
 #include "segmenter.h"
+#include "vad.h"
 
 namespace quranrecite {
 
@@ -69,9 +70,11 @@ struct Detector::Impl {
     SlidingSegmenter seg;
     AutoDetector autod;
     HighlightController hl;
+    std::unique_ptr<SileroVAD> vad;   // optional (Auto mode): resets on paused-recitation boundaries
 
     std::mutex mtx;
     std::vector<float> rolling;   // recent 16 kHz audio (up to ~30 s; sliding uses the last window)
+    std::vector<float> vadBuf;    // 16 kHz audio pending VAD, fed in 512-sample chunks
     long totalSamples = 0;
     long lastProc = 0;
     long streamStartAbs = 0;      // absolute sample where the stream matcher's buffer begins
@@ -84,7 +87,20 @@ struct Detector::Impl {
           ctx(lex, c),
           seg(lex, ctx, c),
           autod(lex, c),
-          hl(c.ambiguousPath) {}
+          hl(c.ambiguousPath) {
+        if (!c.vadPath.empty())
+            vad = std::make_unique<SileroVAD>(c.vadPath, kSr, c.vadThreshold, c.vadMinSilenceSec);
+    }
+
+    // A Silero speech-END: paused ayah boundary. Drop the buffered ayah + trailing silence and
+    // re-anchor the matcher so the next ayah decodes fresh (mirrors demo/live_detect.py auto loop).
+    void boundaryReset() {
+        rolling.clear();
+        vadBuf.clear();
+        streamStartAbs = totalSamples;
+        lastProc = totalSamples;   // buffer is empty -> skip an immediate no-op step
+        autod.reset();
+    }
 
     int windowSamples() const { return (int)(cfg.windowSec * kSr); }
 
@@ -166,6 +182,21 @@ void Detector::feed(const float* pcm, std::size_t n, int sampleRate) {
     if (impl_->rolling.size() > cap)
         impl_->rolling.erase(impl_->rolling.begin(), impl_->rolling.end() - cap);
 
+    // Silero VAD (Auto): feed the same 16 kHz audio in fixed 512-sample chunks; a speech-END
+    // event marks an ayah boundary -> drop the buffer + re-anchor so the next ayah decodes fresh.
+    if (impl_->vad) {
+        impl_->vadBuf.insert(impl_->vadBuf.end(), r.begin(), r.end());
+        const int VC = SileroVAD::chunkSize();
+        bool boundary = false;
+        std::size_t off = 0;
+        while (impl_->vadBuf.size() - off >= (std::size_t)VC) {
+            if (impl_->vad->feed(impl_->vadBuf.data() + off, VC)) boundary = true;
+            off += VC;
+        }
+        impl_->vadBuf.erase(impl_->vadBuf.begin(), impl_->vadBuf.begin() + off);
+        if (boundary) impl_->boundaryReset();
+    }
+
     const long hop = (long)(impl_->cfg.hopSec * kSr);
     if (impl_->totalSamples - impl_->lastProc >= hop) {
         impl_->lastProc = impl_->totalSamples;
@@ -183,10 +214,12 @@ void Detector::feedPcm16(const short* pcm, std::size_t n, int sampleRate) {
 void Detector::reset() {
     std::lock_guard<std::mutex> lk(impl_->mtx);
     impl_->rolling.clear();
+    impl_->vadBuf.clear();
     impl_->totalSamples = impl_->lastProc = impl_->streamStartAbs = 0;
     impl_->seg.reset();
     impl_->autod.reset();
     impl_->hl.reset();
+    if (impl_->vad) impl_->vad->reset();
 }
 
 const char* Detector::version() { return "0.1.0"; }

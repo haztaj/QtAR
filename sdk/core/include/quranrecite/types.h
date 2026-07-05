@@ -86,6 +86,13 @@ struct Config {
 
     // Front-end (must match conformance/spec.md §Stage 1).
     float normRms = 0.1f;
+
+    // Silero VAD (Auto mode): if vadPath is set, feed speech-END events reset the buffers +
+    // matcher so paused ayah-by-ayah recitation segments cleanly. Empty -> no VAD (energy gate
+    // only). Mirrors demo/live_detect.py's VADIterator(threshold=0.5, min_silence=500 ms).
+    std::string vadPath;
+    float vadThreshold = 0.5f;
+    float vadMinSilenceSec = 0.5f;
 };
 
 using EventCallback = std::function<void(const AyahEvent&)>;

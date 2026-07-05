@@ -110,7 +110,7 @@ class QuranReciteDetector(
             onReady = { assets ->                       // worker thread: build engine here
                 nativeHandle = nativeCreate(
                     assets.modelPath, assets.lexiconPath, assets.tokensPath,
-                    assets.filterbankPath, assets.hannPath, assets.ambiguousPath)
+                    assets.filterbankPath, assets.hannPath, assets.ambiguousPath, assets.vadPath)
                 mainHandler.post { listener?.onModelReady() }
             },
             onError = { e -> mainHandler.post { listener?.onError(e) } },
@@ -161,7 +161,7 @@ class QuranReciteDetector(
 
     private external fun nativeCreate(
         modelPath: String, lexiconPath: String, tokensPath: String,
-        filterbankPath: String, hannPath: String, ambiguousPath: String): Long
+        filterbankPath: String, hannPath: String, ambiguousPath: String, vadPath: String): Long
     private external fun nativeFeed(handle: Long, pcm: ShortArray, sampleRate: Int)
     private external fun nativeReset(handle: Long)
     private external fun nativeDestroy(handle: Long)

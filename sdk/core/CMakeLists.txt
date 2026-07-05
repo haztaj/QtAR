@@ -26,6 +26,7 @@ add_library(quranrecite_core STATIC
     src/autodet.cpp
     src/highlight.cpp
     src/inference.cpp
+    src/vad.cpp
     src/assets.cpp
     src/detector.cpp
 )
@@ -69,7 +70,7 @@ if(QR_BUILD_CONFORMANCE)
         target_link_options(conformance_runner PRIVATE -static -static-libgcc -static-libstdc++)
     endif()
 
-    foreach(t test_inference test_detector)
+    foreach(t test_inference test_detector test_vad)
         add_executable(${t} tests/${t}.cpp)
         target_include_directories(${t} PRIVATE include src ${ORT_HOME}/include)
         target_link_libraries(${t} PRIVATE quranrecite_core)

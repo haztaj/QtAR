@@ -132,6 +132,14 @@ def main():
     # self-contained lexicon copy
     (CONF / "assets" / "tokens.txt").write_text((REPO / "data" / "lang" / "tokens.txt").read_text(encoding="utf-8"), encoding="utf-8")
     (CONF / "assets" / "ayah_phonemes.json").write_text((REPO / "data" / "lang" / "ayah_phonemes.json").read_text(encoding="utf-8"), encoding="utf-8")
+    # Silero VAD model (paused ayah-by-ayah boundary reset) — copied from the pip package so the
+    # C++ core + Android build have it; .onnx is gitignored, so this reproduces it on a fresh tree.
+    try:
+        import silero_vad, shutil
+        src = Path(silero_vad.__file__).parent / "data" / "silero_vad_16k_op15.onnx"
+        shutil.copyfile(src, CONF / "assets" / "silero_vad.onnx")
+    except Exception as e:  # noqa: BLE001 — optional; VAD degrades to off if absent
+        print(f"  (silero VAD not copied: {e}; paused-recitation reset will be disabled)")
 
     # --- helpers ---
     def to16k(path):
