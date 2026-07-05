@@ -126,9 +126,11 @@ onError(...)
 - **iOS**: `.xcframework` (device arm64 + simulator) + Swift API + assets; depend on the
   ONNX Runtime iOS package. Distribute via **Swift Package Manager** (primary) and/or
   CocoaPods. iOS 13+.
-- **Assets (~16 MB)**: bundle in the SDK for the MVP (simplest). Offer a
-  **download-on-first-launch** option later (smaller install; needs caching + integrity
-  check) — matters more at full-Quran scope only if the model grows (it won't much).
+- **Assets**: the small lexicon/tokens/DSP/ambiguity/VAD assets ship in the `.aar`; the ~15 MB
+  model is **download-on-first-launch** (`ModelManager`, versioned + sha256-verified + cached).
+  The demo's ~199 MB KFGQPC page fonts are likewise **downloaded once** into external files
+  (`MushafFonts`) so they survive app updates and keep the APK small (~64 MB) — see
+  `sdk/android/README.md`.
 
 ---
 
@@ -192,11 +194,14 @@ you recite (the real use case). It exercises every SDK event.
 2. ✅ **ORT integration** — int8 model wired; parity vs Python verified, full pipeline
    reproduces `114:1→2→3` end-to-end (`sdk/core/tests/test_detector`). int8 is weight-only
    dynamic / MatMul-only (runs on every ORT CPU build; see `export/CLAUDE.md`).
-3. **Android AAR + Kotlin API** + managed capture; bring up on a device. ← next
-4. **iOS XCFramework + Swift API** + managed capture.
-5. **Demo app** (primary platform first), then the second.
+3. ✅ **Android AAR + Kotlin API + Compose demo** — built and **running on-device** (2026-07-05):
+   auto mode default, Silero VAD reset, two-phase highlight (`upNext`), decoupled capture
+   (reader→queue→inference worker), runtime debug toggle, and download-once page-font delivery.
+   See `sdk/android/README.md`.
+4. **iOS XCFramework + Swift API** + managed capture. ← next
+5. ✅ **Demo app** (Android Compose) — mushaf reader; iOS demo with the iOS SDK.
 6. Hardening: lifecycle/interruptions, NNAPI/CoreML A-B, on-device RTF/memory profiling
-   (the eval roadmap item), packaging/publishing.
+   (the eval roadmap item), host the model + font artifacts, packaging/publishing.
 
 > Note: the desktop core uses the **30 s full-utterance** int8 export padded to the 4 s
 > window. The dedicated fixed **4 s sliding-window** streaming export (§4) is a small

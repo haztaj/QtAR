@@ -224,6 +224,34 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   in-order ones via sequential context and defers/retro-confirms the successor-only one
   (`83:23↔83:35`). The only context-unresolvable Juz-Amma pair is `99:8↔99:7` (near-, not
   identical-, phoneme; `99:8` ends its surah) → `needs_choice` manual fallback, by design.
+- **Android app — on-device functional (2026-07-05).** The Compose demo runs live on a real
+  device (Samsung foldable). Landed this session:
+  - **Auto mode is the C++-core default** (`Mode::Auto`): sliding + stream matchers merged,
+    handling any ayah length. `demo/streaming.py` + `demo/auto.py` ported to
+    `sdk/core/src/{stream,autodet}.cpp`.
+  - **Silero VAD ported to the core** (`sdk/core/src/vad.*`, `silero_vad_16k_op15.onnx`, needs
+    the 64-sample context prepend). A speech-END resets the buffer + matcher so paused
+    ayah-by-ayah recitation segments cleanly (parity with `demo/live_detect.py`). Bundled in
+    the `.aar`; reproduced by `conformance/generate.py`.
+  - **Capture fix (critical):** model inference ran on the AudioRecord read loop, so stalls
+    dropped ~30% of samples (holes → garbage detection) and a race crashed on Stop. `AudioCapture`
+    now decouples read from inference (reader → queue → worker) and joins threads on stop.
+  - **Two-phase highlight:** the detected ayah (lighter) + its same-surah successor (darker,
+    "up next") revealed once the active ayah nears completion (`doneProgress` or the successor
+    leads). `HighlightSnapshot.upNext` — added at the public-snapshot layer; the
+    conformance-pinned HighlightController is untouched.
+  - **Mushaf reader redesign:** top strip = surah name (`surah-name.ttf` `surahNNN`) + juz
+    (`quran-common.ttf` `juzNNN`); Eastern-Arabic page number, odd→right/even→left; tap toggles
+    a top panel (jump + debug) and bottom panel (start/stop). Page auto-fit margin widened
+    (`FIT 0.90`) — `measureText` under-measures vs Compose RTL layout, overflowing the widest
+    justified line on wide/landscape screens.
+  - **Font packaging:** the 604 KFGQPC page fonts (~199 MB) are downloaded ONCE into external
+    files (survives app updates) instead of shipping in the APK → beta APK **205 MB → 64 MB**;
+    updates never re-ship the fonts. `MushafFonts` (hosted zip + sha256 + version); `-PbundleFonts`
+    keeps them in for offline dev.
+  - **Runtime debug (UI-controlled):** `Detector::setDebug` / `setDebugLogging` / `setRecording`
+    gate all logcat + the session-WAV recorder, toggled from the app's debug panel (persisted).
+    Debug instrumentation now lives in-tree, off by default — no more strip-before-commit.
 - **Next options:** (1) **true streaming export** (`Emformer.infer` chunk-by-chunk — another
   ~4× + lower latency, the battery/wearable path); (2) in-house learner collection for the
-  long surahs (raises the learner ceiling).
+  long surahs (raises the learner ceiling); (3) iOS wrapper.

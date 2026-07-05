@@ -17,8 +17,10 @@ python conformance/verify.py --candidate <out_dir>    # check the C++ port's out
 
 - `spec.md` — the exact computation the port must reproduce (front-end DSP, matcher /
   sliding segmenter, formats, tolerances). **This is the contract.**
-- `generate.py` — produces `assets/` (exact mel filterbank + Hann window + lexicon),
-  `fixtures/` (inputs), `golden/` (expected outputs), `manifest.json`.
+- `generate.py` — produces `assets/` (exact mel filterbank + Hann window + lexicon +
+  `ambiguous_ayat.json` + the Silero VAD `silero_vad.onnx`, copied from the pip `silero-vad`
+  package for the C++ core + Android build), `fixtures/` (inputs), `golden/` (expected outputs),
+  `manifest.json`.
 - `verify.py` — comparison logic: front-end log-mel within `1e-2`; matcher event sequences
   exact. Self-check recomputes from the reference (currently 0.0 diff, ALL PASS).
 

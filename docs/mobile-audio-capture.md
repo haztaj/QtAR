@@ -1,6 +1,17 @@
 # Mobile audio capture — recommendations (for the app phase)
 
-Captured 2026-06-30. Not yet implemented — reference for when the app is built.
+Captured 2026-06-30. **Android implemented** in `sdk/android/quranrecite/.../AudioCapture.kt`
+(`VOICE_RECOGNITION` + `AutomaticGainControl`, NS/AEC off); iOS reference for later.
+
+> **Capture must not share a thread with inference (learned 2026-07-05).** The first Android
+> build ran the model inline on the `AudioRecord` read loop, so any inference stall (ORT warm-up,
+> GC, a long stream-buffer decode) stopped `read()` and AudioRecord silently overran its buffer —
+> a real session lost **~30% of samples** (20 s captured over a 30 s recitation), punching holes in
+> the audio and wrecking detection. Fix: a reader thread that only `read()`s + enqueues, and a
+> separate worker that drains the queue into the engine (`AudioCapture` reader→queue→worker), with a
+> 1 s AudioRecord buffer for headroom. `stop()` **joins both threads** before releasing, so no
+> callback fires after stop. This is the concrete realization of §8 (one capture thread, one
+> inference worker) — treat it as mandatory, not optional.
 
 ## Context
 

@@ -13,25 +13,55 @@ android/
 ## Demo — mushaf reader
 
 The demo renders **real Quran pages** with the KFGQPC V2 glyph fonts (604 page fonts,
-`QCF2001…QCF2604`) driven by a bundled layout DB. Swipe **right-to-left** between the 604
-pages, **jump to any page**, and **start/stop** live detection from the bottom bar; the
-detected ayah highlights on the page and the pager auto-advances to follow the reciter
-(wired to `onHighlightState`). The page auto-sizes its font to the screen, so it re-fits on
-**foldable postures and orientation changes** (the Activity handles config changes itself and
-the page measures via `BoxWithConstraints`, keeping the native detector alive across resize).
+`QCF2001…QCF2604`) driven by a bundled layout DB, styled like a printed mushaf:
+
+- **Top strip:** the page's surah name (`surah-name.ttf`, ligature `surahNNN`) on the left and
+  the juz number (`quran-common.ttf`, ligature `juzNNN`) on the right; an ornate surah-header
+  banner (`surah-header.ttf`) renders on the page itself.
+- **Page:** maximized; swipe **right-to-left** between the 604 pages. The page number sits at
+  the bottom in Eastern-Arabic numerals, **odd→right / even→left** (printed-mushaf style).
+- **Tap** anywhere toggles two panels: a **top** panel (jump-to-page + debug toggles) and a
+  **bottom** panel (start/stop detection + status).
+- The detected ayah highlights (lighter) and, once it nears completion, the next ayah is shown
+  darker as "up next" — a **two-phase** highlight (`onHighlightState`, `active` + `upNext`); the
+  pager auto-advances to follow the reciter.
+- **Auto-fit + re-fit:** the page auto-sizes its font to the screen and re-fits on **foldable
+  postures and orientation changes** (the Activity handles config changes itself; the page
+  measures via `BoxWithConstraints`, keeping the native detector alive across resize). A widened
+  fit margin (`FIT 0.90`) avoids the widest justified line overflowing on wide/landscape screens.
+
+**Debug (UI-controlled):** the top panel has **Debug logging** (gates native + SDK logcat via
+`setDebugLogging` → `Detector::setDebug`) and **Record session audio** (dumps the exact fed PCM
+to a WAV via `setRecording`) + **Share last recording** (FileProvider). Both persist in
+`SharedPreferences`, off by default — the instrumentation lives in-tree, not stripped per commit.
 
 **Assets (not committed — large third-party binaries, gitignored under
-`demo/src/main/assets/mushaf/`):**
+`demo/src/main/assets/mushaf/`, plus the relocated page fonts under `demo/mushaf-fonts/`):**
 - `fonts/pN.ttf` — the 604 KFGQPC V2 page fonts (word glyphs are page-local PUA codepoints).
+  **Downloaded once at runtime** (~199 MB) into external files, not shipped in the APK — see below.
+- `fonts/surah-name.ttf`, `fonts/surah-header.ttf`, `fonts/quran-common.ttf`,
+  `surah-header-ligatures.json` — bundled (small).
 - `layout.db` — `pages` table: per (page,line) the `line_type`, `is_centered`, and word-id range.
-- `words.db` — `words` table: per word (id 1..83668) its `surah`, `ayah`, and glyph `text`.
+- `words.db` — `words` table: per word (id 1..83668) its `surah`, `ayah`, and glyph `text`
+  (a single page-local PUA codepoint per word).
 
 Get these from [qul.tarteel.ai](https://qul.tarteel.ai): the *KFGQPC V2 mushaf-layout* (SQLite),
-the *QPC V2 page-by-page font* (TTF), and the *QPC V2 Glyph word-by-word* script (SQLite),
-placed as above. Rendering a line = concatenate each word's glyph in that page's font;
-surah-name headers use a simple placeholder (the KFGQPC surah-name font isn't bundled) and
-the basmalah uses the page font's glyph. The Juz-Amma model still detects across the whole
-mushaf; only ayat the model was trained on (78–114) will highlight.
+the *QPC V2 page-by-page font* (TTF), and the *QPC V2 Glyph word-by-word* script (SQLite).
+Rendering a line = concatenate each word's glyph (space-separated) in that page's font; the
+basmalah uses the page font's glyph. The Juz-Amma model still detects across the whole mushaf;
+only ayat the model was trained on (78–114) will highlight.
+
+### Page-font delivery (download-once)
+
+The 604 page fonts are ~199 MB — too large to ship in the APK, where they would re-download on
+every app update. Instead they are relocated out of the packaged assets (to `demo/mushaf-fonts/`)
+and **downloaded once** into `getExternalFilesDir`, which **survives app updates** — so the beta
+APK is **~64 MB** (down from ~205 MB) and updates never re-ship the fonts. `MushafFonts` fetches a
+versioned zip (`FONTS_URL` + `FONTS_SHA256` + `FONTS_VERSION`), verifies the hash, unzips once, and
+shows a determinate "Downloading text (one time)" progress screen with a retry on failure. Produce
+the hosting zip with `./gradlew :demo:zipMushafFonts` (→ `build/mushaf-fonts.zip`). For offline dev,
+`./gradlew :demo:assembleDebug -PbundleFonts` keeps the fonts in the APK and loads them from assets
+(no download). The DBs + small fonts stay bundled.
 
 ## Prerequisites
 
@@ -81,11 +111,14 @@ ORT `.so` itself is packaged into the consuming app by the onnxruntime-android d
 
 ## Assets & the model
 
-The engine needs six files. The **five small ones** (`ayah_phonemes.json`, `tokens.txt`,
-`mel_filterbank.bin`, `hann_window.bin`, and `ambiguous_ayat.json` — the Stage-3 confusable
-map that enables ambiguity deferral) are copied into the `.aar` by the `bundleAssets` task
-from `conformance/assets/` and extracted to `filesDir` at runtime. (`ambiguous_ayat.json` is
-optional: if absent, deferral is disabled and every detection confirms immediately.)
+The engine needs a handful of small assets plus the model. The **small ones**
+(`ayah_phonemes.json`, `tokens.txt`, `mel_filterbank.bin`, `hann_window.bin`,
+`ambiguous_ayat.json` — the Stage-3 confusable map that enables ambiguity deferral, and
+`silero_vad.onnx` — the ~1.3 MB VAD that resets on paused-recitation boundaries) are copied into
+the `.aar` by the `bundleAssets` task from `conformance/assets/` and extracted to `filesDir` at
+runtime. Both `ambiguous_ayat.json` and `silero_vad.onnx` are optional: if absent, deferral /
+paused-recitation VAD-reset are simply disabled. `conformance/generate.py` reproduces the VAD
+asset from the pip `silero-vad` package (it's `.onnx`, hence gitignored).
 
 The **~15 MB `model.int8.onnx`** is *not* committed (repo rule) and is delivered by
 `ModelManager` at first launch:
@@ -147,14 +180,22 @@ is 16 KB-aligned; 1.18 was 4 KB). Verified: ELF `p_align=0x4000` on every lib an
 1.22 (CPU EP, same kernels as Android): conformance + `test_detector` are byte-identical to
 1.18 (`114:1→2→3`), so the ORT bump doesn't change detections.
 
-The demo APK is **self-contained and offline** — the int8 model is dev-bundled, so on launch
-it extracts the model + assets and is ready with no server. Install and recite:
+**Running on-device (2026-07-05).** The Compose demo runs live on a real device (Samsung
+foldable). Landed this session:
+- **Auto mode** default (sliding + stream matchers merged; `sdk/core/src/{stream,autodet}.cpp`).
+- **Silero VAD** in the core resets on paused-recitation boundaries (`vad.cpp`, bundled asset).
+- **Capture decoupled** — `AudioCapture` reads on one thread and runs inference on another, so
+  an inference stall no longer stalls `AudioRecord.read()` (this was dropping ~30% of samples →
+  garbled audio → bad detection) and no longer races on Stop.
+- **Two-phase highlight** (`upNext`), the mushaf reader redesign, **font download-once**
+  packaging (APK ~205 MB → ~64 MB), and the **runtime debug** panel (above).
+
+The demo's int8 model is still dev-bundled (the 4 s window model), so it runs with no server
+once the fonts are downloaded. Install and recite:
 
 ```bash
 ./gradlew :demo:installDebug     # onto a connected device/emulator (grant the mic prompt)
 ```
 
-Not yet **run** here (the dev container has no device/mic). Next: install on a device and
-validate live detection; then host the model + package/publish; iOS after. The dedicated
-fixed **4 s streaming export** (vs the current 30 s window) is a perf follow-up before
-shipping.
+Next: host the model + font-zip artifacts (both wired for download); on-device RTF/memory
+profiling; then iOS.
