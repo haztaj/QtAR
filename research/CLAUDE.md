@@ -29,3 +29,19 @@ python research/segment_ablation.py            # decode-cache once, then CPU arm
 ```
 
 Cache: `data/raw/segments/test_streams.pkl` (gitignored).
+
+## dissect_misses.py — why the segment index misses
+
+Of arm B's 286 parent-misses (2026-07-06): **74.5% are exact twins** (phoneme-identical
+references — Baqarah's recurring refrains like «أفلا تعقلون»; indistinguishable by
+construction, resolved by sequential context + ambiguity deferral, the machinery already
+proven at ayah level), 2.4% near-twins, 0.7% margin-close. True residual (truth ranked
+low): **2.07% of all streams**, skewing short (<4 s) — decode/alignment quality, the
+posterior-aware matcher bridge is the known lever.
+
+**Effective context-resolved ceiling of the segment index: 97.9%** — equal to the
+ayah-level Juz-Amma baseline (97.4%), while adding mid-ayah entry, pause-resume, and
+5-7 s TTD. Conclusion so far: **the waqf segment is the right detection unit**; the
+ayah is a derived (parent) label. Next: chained decoder over continuous clips (segment
+n -> n+1 context) to validate the ceiling empirically; segment-level ambiguity map
+(extend matcher/find_ambiguous.py) to formalize the twin classes for deferral.
