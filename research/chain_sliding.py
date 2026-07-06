@@ -129,11 +129,13 @@ def window_best(win, ngram_idx, refs, ref_lens):
 
 def decode_sliding(stream, ngram_idx, refs, window_s, hop_s, cost_thresh,
                    votes_next: int, votes_jump: int, ref_lens=None, scales=(1.0, 2.0),
-                   use_twin_sub: bool = True):
+                   use_twin_sub: bool = True, succ_fn=None):
     """Multi-scale sliding windows; per window the production whole-window edit-norm
     (trie-shortlisted); vote state machine emits the chain."""
     if ref_lens is None:
         ref_lens = {k: len(v) for k, v in refs.items()}
+    if succ_fn is None:
+        succ_fn = lambda k: successor(k, refs)   # within-ayah only (per-clip eval)
     phons, times = stream["phonemes"], stream["times"]
     if not phons:
         return []
@@ -189,7 +191,7 @@ def decode_sliding(stream, ngram_idx, refs, window_s, hop_s, cost_thresh,
             emitted.append(top)
             emit_t.append(w1)
             consumed = w1 - 2.0            # keep some overlap for the next unit's window
-            expected = successor(top, refs)
+            expected = succ_fn(top)
             pending, votes = None, 0
     return emitted
 

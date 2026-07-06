@@ -70,3 +70,19 @@ wins-once 74% / 2-consec 52% — assembly now extracts nearly all available wind
 
 Open gaps: pos1 69% vs oracle 74 (small assembly gap); long segments + multi-scale window
 coverage; cross-ayah context evaluation; then the C++ port of the winning design.
+
+## continuous_eval.py — multi-ayah continuous streams (the deployment condition)
+
+Runs of 4 consecutive ayat per test reciter (concatenated cached streams, mean ~132 s,
+segmented + unsegmented ayat mixed), v8 decoder with FULL context: within-ayah segment
+succession + cross-ayah handoff. Metrics are alignment-based (edit traceback), not
+prefix-positional — one early insertion must not mark every later unit wrong.
+
+**Quick-pass result (150 seqs, 2026-07-07): aligned-hit 85.1%; twins 37.5% blind ->
+75.0% with context (+37.5 — blind is a coin flip among identical-ref twins; context
+resolves 3/4).** The methodology's central claims are now all measured: segments are
+the right unit, twins dominate the miss mass, sequential context resolves them.
+
+Remaining (assembly-layer, not detection): insertion control (unit SER ~32% vs ~15%
+hit-misses) and the parent/ayah chain derivation (naive smoothing gives ~50% ayah SER
+— needs the production HighlightController deferral logic, not island-dropping).
