@@ -28,8 +28,8 @@ object MushafFonts {
     // `./gradlew :demo:zipMushafFonts` and upload (e.g. a GitHub release on a public assets repo);
     // then fill these in. FONTS_VERSION gates re-download — bump it when the font data changes.
     const val FONTS_URL = "https://github.com/haztaj/QtAR/releases/download/mushaf/mushaf-fonts.zip"
-    const val FONTS_SHA256 = "e59a23cccafe600585740e946e30376bd420a1bacfcfac9ec1bfd683f6a63c96"            // optional integrity check ("" = skip)
-    const val FONTS_VERSION = "kfgqpc-v2-1"
+    const val FONTS_SHA256 = "4e2ccdf6774f5fd97d722ec82637a84b2be41eed8ac6ffec8151ff05ecec2f8f"            // optional integrity check ("" = skip)
+    const val FONTS_VERSION = "kfgqpc-v2-2"   // tajweed color fonts (bump forces re-download)
     private const val PAGE_COUNT = 604
 
     private fun dir(context: Context) = File(context.getExternalFilesDir(null), "mushaf/fonts")
