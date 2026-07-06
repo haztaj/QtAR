@@ -78,10 +78,12 @@ segmented + unsegmented ayat mixed), v8 decoder with FULL context: within-ayah s
 succession + cross-ayah handoff. Metrics are alignment-based (edit traceback), not
 prefix-positional — one early insertion must not mark every later unit wrong.
 
-**Quick-pass result (150 seqs, 2026-07-07): aligned-hit 85.1%; twins 37.5% blind ->
-75.0% with context (+37.5 — blind is a coin flip among identical-ref twins; context
-resolves 3/4).** The methodology's central claims are now all measured: segments are
-the right unit, twins dominate the miss mass, sequential context resolves them.
+**Full-run result (747 seqs / 5,007 units, 2026-07-07): aligned-hit 81.9%; twins
+33.1% blind -> 68.1% with context (+35.0 — blind is a coin flip among identical-ref
+twins; context resolves >2/3); unit SER 28.7%; exact sequences 20.1%; smoothed
+ayah-chain SER 36.5%.** The methodology's central claims are now all measured:
+segments are the right unit, twins dominate the miss mass, sequential context
+resolves them.
 
 Remaining (assembly-layer, not detection): insertion control (unit SER ~32% vs ~15%
 hit-misses) and the parent/ayah chain derivation (naive smoothing gives ~50% ayah SER
