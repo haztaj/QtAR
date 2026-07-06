@@ -8,7 +8,11 @@ On-device, real-time detection of *which* Quranic ayah is being recited from a l
 
 Output: a ranked `surah:ayah` ID (e.g. `78:1`). Not transcription. Not tajweed scoring.
 
-MVP scope: **Juz Amma only (surahs 78–114, Hafs ʿan ʿAsim)**. Full Quran is out of scope until the MVP works.
+MVP scope: **Juz Amma (surahs 78–114) + Al-Fātiḥah, Al-Baqarah, Āl-ʿImrān (surahs 1–3), Hafs
+ʿan ʿAsim.** ⚠️ Expanded beyond Juz-Amma-only — user-signed-off 2026-07-05. Surahs 1–3 are fully
+covered by the same 30-reciter quran-md-ayahs data (14,790 clips); surah 4 is skipped (only ayat
+1–34 available). The Juz-Amma-only state is preserved at git tag `juz30-v1` + `backups/juz30/`.
+Full Quran remains out of scope for now.
 
 ---
 
@@ -19,7 +23,7 @@ MVP scope: **Juz Amma only (surahs 78–114, Hafs ʿan ʿAsim)**. Full Quran is 
 | Deployment | Fully on-device / offline. No server component. |
 | Target speaker | App user reciting, including learners and non-native speakers. |
 | Riwayah | Hafs ʿan ʿAsim only. |
-| MVP scope | Juz Amma (surahs 78–114). |
+| MVP scope | Juz Amma (78–114) + surahs 1–3. ⚠️ Expanded from Juz-Amma-only, user-signed-off 2026-07-05 (revert: tag `juz30-v1`). |
 | Training hardware | RTX 5080 (16 GB), Ryzen 9 9950X. |
 | Architecture | Two-stage (streaming encoder + CPU fuzzy matcher). Do not swap. |
 | Training framework | **Plain PyTorch** Zipformer+CTC on native Windows. ⚠️ Deviates from the original icefall/k2 plan — user-signed-off 2026-06-29 (k2 is Linux-only; avoids WSL). Export still targets sherpa-onnx / onnxruntime. |
@@ -252,6 +256,22 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   - **Runtime debug (UI-controlled):** `Detector::setDebug` / `setDebugLogging` / `setRecording`
     gate all logcat + the session-WAV recorder, toggled from the app's debug panel (persisted).
     Debug instrumentation now lives in-tree, off by default — no more strip-before-commit.
+- **Research-first pivot (2026-07-06, user-directed).** Methodology findings (grounded in
+  practical use) outrank shipping UI. Two results so far: (1) **negative result** — no per-clip
+  commit-margin policy fixes long-ayah false commits (4 policy families swept on cached margin
+  trajectories; the ambiguity is structural: long shared prefixes only diverge late; 59.7% false
+  commits on s1-3 at the old T=0.15/K=5). (2) **Waqf segmentation dataset built** — ayah text
+  splits at waqf marks (standalone tokens in the Uthmani text), CTC forced alignment
+  (`data/build_segments.py`, torchaudio forced_align + own model) yields 1,029 segment refs /
+  30,870 aligned spans over 10,350 clips with 0 failures; median segment 8.5 s = the regime the
+  matcher already handles at 97%. Splits audition-approved by ear. Next: matcher-arm ablation
+  (whole-ayah vs segment index vs hierarchical) on segment-aware metrics (TTD seconds, mid-ayah
+  cold start, pause-resume).
+- **Corpus expanded + model retrained (2026-07-05/06).** Surahs 1-3 added (1,057 ayat, 153.9 h);
+  `best_s123.pt` (combined val PER 0.130; s1-3 0.130 / juz 0.110). End-to-end test: s1-3 96.1%
+  top-1, juz 95.3% (vs 97.4% juz-only baseline, with a doubled index). Training perf: the batch
+  sampler now bounds B*T^2 (quad budget) — long-clip batches previously crossed the ~8 GB WDDM
+  paging cliff and collapsed throughput ~25x. Juz-30 revert: tag `juz30-v1` + `backups/juz30/`.
 - **Next options:** (1) **true streaming export** (`Emformer.infer` chunk-by-chunk — another
   ~4× + lower latency, the battery/wearable path); (2) in-house learner collection for the
   long surahs (raises the learner ceiling); (3) iOS wrapper.
