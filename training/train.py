@@ -111,6 +111,10 @@ def main():
     ap.add_argument("--epochs", type=int, default=60)
     ap.add_argument("--frame-budget", type=int, default=24000,
                     help="max (batch_size * max_frames) per batch; bounds attention memory")
+    ap.add_argument("--quad-budget", type=float, default=1.0e8,
+                    help="max (batch_size * max_frames^2); bounds O(T^2) attention memory so "
+                         "long-clip batches stay below the WDDM paging cliff (see data.py). "
+                         "Lower it when other apps hold significant VRAM.")
     ap.add_argument("--max-seconds", type=float, default=30.0)
     ap.add_argument("--augment", action="store_true", help="phase-2 phone-channel augmentation (train only)")
     ap.add_argument("--noise-dir", default=None, help="optional background-noise corpus dir")
@@ -152,8 +156,10 @@ def main():
     val_ds = AyahDataset("val", max_seconds=args.max_seconds)  # eval always on clean
     print(f"train={len(train_ds)}  val={len(val_ds)}  vocab={vocab}")
 
-    train_sampler = LengthBucketBatchSampler(train_ds.frame_lengths(), args.frame_budget, shuffle=True)
-    val_sampler = LengthBucketBatchSampler(val_ds.frame_lengths(), args.frame_budget, shuffle=False)
+    train_sampler = LengthBucketBatchSampler(train_ds.frame_lengths(), args.frame_budget,
+                                             shuffle=True, quad_budget=args.quad_budget)
+    val_sampler = LengthBucketBatchSampler(val_ds.frame_lengths(), args.frame_budget,
+                                           shuffle=False, quad_budget=args.quad_budget)
     print(f"batches/epoch: train={len(train_sampler)} val={len(val_sampler)}")
 
     # Augmentation (audiomentations) leaks RAM across epochs; with persistent_workers

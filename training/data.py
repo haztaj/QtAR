@@ -254,14 +254,22 @@ class AyahDataset(Dataset):
 
 
 class LengthBucketBatchSampler:
-    """Variable-size batches bounded by (batch_size * max_frames) <= frame_budget.
+    """Variable-size batches bounded by (batch_size * max_frames) <= frame_budget
+    AND (batch_size * max_frames^2) <= quad_budget.
 
     Clips are sorted by length so each batch is near-uniform (minimal padding) and
-    long clips land in small batches — bounding Emformer's O(U^2) attention memory.
+    long clips land in small batches. The linear budget bounds padding waste; the
+    QUADRATIC budget bounds Emformer's O(T^2) attention memory. Without it, long-clip
+    batches (e.g. 4 x 60 s at frame_budget 24000) push peak GPU memory past the point
+    where the Windows/WDDM driver starts paging VRAM to system RAM and throughput
+    collapses ~6-25x (measured on the RTX 5080 16 GB: 4x60 s = 833 ms/clip, peak 9.0 GB
+    vs 3x60 s = 134 ms/clip, peak 6.8 GB — the cliff sits near ~8 GB allocated).
+    quad_budget=1.0e8 (mel frames^2) keeps every batch shape comfortably below it.
     Batch order is shuffled each epoch; sizes vary, so set drop_last per need.
     """
 
-    def __init__(self, lengths: list[int], frame_budget: int, shuffle: bool = True, seed: int = 0):
+    def __init__(self, lengths: list[int], frame_budget: int, shuffle: bool = True, seed: int = 0,
+                 quad_budget: float = 1.0e8):
         self.shuffle = shuffle
         self.epoch = 0
         self.seed = seed
@@ -271,7 +279,8 @@ class LengthBucketBatchSampler:
         cur_max = 0
         for i in order:
             new_max = max(cur_max, lengths[i])
-            if cur and (len(cur) + 1) * new_max > frame_budget:
+            if cur and ((len(cur) + 1) * new_max > frame_budget
+                        or (len(cur) + 1) * new_max * new_max > quad_budget):
                 self.batches.append(cur)
                 cur, cur_max = [i], lengths[i]
             else:
