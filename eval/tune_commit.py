@@ -35,8 +35,11 @@ from data import AyahDataset, collate, load_tokens, load_ayah_phonemes   # noqa:
 from model import EmformerCTC                                            # noqa: E402
 from phoneme_matcher import PhonemeTrie, PhonemeMatcher                  # noqa: E402
 
-THRESHOLDS = [0.05, 0.10, 0.15, 0.20]
-PERSISTENCE = [1, 2, 3, 5, 8]   # consecutive phonemes the leader must hold the margin
+THRESHOLDS = [0.05, 0.10, 0.15, 0.20, 0.25, 0.30]
+PERSISTENCE = [3, 5, 8, 12, 16, 24]   # consecutive phonemes the leader must hold the margin
+# Grid extended upward for the surah 1-3 expansion: Al-Baqarah's long shared prefixes
+# ("ya ayyuha alladhina amanu...") hold a false margin far longer than any Juz-Amma ayah,
+# so the old T=0.15/K=5 committed before divergence (59.7% false commits on the s1-3 test).
 INF = float("inf")
 
 
