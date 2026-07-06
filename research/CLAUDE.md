@@ -88,3 +88,21 @@ resolves them.
 Remaining (assembly-layer, not detection): insertion control (unit SER ~32% vs ~15%
 hit-misses) and the parent/ayah chain derivation (naive smoothing gives ~50% ayah SER
 — needs the production HighlightController deferral logic, not island-dropping).
+
+## Assembly layer (deferral confirmation) — in continuous_eval.py
+
+Ports the HighlightController's core rule to unit chains: **expected successors confirm
+immediately; unexpected jumps defer until the next emission supports them** (successor
+or same-parent forward), else they're dropped as interlopers — the twin-error signature.
+Backward/repeat emissions within a parent are dropped as window re-fires.
+
+Full-run effect (747 seqs, third ablation arm on identical decodes, 2026-07-07):
+unit SER 28.7% -> **21.6%**, ayah-chain SER 36.4% -> **22.2%**, exact sequences
+19.9% -> **32.3%**; retention cost -3.4 aligned-hit (78.5%). Insertions are gone —
+the SER now sits at the hit-miss floor.
+
+**Pipeline (each layer measured + ablated):** sliding windows + 3-gram retrieval +
+infix scoring + maximal munch -> successor votes + twin substitution -> deferral
+assembly. Remaining detection gap is window coverage/decode quality (~20% missed
+units, skewing short segments + long-segment window mismatch); next levers: oracle
+re-run post-munch, multi-scale tuning, posterior-aware matching; then the C++ port.

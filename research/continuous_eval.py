@@ -229,6 +229,47 @@ def main():
                 j -= 1
         return hits
 
+    def assemble(emitted):
+        """Deferral-grade chain assembly (HighlightController logic at unit level):
+        - the EXPECTED successor of the last confirmed unit confirms immediately;
+        - a unit continuing the current parent forward confirms;
+        - an unexpected jump is DEFERRED: confirmed retroactively iff the next emission
+          supports it (its successor or same-parent forward), else dropped (interloper —
+          the twin-error signature);
+        - backward/repeat emissions within the current parent are dropped (re-fires)."""
+        confirmed: list[str] = []
+        deferred: str | None = None
+
+        def parent(u): return u.split("#")[0]
+        def idx(u): return int(u.split("#")[1]) if "#" in u else 0
+
+        for u in emitted:
+            if deferred is not None:
+                if u == succ_full(deferred) or (parent(u) == parent(deferred)
+                                                and idx(u) > idx(deferred)):
+                    confirmed.append(deferred)     # retro-confirm the jump
+                    confirmed.append(u)
+                    deferred = None
+                    continue
+                deferred = None                    # unsupported -> drop the interloper
+            if not confirmed:
+                deferred = u                       # cold start: even the first defers
+                continue
+            last = confirmed[-1]
+            if u == succ_full(last):
+                confirmed.append(u)                # expected successor: confirm now
+            elif parent(u) == parent(last):
+                if idx(u) > idx(last):
+                    confirmed.append(u)            # forward skip within the parent
+                # backward / repeat within parent: drop (re-fire)
+            else:
+                deferred = u                       # unexpected jump: await support
+        if deferred is not None and confirmed and deferred == succ_full(confirmed[-1]):
+            confirmed.append(deferred)
+        elif deferred is not None and not confirmed:
+            confirmed.append(deferred)             # lone emission — keep it
+        return confirmed
+
     def parents_dedup(units, smooth: bool = False):
         seq = [u.split("#")[0] for u in units]
         if smooth:
@@ -246,7 +287,9 @@ def main():
                 out.append(p)
         return out
 
-    for name, vn, vj, tw in (("context+twin", 1, 2, True), ("blind", 2, 2, False)):
+    for name, vn, vj, tw, asm in (("context+twin+ASSEMBLY", 1, 2, True, True),
+                                  ("context+twin", 1, 2, True, False),
+                                  ("blind", 2, 2, False, False)):
         ser_n = ser_d = exact = 0
         pos_ok = pos_n = twin_ok = twin_n = 0
         aser_n = aser_d = 0
@@ -254,6 +297,8 @@ def main():
             emitted = decode_sliding(q, ngram_idx, refs, args.window, args.hop, args.cost,
                                      vn, vj, ref_lens=ref_lens, use_twin_sub=tw,
                                      succ_fn=succ_full)
+            if asm:
+                emitted = assemble(emitted)
             truth = q["truth"]
             ser_n += edit_seq(emitted, truth); ser_d += len(truth)
             exact += emitted == truth
@@ -263,7 +308,7 @@ def main():
                 if tkey in twins:
                     twin_ok += ok; twin_n += 1
             ta = parents_dedup(truth)
-            ea = parents_dedup(emitted, smooth=True)
+            ea = parents_dedup(emitted, smooth=not asm)   # assembly needs no smoothing
             aser_n += edit_seq(ea, ta); aser_d += len(ta)
         print(f"\n== continuous, {name} ==")
         print(f"  unit SER {ser_n/ser_d:6.1%} | exact seqs {exact/len(seqs):5.1%} | "
