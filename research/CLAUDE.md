@@ -45,3 +45,28 @@ ayah-level Juz-Amma baseline (97.4%), while adding mid-ayah entry, pause-resume,
 ayah is a derived (parent) label. Next: chained decoder over continuous clips (segment
 n -> n+1 context) to validate the ceiling empirically; segment-level ambiguity map
 (extend matcher/find_ambiguous.py) to formalize the twin classes for deferral.
+
+## chain_sliding.py — chained segment decoding (v8, working)
+
+Sliding-window chaining over full continuous clips. The design emerged from a measured
+iteration chain (each step isolated by a targeted diagnostic — see git history):
+
+| v | design | positional | lesson |
+|---|---|---|---|
+| v1 (chain_decoder.py) | commit-and-reset anchor | 33% (pos2 10%) | resets lose the next unit's prefix -> cascade |
+| v2 | sliding + trie-terminal scoring | 0.2% | terminal scoring needs boundary-aligned input |
+| v3 | + whole-window edit-norm | 8% | edge junk swamps unaligned windows |
+| v4 | + restart shortlist + infix | 0.8% | trie shortlist can't retrieve mid-window entries |
+| v5 | + 3-GRAM shortlist, loose len gate | 31% | retrieval fixed (oracle: shortlist 95%, truth cost median 0.08) |
+| v6 | + maximal munch, confidence votes | 59% | short formulaic refs embed at ~0 cost; SER 112% (insertions) |
+| v7 | + temporal emission gating | 59%, SER 35%, exact 46% | soft time anchor: gate emissions, never matching |
+| v8 | + TWIN SUBSTITUTION via context | 63% | twins tie on cost AND length; only context can pick |
+
+**Context ablation (v8, 250 clips): twins 26% -> 46% (+20), pos2 +10, positional +5.**
+Position-1 twins are unresolvable cold by definition (no prior context in per-clip eval);
+continuous recitation supplies context at every position — cross-clip evaluation is the
+next condition to build. Oracle funnel (scratch): shortlist 95% / gate 92% / cost 91% /
+wins-once 74% / 2-consec 52% — assembly now extracts nearly all available window wins.
+
+Open gaps: pos1 69% vs oracle 74 (small assembly gap); long segments + multi-scale window
+coverage; cross-ayah context evaluation; then the C++ port of the winning design.
