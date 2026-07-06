@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
 Extract MP3 audio bytes from quran-md-ayahs parquets to files on disk.
-Processes only Juz Amma rows (surahs 78-114).  Safe to re-run: skips
-files that already exist.
+Processes the detection corpus (surahs 1-3 + Juz Amma 78-114).  Safe to re-run: skips
+files that already exist (so re-running after the corpus expansion only writes the new
+surah 1-3 clips; the Juz Amma files are untouched).
 
 Output layout:
     data/raw/audio/<reciter_id>/s<surah>_a<ayah>.mp3
@@ -21,7 +22,7 @@ DATA_DIR = Path(__file__).parent
 QMD_DIR = DATA_DIR / "raw" / "quran-md-ayahs"
 AUDIO_DIR = DATA_DIR / "raw" / "audio"
 
-JUZ_AMMA = set(range(78, 115))
+CORPUS_SURAHS = {1, 2, 3} | set(range(78, 115))   # surahs 1-3 added 2026-07-05
 WORKERS = 8  # parallel writers
 
 
@@ -61,7 +62,7 @@ def process_parquet(path: Path) -> list[dict]:
         path,
         columns=["surah_id", "ayah_id", "reciter_id", "reciter_name", "audio"],
     )
-    rows = df[df["surah_id"].isin(JUZ_AMMA)].to_dict("records")
+    rows = df[df["surah_id"].isin(CORPUS_SURAHS)].to_dict("records")
 
     results = []
     with ThreadPoolExecutor(max_workers=WORKERS) as pool:
@@ -100,9 +101,9 @@ def main():
     total_written = 0
 
     for i, path in enumerate(parquets, 1):
-        # Quick check: does this parquet have any Juz Amma rows?
+        # Quick check: does this parquet have any corpus rows?
         sids = pd.read_parquet(path, columns=["surah_id"])["surah_id"]
-        if not sids.isin(JUZ_AMMA).any():
+        if not sids.isin(CORPUS_SURAHS).any():
             continue
 
         print(f"[{i}/{len(parquets)}] {path.name} ...", end=" ", flush=True)
@@ -112,7 +113,7 @@ def main():
         all_records.extend(new)
         existing.update(r["recording_id"] for r in new)
         total_written += len(new)
-        print(f"{len(records)} Juz Amma rows | {len(new)} new files written")
+        print(f"{len(records)} corpus rows | {len(new)} new files written")
 
     if all_records:
         new_df = pd.DataFrame(all_records)

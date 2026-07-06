@@ -29,7 +29,7 @@ QMD_DIR = DATA_DIR / "raw" / "quran-md-ayahs"
 AUDIO_DIR = DATA_DIR / "raw" / "audio"
 MANIFEST_DIR = DATA_DIR / "manifests"
 
-JUZ_AMMA = set(range(78, 115))
+CORPUS_SURAHS = {1, 2, 3} | set(range(78, 115))   # surahs 1-3 added 2026-07-05
 WORKERS = 16
 
 VAL_RECITERS = 3
@@ -53,8 +53,8 @@ def load_ayah_text() -> dict[str, str]:
     ref: dict[str, str] = {}
     for path in sorted(QMD_DIR.glob("train-*.parquet")):
         df = pd.read_parquet(path, columns=["surah_id", "ayah_id", "ayah_ar"])
-        juz = df[df["surah_id"].isin(JUZ_AMMA)].drop_duplicates(["surah_id", "ayah_id"])
-        for row in juz.itertuples(index=False):
+        sub = df[df["surah_id"].isin(CORPUS_SURAHS)].drop_duplicates(["surah_id", "ayah_id"])
+        for row in sub.itertuples(index=False):
             ref[f"{int(row.surah_id)}:{int(row.ayah_id)}"] = row.ayah_ar
     print(f"  {len(ref)} unique (surah, ayah) entries")
     return ref

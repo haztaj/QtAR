@@ -21,6 +21,10 @@ RAW_DIR = DATA_DIR / "raw"
 QMD_DIR = RAW_DIR / "quran-md-ayahs"
 
 JUZ_AMMA = set(range(78, 115))
+EXTRA_SURAHS = {1, 2, 3}                 # added 2026-07-05 (surahs 1-3, fully covered)
+CORPUS_SURAHS = EXTRA_SURAHS | JUZ_AMMA  # the closed detection corpus
+# Per-surah total ayah counts (for coverage completeness checks on the added surahs).
+SURAH_AYAH_COUNTS = {1: 7, 2: 286, 3: 200}
 QMD_REPO = "Buraaq/quran-md-ayahs"
 QMD_TOTAL = 71
 
@@ -59,50 +63,49 @@ def _download_parquet(index: int) -> Path:
     return flat
 
 
-def load_juz_amma_qmd() -> pd.DataFrame:
-    print("Loading quran-md-ayahs (Juz Amma slices) ...")
+def load_corpus_qmd() -> pd.DataFrame:
+    """Slice the corpus surahs (1-3 + Juz Amma) from the **locally-present** parquet shards.
+
+    Juz Amma lives in the final shards (64-70) and surahs 1-3 in the first (0-5); both ranges
+    are pre-downloaded. We scan only shards that exist on disk and never download the ~34 GB of
+    middle shards — corpus expansion added surahs 1-3 from already-downloaded shards, not a full
+    dataset pull (see CLAUDE.md, 2026-07-05).
+    """
+    print("Loading quran-md-ayahs (corpus slices: surahs 1-3 + Juz Amma) ...")
     frames: list[pd.DataFrame] = []
     covered: set[int] = set()
-    fully_covered = False
 
-    for i in range(QMD_TOTAL - 1, -1, -1):
+    for i in range(QMD_TOTAL):
         path = _parquet_path(i)
-        if path.exists():
-            print(f"  [{i:02d}] Using cached {path.name}")
-        else:
-            path = _download_parquet(i)
-
+        if not path.exists():
+            continue  # skip non-downloaded shards (no download)
         df = pd.read_parquet(path, columns=["surah_id", "ayah_id", "reciter_name"])
-        juz_slice = df[df["surah_id"].isin(JUZ_AMMA)]
-        frames.append(juz_slice)
-        covered |= set(juz_slice["surah_id"].unique())
+        sl = df[df["surah_id"].isin(CORPUS_SURAHS)]
+        if sl.empty:
+            continue
+        frames.append(sl)
+        covered |= set(sl["surah_id"].unique())
+        print(f"  [{i:02d}] {path.name}: {len(sl):>5} corpus rows "
+              f"(surahs {sorted(sl['surah_id'].unique())[:6]})")
 
-        missing = JUZ_AMMA - covered
-        print(f"       {len(juz_slice):>5} Juz Amma rows | "
-              f"surahs covered: {len(covered)}/37"
-              + (f" | still missing: {sorted(missing)[:8]}" if missing else ""))
-
-        if not missing:
-            if not fully_covered:
-                # First full-coverage hit: grab one extra parquet in case the
-                # boundary surah is split across two shards (e.g. surah 78).
-                fully_covered = True
-                continue
-            print("  Juz Amma fully covered — stopping.")
-            break
-    else:
-        missing = JUZ_AMMA - covered
-        if missing:
-            print(f"WARNING: exhausted all parquets; missing surahs: {sorted(missing)}", file=sys.stderr)
-
-    return pd.concat(frames, ignore_index=True)
+    missing = CORPUS_SURAHS - covered
+    if missing:
+        print(f"WARNING: corpus surahs with no rows in local shards: {sorted(missing)}",
+              file=sys.stderr)
+    qmd = pd.concat(frames, ignore_index=True)
+    # Completeness check on the added surahs (Juz-Amma coverage was verified previously).
+    for sid, total in SURAH_AYAH_COUNTS.items():
+        got = qmd[qmd["surah_id"] == sid]["ayah_id"].nunique()
+        flag = "OK" if got == total else f"INCOMPLETE ({got}/{total})"
+        print(f"  surah {sid}: {got}/{total} ayat -> {flag}")
+    return qmd
 
 
 # ---------------------------------------------------------------------------
 # RetaSy
 # ---------------------------------------------------------------------------
 
-def load_retasy_juz_amma() -> pd.DataFrame:
+def load_retasy_corpus() -> pd.DataFrame:
     print("\nLoading RetaSy/quranic_audio_dataset ...")
     ds = load_dataset("RetaSy/quranic_audio_dataset", split="train")
 
@@ -139,8 +142,8 @@ def load_retasy_juz_amma() -> pd.DataFrame:
     df["surah_id"] = df["surah_id"].astype(int)
     print(f"  Dropped {before - len(df)} non-Quran rows -> {len(df)} remaining")
 
-    df = df[df["surah_id"].isin(JUZ_AMMA)]
-    print(f"  After Juz Amma filter: {len(df)} rows")
+    df = df[df["surah_id"].isin(CORPUS_SURAHS)]
+    print(f"  After corpus filter (1-3 + Juz Amma): {len(df)} rows")
     return df
 
 
@@ -164,7 +167,7 @@ def _duration_hours(df: pd.DataFrame, col: str) -> float:
 def print_report(qmd: pd.DataFrame, retasy: pd.DataFrame) -> None:
     sep = "=" * 60
     print(f"\n{sep}")
-    print("COVERAGE REPORT — Juz Amma (surahs 78–114)")
+    print("COVERAGE REPORT — corpus (surahs 1-3 + Juz Amma 78–114)")
     print(sep)
 
     print(f"\n--- quran-md-ayahs ({len(qmd)} clips, {qmd['reciter_name'].nunique()} reciters) ---")
@@ -189,10 +192,10 @@ def write_data_claude_md(qmd: pd.DataFrame, retasy: pd.DataFrame) -> None:
     dur = _duration_col(retasy)
 
     lines = [
-        "# Juz Amma — dataset coverage\n\n",
+        "# Corpus — dataset coverage (surahs 1-3 + Juz Amma 78-114)\n\n",
         "Auto-generated by `data/prepare.py`. Re-run to refresh. "
         "Do not edit by hand.\n\n",
-        "## quran-md-ayahs — Juz Amma\n\n",
+        "## quran-md-ayahs — corpus\n\n",
         f"- Total clips: {len(qmd)}\n",
         f"- Reciters: {qmd['reciter_name'].nunique()}\n\n",
         "| Surah | Clips |\n",
@@ -222,7 +225,7 @@ def write_data_claude_md(qmd: pd.DataFrame, retasy: pd.DataFrame) -> None:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    qmd = load_juz_amma_qmd()
-    retasy = load_retasy_juz_amma()
+    qmd = load_corpus_qmd()
+    retasy = load_retasy_corpus()
     print_report(qmd, retasy)
     write_data_claude_md(qmd, retasy)
