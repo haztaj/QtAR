@@ -97,9 +97,13 @@ struct Config {
     std::string unitPhonemesPath;   // unit_phonemes.json (waqf segments + unsegmented ayat)
     float chainWindowSec = 10.0f;   // base window (scales 0.2/0.7/1.0/1.5/2.2 x this)
     float chainHopSec = 1.5f;
-    float chainCost = 0.30f;        // window fire threshold
+    float chainCost = 0.30f;        // window fire threshold; 0.30 = clean-decode reference,
+                                    // ~0.45 for consumer phone mics (~30% PER decodes)
     int chainVotesNext = 1;
     int chainVotesJump = 2;
+    float chainEarlyPrefix = 0.5f;  // >0: fire the EXPECTED unit once this fraction of its
+                                    // prefix matches the decode tail (early detection);
+                                    // 0 disables (commit at unit end only)
 
     // Silero VAD (Auto mode): if vadPath is set, feed speech-END events reset the buffers +
     // matcher so paused ayah-by-ayah recitation segments cleanly. Empty -> no VAD (energy gate

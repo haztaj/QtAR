@@ -57,14 +57,22 @@ data class HighlightState(
 /** Coverage of the bundled model/lexicon. */
 enum class Corpus { JUZ_AMMA, FULL_QURAN }
 
-enum class Mode { SLIDING, BUFFER }
+/** Detection engine. AUTO = merged sliding+stream matchers (ayah units); CHAIN = the
+ *  unit-chain decoder over waqf segments (research winning design; needs the 22 s model
+ *  + unit_phonemes.json in the asset bundle). SLIDING/BUFFER are legacy single-matcher
+ *  modes. The native ordinal must match quranrecite::Mode (types.h). */
+enum class Mode { AUTO, SLIDING, BUFFER, CHAIN }
 
 data class Config(
     val corpus: Corpus = Corpus.JUZ_AMMA,
-    val mode: Mode = Mode.SLIDING,
+    val mode: Mode = Mode.AUTO,
     val managedCapture: Boolean = true,   // SDK opens the mic with recommended settings
     val windowSec: Float = 4.0f,
     val hopSec: Float = 1.0f,
+    // Chain-mode window fire threshold. 0.30 = the research reference for clean decodes;
+    // consumer phone mics decode at ~30% PER and need ~0.45 (verified on a live session —
+    // the vote + deferral-assembly layers absorb the extra junk fires).
+    val chainCost: Float = 0.45f,
 )
 
 /**
@@ -134,7 +142,8 @@ class QuranReciteDetector(
                         "ambiguous=${assets.ambiguousPath.isNotEmpty()}")
                 nativeHandle = nativeCreate(
                     assets.modelPath, assets.lexiconPath, assets.tokensPath,
-                    assets.filterbankPath, assets.hannPath, assets.ambiguousPath, assets.vadPath)
+                    assets.filterbankPath, assets.hannPath, assets.ambiguousPath, assets.vadPath,
+                    config.mode.ordinal, assets.unitPhonemesPath, config.chainCost)
                 nativeSetDebug(nativeHandle, debugLogging)      // carry the current flag to the engine
                 mainHandler.post { listener?.onModelReady() }
             },
@@ -198,7 +207,8 @@ class QuranReciteDetector(
 
     private external fun nativeCreate(
         modelPath: String, lexiconPath: String, tokensPath: String,
-        filterbankPath: String, hannPath: String, ambiguousPath: String, vadPath: String): Long
+        filterbankPath: String, hannPath: String, ambiguousPath: String, vadPath: String,
+        mode: Int, unitPhonemesPath: String, chainCost: Float): Long
     private external fun nativeFeed(handle: Long, pcm: ShortArray, sampleRate: Int)
     private external fun nativeReset(handle: Long)
     private external fun nativeSetDebug(handle: Long, enabled: Boolean)

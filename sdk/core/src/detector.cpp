@@ -259,19 +259,57 @@ struct Detector::Impl {
         }
         if (debug) QR_LOG("chain hop t=%.1fs rms=%.4f ph=%zu (buf=%.1fs)",
                           timeSec, r, ph.size(), (double)rolling.size() / kSr);
+        // Context-gated early detection: fire the EXPECTED unit once >= earlyPrefix of
+        // its prefix matches the decode tail (before the scale fires, like the reference).
+        if (cfg.chainEarlyPrefix > 0.0f) {
+            const int exp = chainVoter->expectedUnit();
+            if (exp >= 0 && (int)ph.size() >= 4) {
+                const int L = units->len(exp);
+                const int minI = std::max(6, (int)std::ceil(cfg.chainEarlyPrefix * L - 1e-9));
+                if (L >= minI) {
+                    const double pc = prefixNorm(units->phonemes(exp), ph, minI);
+                    if (pc <= cfg.chainCost) {
+                        if (auto em = chainVoter->onFire(timeSec, exp, pc)) {
+                            if (debug) QR_LOG("chain EARLY %s cost=%.2f at %.1fs",
+                                              units->key(em->unit).c_str(), pc, timeSec);
+                            for (int cu : chainAsm->push(em->unit)) confirmUnit(cu, timeSec);
+                        }
+                    }
+                }
+            }
+        }
         for (double sc : kChainScales) {
             const double w0 = timeSec - cfg.chainWindowSec * sc;
             auto lo = std::lower_bound(tm.begin(), tm.end(), w0);
             std::vector<int> win(ph.begin() + (lo - tm.begin()), ph.end());
             if ((int)win.size() < 4) continue;
-            auto [u, cost] = windowBest(win, *units);
+            auto [u, cost] = windowBest(win, *units, cfg.chainCost);
             if (u < 0 || cost > cfg.chainCost) continue;
             if (auto em = chainVoter->onFire(timeSec, u, cost)) {
                 if (debug) QR_LOG("chain EMIT %s cost=%.2f at %.1fs",
                                   units->key(em->unit).c_str(), cost, timeSec);
-                for (int cu : chainAsm->push(em->unit)) confirmUnit(cu, timeSec);
+                auto confirms = chainAsm->push(em->unit);
+                for (int cu : confirms) confirmUnit(cu, timeSec);
+                maybeProvisional(em->unit, confirms.empty(), timeSec);
             }
         }
+    }
+
+    // Cold-start responsiveness: the FIRST detection is deferred by the assembler until a
+    // supporter arrives (junk control) — a 10-20 s dead window on short surahs. Surface the
+    // pending unit's ayah as the provisional ACTIVE highlight (lighter, unconfirmed); the
+    // first real confirmation overwrites it. Only before anything is confirmed — mid-stream
+    // pendings stay invisible (junk jumps would flicker the highlight).
+    void maybeProvisional(int unit, bool deferred, double timeSec) {
+        if (!deferred || !hlCb || !chainAsm->confirmed().empty()) return;
+        const auto& pend = chainAsm->pendingUnits();
+        if (pend.empty() || pend.back() != unit) return;   // dropped, not deferred
+        const auto c = units->parentKey(unit).find(':');
+        const std::string& pk = units->parentKey(unit);
+        if (debug) QR_LOG("chain PROVISIONAL %s at %.1fs", pk.c_str(), timeSec);
+        lastSnap.hasActive = true;
+        lastSnap.active = {std::stoi(pk.substr(0, c)), std::stoi(pk.substr(c + 1))};
+        hlCb(lastSnap);
     }
 
     // A confirmed unit: parent transitions drive the public ayah events + highlight;

@@ -23,6 +23,7 @@ import com.quranrecite.demo.mushaf.MushafRepository
 import com.quranrecite.demo.mushaf.MushafScreen
 import com.quranrecite.demo.mushaf.ayahKey
 import com.quranrecite.sdk.Config
+import com.quranrecite.sdk.Mode
 import com.quranrecite.sdk.HighlightState
 import com.quranrecite.sdk.PendingReason
 import com.quranrecite.sdk.QuranReciteDetector
@@ -46,7 +47,7 @@ class MainActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         enterImmersive()
-        detector = QuranReciteDetector(this, Config())
+        detector = QuranReciteDetector(this, Config(mode = Mode.CHAIN))
 
         setContent {
             MaterialTheme {

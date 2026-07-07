@@ -16,6 +16,7 @@ data class ModelAssets(
     val hannPath: String,
     val ambiguousPath: String,   // Stage-3 confusable map; "" if not bundled (deferral off)
     val vadPath: String,         // Silero VAD; "" if not bundled (no paused-recitation reset)
+    val unitPhonemesPath: String,// waqf-segment unit lexicon; "" if not bundled (Chain mode off)
 )
 
 /**
@@ -31,6 +32,8 @@ data class ModelAssets(
 class ModelManager(private val context: Context, private val corpus: Corpus) {
 
     private val root = File(context.filesDir, "quranrecite").apply { mkdirs() }
+    // Extracted assets live in a VERSIONED subdir: extractBundled skips existing files, so
+    // without the version key a corpus/model update would silently reuse stale extractions.
     private val versionDir = File(root, MODEL_VERSION).apply { mkdirs() }
 
     /** Resolve all assets off the main thread; callbacks fire on the worker thread. */
@@ -51,8 +54,11 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
                 // Optional Silero VAD — enables paused ayah-by-ayah boundary reset if bundled.
                 val vad = if (assetExists("quranrecite/silero_vad.onnx"))
                     extractBundled("silero_vad.onnx") else ""
+                // Optional waqf-segment unit lexicon — enables Mode.CHAIN if bundled.
+                val units = if (assetExists("quranrecite/unit_phonemes.json"))
+                    extractBundled("unit_phonemes.json") else ""
                 val model = resolveModel(onProgress)
-                onReady(ModelAssets(model, lexicon, tokens, filterbank, hann, ambiguous, vad))
+                onReady(ModelAssets(model, lexicon, tokens, filterbank, hann, ambiguous, vad, units))
             } catch (t: Throwable) {
                 onError(t)
             }
@@ -108,9 +114,9 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
     private fun assetExists(path: String): Boolean =
         runCatching { context.assets.open(path).close() }.isSuccess
 
-    /** Copy a file from the .aar's assets/quranrecite/ into filesDir (once). */
+    /** Copy a file from the .aar's assets/quranrecite/ into the versioned dir (once). */
     private fun extractBundled(name: String): String {
-        val out = File(root, name)
+        val out = File(versionDir, name)
         if (!out.exists()) context.assets.open("quranrecite/$name").use { i ->
             out.outputStream().use { o -> i.copyTo(o) }
         }
@@ -129,7 +135,7 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
     companion object {
         // Remote model artifact (download-on-first-launch). Fill URL + sha256 when the
         // versioned artifact is hosted; until then bundle a dev model (see class doc).
-        const val MODEL_VERSION = "best_mic-v1"
+        const val MODEL_VERSION = "best_s123-22s-v1"   // 1,057-ayah corpus + 22 s chain model
         const val MODEL_URL = ""      // TODO: hosted, versioned model URL
         const val MODEL_SHA256 = ""   // TODO: expected sha256 (empty = skip verify)
         const val BUNDLED_MODEL = "model.int8.onnx"

@@ -130,6 +130,7 @@ int main(int argc, char** argv) {
             p.costThresh = spec["params"]["cost"];
             p.votesNext = spec["params"]["votes_next"];
             p.votesJump = spec["params"]["votes_jump"];
+            p.earlyPrefix = spec["params"].value("early_prefix", 0.0);
             std::vector<int> phon;
             for (auto& t : spec["stream"]["phonemes"]) phon.push_back(uidx.tokenId(t.get<std::string>()));
             std::vector<double> times;

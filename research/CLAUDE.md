@@ -160,6 +160,40 @@ EXACT (emitted + assembled) over 200 real decoded test streams. Audio-level smok
 reference on the same audio. `assemble`/`make_succ_full` now live in chain_sliding.py
 (module-level = the citable reference).
 
+## On-device findings (2026-07-08, live phone sessions — Samsung foldable)
+
+Debugged from per-hop engine logs + pulled session WAVs, each reproduced offline:
+
+- **The fire threshold must track decode quality.** Consumer phone-mic decodes run
+  ~30% PER (vs ~10% for dataset audio; verified on a pulled 53 s session of 2:6-2:9 —
+  both best_s123 AND best_mic decode it equally poorly, so this is the acoustic gap,
+  not an s123 fine-tune regression). True units then cost 0.35-0.45 against the 0.30
+  reference threshold -> almost no fires ("no detection at all"). Sweep on the real
+  session: **0.45 recovers the exact true chain** (0.50 tips over — junk disrupts the
+  cold start); on CLEAN audio 0.45 regresses (ayah SER 13 -> 22) — so 0.30 stays the
+  clean reference and 0.45 ships as the phone config (`window_best(fire_cost=)` /
+  `windowBest(fireCost)` / Kotlin `Config.chainCost`). The vote + 2-deep assembly
+  layers are what make the loose phone threshold safe (v6-era junk explosion absorbed).
+- **v11 — context-gated EARLY-PREFIX firing** (`decode_sliding(early_prefix=0.5)`,
+  `_prefix_norm`): whole-unit matching cannot fire until a unit is ~complete (the old
+  Auto stack's partial-prefix scoring is what made it feel fast). Now: each
+  largest-scale window checks whether the decode TAIL matches >= 50% of the EXPECTED
+  unit's prefix -> fires it early. Only ever fires the unit context predicts (low
+  risk). **Improves accuracy too, not just latency** (clean 150-seq quick pass,
+  assembly arm: SER 12.9 -> 10.7, aligned-hit 87.5 -> 91.4, exact seqs 45.3 -> 56.7 —
+  prefix matches survive decode errors that sink whole-unit matches). Conformance
+  fixture `early_prefix_run` pins the C++ path.
+- **Cold-start provisional highlight** (detector-level, not research): the assembler
+  defers the first detection until a supporter arrives — a 10-20 s dead window on
+  short surahs (measured 16.6 s on a live surah-111 session). The pending unit's ayah
+  now shows immediately as the provisional ACTIVE highlight (public-snapshot layer;
+  the conformance-pinned controller and assembly are untouched); the first real
+  confirmation overwrites it. Cold start only — mid-stream pendings stay invisible.
+- **Remaining phone-latency wall: decode quality.** Mid-surah units on the quiet mic
+  fire at 0.41-0.44 (threshold 0.45) — commits land when alignment luck dips under.
+  The fix is model-side: re-apply the poor-mic augmentation recipe (best_mic: learner
+  16 -> 67%) to the expanded-corpus model — mic-adaptation fine-tune of best_s123.
+
 ## Segment-level ambiguity map (matcher/find_ambiguous.py --units)
 
 Formalizes the twin classes for the production deferral layer:

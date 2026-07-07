@@ -109,6 +109,10 @@ def main():
     ap.add_argument("--window", type=float, default=10.0)
     ap.add_argument("--hop", type=float, default=1.5)
     ap.add_argument("--cost", type=float, default=0.30)
+    ap.add_argument("--early-prefix", type=float, default=0.5,
+                    help="context-gated early firing fraction (0 disables); improves BOTH "
+                         "latency and accuracy (prefix matches survive decode errors that "
+                         "sink whole-unit matches)")
     ap.add_argument("--rebuild-cache", action="store_true")
     args = ap.parse_args()
 
@@ -255,7 +259,8 @@ def main():
         for q in seqs:
             emitted = decode_sliding(q, ngram_idx, refs, args.window, args.hop, args.cost,
                                      vn, vj, ref_lens=ref_lens, use_twin_sub=tw,
-                                     succ_fn=succ_full, confusable=conf)
+                                     succ_fn=succ_full, confusable=conf,
+                                     early_prefix=args.early_prefix or None)
             if asm:
                 emitted = assemble(emitted)
             truth = q["truth"]

@@ -185,7 +185,28 @@ def _infix_norm(ref: list, win: list) -> float:
     return min(prev) / max(1, m)             # free trailing skips
 
 
-def window_best(win, ngram_idx, refs, ref_lens):
+def _prefix_norm(ref, win, min_i, end_slack: int = 2):
+    """Best PREFIX of `ref` aligned to the END of `win` (free leading window skips,
+    up to `end_slack` trailing window positions of slack for CTC timing noise).
+    Returns (norm_cost, prefix_len) minimizing cost/len over len >= min_i — the
+    early-detection score: 'is the reciter currently this far into this unit?'."""
+    m, n = len(ref), len(win)
+    prev = [0] * (n + 1)                     # free leading skips
+    best, best_i = 1e9, 0
+    for i in range(1, m + 1):
+        cur = [i] + [0] * n
+        ri = ref[i - 1]
+        for j in range(1, n + 1):
+            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ri != win[j - 1]))
+        if i >= min_i:
+            c = min(cur[max(0, n - end_slack):]) / i
+            if c < best:
+                best, best_i = c, i
+        prev = cur
+    return best, best_i
+
+
+def window_best(win, ngram_idx, refs, ref_lens, fire_cost=FIRE_COST):
     """Best (key, cost) for one window: 3-gram shortlist -> infix edit-norm.
     Length gate is TIGHT (0.5n..1.3n): with the multi-scale filter bank each window
     size only fires refs of its own length class — small windows can't be swallowed
@@ -217,7 +238,7 @@ def window_best(win, ngram_idx, refs, ref_lens):
             continue
         cost = _infix_norm(refs[key], win)
         sel = cost - COVER_BONUS * min(L, n) / n
-        if cost <= FIRE_COST and sel < best_sel:
+        if cost <= fire_cost and sel < best_sel:
             best_sel, best_key, best_cost = sel, key, cost
         elif best_sel == 1e9 and cost < best_cost:
             best_key, best_cost = key, cost
@@ -227,9 +248,16 @@ def window_best(win, ngram_idx, refs, ref_lens):
 def decode_sliding(stream, ngram_idx, refs, window_s, hop_s, cost_thresh,
                    votes_next: int, votes_jump: int, ref_lens=None,
                    scales=(0.2, 0.7, 1.0, 1.5, 2.2),
-                   use_twin_sub: bool = True, succ_fn=None, confusable=None):
+                   use_twin_sub: bool = True, succ_fn=None, confusable=None,
+                   early_prefix: float | None = None):
     """Multi-scale sliding windows; per window the production whole-window edit-norm
-    (trie-shortlisted); vote state machine emits the chain."""
+    (trie-shortlisted); vote state machine emits the chain.
+
+    early_prefix (e.g. 0.5): context-gated EARLY detection — at each largest-scale
+    window, if the window TAIL matches >= this fraction of the EXPECTED successor's
+    prefix (cost <= cost_thresh), fire the expected unit without waiting for it to
+    complete. Only ever fires the unit context already predicts (low risk); addresses
+    whole-unit matching's inherent commit-at-unit-end latency."""
     if ref_lens is None:
         ref_lens = {k: len(v) for k, v in refs.items()}
     if succ_fn is None:
@@ -237,11 +265,13 @@ def decode_sliding(stream, ngram_idx, refs, window_s, hop_s, cost_thresh,
     phons, times = stream["phonemes"], stream["times"]
     if not phons:
         return []
-    # collect window fires (t, key, cost) across scales, then vote in time order
+    # collect window fires (t, key, cost) across scales, then vote in time order;
+    # kind 0 = prefix-check event (largest scale only), kind 1 = whole-unit fire
     fires = []
     t_end = times[-1]
-    for sc in scales:
+    for si, sc in enumerate(scales):
         w = window_s * sc
+        largest = si == len(scales) - 1
         t = 0.0
         j0 = 0
         while t <= t_end + 1e-6:
@@ -255,10 +285,12 @@ def decode_sliding(stream, ngram_idx, refs, window_s, hop_s, cost_thresh,
             t += hop_s
             if len(win) < 4:
                 continue
-            key, cost = window_best(win, ngram_idx, refs, ref_lens)
+            if early_prefix and largest:
+                fires.append((w1, 0, "", 0.0, win))
+            key, cost = window_best(win, ngram_idx, refs, ref_lens, fire_cost=cost_thresh)
             if key is not None and cost <= cost_thresh:
-                fires.append((w1, key, cost))
-    fires.sort()
+                fires.append((w1, 1, key, cost, None))
+    fires.sort(key=lambda f: (f[0], f[1], f[2], f[3]))
 
     emitted: list[str] = []
     emit_t: list[float] = []
@@ -266,7 +298,18 @@ def decode_sliding(stream, ngram_idx, refs, window_s, hop_s, cost_thresh,
     pending: str | None = None
     votes = 0
     consumed = -1e9                        # soft time anchor: emission gate only —
-    for w1, top, cost in fires:            # matching stays stateless (no cascade risk)
+    for w1, kind, top, cost, win in fires:  # matching stays stateless (no cascade risk)
+        if kind == 0:                      # prefix-check event: early-fire the EXPECTED unit
+            if expected is None:
+                continue
+            L = ref_lens[expected]
+            min_i = max(6, int(early_prefix * L + 0.999999))
+            if L < min_i:
+                continue
+            pcost, _ = _prefix_norm(refs[expected], win, min_i)
+            if pcost > cost_thresh:
+                continue
+            top, cost = expected, pcost    # falls through the normal gates below
         if w1 < consumed + MIN_ADVANCE:
             continue                       # this window is mostly inside the last commit
         if emitted and top == emitted[-1]:

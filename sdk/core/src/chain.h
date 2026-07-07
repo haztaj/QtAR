@@ -60,6 +60,9 @@ struct ChainParams {
     double costThresh = 0.30;   // window fire threshold (FIRE_COST)
     int votesNext = 1;
     int votesJump = 2;
+    double earlyPrefix = 0.0;   // >0 (e.g. 0.5): context-gated early detection — fire the
+                                // EXPECTED unit once this fraction of its prefix matches
+                                // the decode tail (cuts commit-at-unit-end latency)
 };
 
 struct UnitEmission {
@@ -75,6 +78,7 @@ public:
     // One window fire -> optional emission.
     std::optional<UnitEmission> onFire(double w1, int unit, double cost);
     const std::vector<UnitEmission>& emitted() const { return emitted_; }
+    int expectedUnit() const { return expected_; }   // -1 if none (early-prefix check)
 
 private:
     const UnitIndex& idx_;
@@ -96,6 +100,7 @@ public:
     std::vector<int> push(int unit);
     std::vector<int> flush();
     const std::vector<int>& confirmed() const { return confirmed_; }
+    const std::vector<int>& pendingUnits() const { return pending_; }
 
 private:
     bool supports(int p, int u) const;
@@ -106,9 +111,17 @@ private:
 
 // Best (unit, cost) for one window of phoneme ids: 3-gram shortlist (raw-count top-60
 // UNION length-normalized top-20 over the full counter) -> tight length gate
-// (0.5n..1.3n) -> infix edit-norm -> blended selection (cost - 0.15*coverage).
-// Returns {-1, bigCost} when nothing retrieves.
-std::pair<int, double> windowBest(const std::vector<int>& win, const UnitIndex& idx);
+// (0.5n..1.3n) -> infix edit-norm -> blended selection (cost - 0.15*coverage) among
+// fires <= fireCost. Returns {-1, bigCost} when nothing retrieves.
+// fireCost: 0.30 suits clean/professional decodes (research reference); phone-mic
+// decodes run ~30% PER and need ~0.45 (junk absorbed by votes + assembly).
+std::pair<int, double> windowBest(const std::vector<int>& win, const UnitIndex& idx,
+                                  double fireCost = 0.30);
+
+// Best PREFIX of `ref` aligned to the END of `win` (free leading window skips, 2 trailing
+// positions of slack): the early-detection score. Returns min over prefix lengths
+// >= minI of cost/len. (_prefix_norm in the reference.)
+double prefixNorm(const std::vector<int>& ref, const std::vector<int>& win, int minI);
 
 // Offline decode of a full phoneme stream (per-phoneme times, seconds): enumerate all
 // multi-scale windows, sort fires like the reference ((w1, key, cost) tuple order),

@@ -147,7 +147,8 @@ def self_check(man):
         p = spec["params"]
         emitted = decode_sliding(spec["stream"], ngram_idx, refs, p["window_s"], p["hop_s"],
                                  p["cost"], p["votes_next"], p["votes_jump"],
-                                 ref_lens=ref_lens, use_twin_sub=True, succ_fn=succ_full)
+                                 ref_lens=ref_lens, use_twin_sub=True, succ_fn=succ_full,
+                                 early_prefix=p.get("early_prefix"))
         return {"emitted": emitted, "assembled": assemble(emitted, succ_full)}
 
     return get_logmel, get_events, get_states, get_chain

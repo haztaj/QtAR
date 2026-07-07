@@ -273,6 +273,13 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   units 40% → 76%. Iteration history (v1–v10, each step measured) in research/CLAUDE.md.
   **C++ port done (2026-07-07):** `sdk/core/src/chain.{h,cpp}` + `Mode::Chain` in the Detector,
   conformance-pinned (`golden/chain/`, spec.md §Stage 2b) + exact over 200 real streams.
+  **On-device (2026-07-08):** the demo app runs Mode.CHAIN live (1,057-ayah corpus, 22 s
+  `model_s123_22s.int8.onnx`, versioned asset extraction). Phone-mic decodes run ~30% PER →
+  fire threshold is decode-quality-dependent (0.30 clean reference / 0.45 phone,
+  `Config.chainCost`); v11 early-prefix firing (fires the expected unit from a 50% prefix
+  match — faster AND more accurate: clean aligned-hit 87.5→91.4, exact 45.3→56.7);
+  cold-start provisional highlight kills the 10-20 s first-detection dead window. Verified
+  live tracking on surahs 2 and 111. Remaining wall: mic-adaptation training for best_s123.
   (4) **Segment-level ambiguity map** —
   `find_ambiguous.py --units` → `data/lang/ambiguous_units.json`: 206 ambiguous units / 84
   classes, 96% context-resolvable, 8 structural `needs_choice` cases (2:134↔2:141, 3:1↔2:1,

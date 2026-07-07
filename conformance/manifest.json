@@ -14,8 +14,7 @@
   "tolerances": {
     "logmel_max_abs": 0.01,
     "phonemes": "exact",
-    "events": "exact",
-    "states": "exact"
+    "events": "exact"
   },
   "checkpoint": "training\\exp\\best_mic.pt",
   "frontend": [
@@ -90,14 +89,6 @@
       "n_events": 3
     }
   ],
-  "edit_cases": "assets/edit_cases.json",
-  "mel_filterbank_shape": [
-    201,
-    80
-  ],
-  "hann_window_shape": [
-    400
-  ],
   "highlight": [
     {
       "name": "unambiguous_run",
@@ -130,6 +121,7 @@
       "n_steps": 2
     }
   ],
+  "edit_cases": "assets/edit_cases.json",
   "chain": [
     {
       "name": "clean_seg_run",
@@ -158,6 +150,24 @@
       "chain": "golden/chain/junk_sandwich.chain.json",
       "n_phonemes": 449,
       "n_emitted": 11
+    },
+    {
+      "name": "early_prefix_run",
+      "stream": "fixtures/chain/early_prefix_run.json",
+      "chain": "golden/chain/early_prefix_run.chain.json",
+      "n_phonemes": 227,
+      "n_emitted": 7
     }
-  ]
+  ],
+  "mel_filterbank_shape": [
+    201,
+    80
+  ],
+  "hann_window_shape": [
+    400
+  ],
+  "inference": {
+    "model": "export/onnx/model.onnx (fp32)",
+    "note": "ids per golden/inference/<name>.phonemes.txt; run test_inference"
+  }
 }

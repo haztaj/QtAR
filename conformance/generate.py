@@ -157,21 +157,23 @@ def gen_chain(CONF):
         "twin_context_run": synth(["104:3", "104:4", "104:5"], sub=0.05, seed=3),
         # junk block between two true units: the 2-deep assembly must bridge it
         "junk_sandwich": synth(["3:5", "3:6", "3:7"], junk_after=1, seed=11),
+        # context-gated EARLY detection: expected units fire from a >=50% prefix match
+        "early_prefix_run": synth(["2:6", "2:7", "2:8"], sub=0.05, seed=5),
     }
+    extra_params = {"early_prefix_run": {"early_prefix": 0.5}}
 
     entries = []
     for name, stream in scenarios.items():
-        emitted_t = []
-        emitted = decode_sliding(stream, ngram_idx, refs, params["window_s"],
-                                 params["hop_s"], params["cost"], params["votes_next"],
-                                 params["votes_jump"], ref_lens=ref_lens,
-                                 use_twin_sub=True, succ_fn=succ_full)
-        # re-run capturing fire times: decode_sliding returns keys only; recompute times
-        # by re-tracing (times are the window-end w1 of the committing fire). To keep the
-        # contract simple and exact, golden pins the emitted KEY SEQUENCE + assembled chain.
+        pp = dict(params, **extra_params.get(name, {}))
+        emitted = decode_sliding(stream, ngram_idx, refs, pp["window_s"],
+                                 pp["hop_s"], pp["cost"], pp["votes_next"],
+                                 pp["votes_jump"], ref_lens=ref_lens,
+                                 use_twin_sub=True, succ_fn=succ_full,
+                                 early_prefix=pp.get("early_prefix"))
+        # golden pins the emitted KEY SEQUENCE + assembled chain (exact).
         chain = assemble(emitted, succ_full)
         (CONF / "fixtures" / "chain" / f"{name}.json").write_text(
-            json.dumps({"stream": stream, "params": params}, ensure_ascii=False, indent=0),
+            json.dumps({"stream": stream, "params": pp}, ensure_ascii=False, indent=0),
             encoding="utf-8")
         (CONF / "golden" / "chain" / f"{name}.chain.json").write_text(
             json.dumps({"emitted": emitted, "assembled": chain},

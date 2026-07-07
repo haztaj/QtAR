@@ -14,7 +14,6 @@ namespace {
 // Reference constants (research/chain_sliding.py) — conformance-pinned, do not tune here.
 constexpr int kShortlist = 60;          // raw-count shortlist size
 constexpr int kShortlistNorm = 20;      // length-normalized union size
-constexpr double kFireCost = 0.30;      // windows firing at/below this enter selection
 constexpr double kCoverBonus = 0.15;    // selection = cost - bonus*coverage
 constexpr double kStrongCost = 0.15;    // near-certain fire: commits with a single vote
 constexpr double kMinAdvance = 2.0;     // emission gate past the last commit
@@ -127,7 +126,8 @@ int UnitIndex::firstUnitOf(const std::string& parentKey) const {
     return it == parentFirst_.end() ? -1 : it->second;
 }
 
-std::pair<int, double> windowBest(const std::vector<int>& win, const UnitIndex& idx) {
+std::pair<int, double> windowBest(const std::vector<int>& win, const UnitIndex& idx,
+                                  double fireCost) {
     const int n = (int)win.size();
     // Counter with Python insertion-order semantics: first-seen while scanning window
     // positions ascending, posting lists ascending — ties in the sorts below break by
@@ -158,7 +158,7 @@ std::pair<int, double> windowBest(const std::vector<int>& win, const UnitIndex& 
             shortlist.push_back(u);
 
     // tight length band (each window scale serves its own ref-size class) + blended
-    // selection: cost - kCoverBonus * coverage among fires <= kFireCost
+    // selection: cost - kCoverBonus * coverage among fires <= fireCost
     int bestUnit = -1;
     double bestCost = 1e9, bestSel = 1e9;
     bool anyFire = false;
@@ -167,13 +167,33 @@ std::pair<int, double> windowBest(const std::vector<int>& win, const UnitIndex& 
         if (!(0.5 * n <= L && L <= 1.3 * n)) continue;
         const double cost = infixNorm(idx.phonemes(u), win);
         const double sel = cost - kCoverBonus * std::min(L, n) / (double)n;
-        if (cost <= kFireCost && sel < bestSel) {
+        if (cost <= fireCost && sel < bestSel) {
             bestSel = sel; bestUnit = u; bestCost = cost; anyFire = true;
         } else if (!anyFire && cost < bestCost) {
             bestUnit = u; bestCost = cost;
         }
     }
     return {bestUnit, bestCost};
+}
+
+double prefixNorm(const std::vector<int>& ref, const std::vector<int>& win, int minI) {
+    const int m = (int)ref.size(), n = (int)win.size();
+    constexpr int kEndSlack = 2;             // CTC timing noise at the window edge
+    std::vector<int> prev(n + 1, 0), cur(n + 1);
+    double best = 1e9;
+    for (int i = 1; i <= m; ++i) {
+        cur[0] = i;
+        const int ri = ref[i - 1];
+        for (int j = 1; j <= n; ++j)
+            cur[j] = std::min({prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ri != win[j - 1] ? 1 : 0)});
+        if (i >= minI) {
+            int tail = cur[n];
+            for (int j = std::max(0, n - kEndSlack); j <= n; ++j) tail = std::min(tail, cur[j]);
+            best = std::min(best, (double)tail / i);
+        }
+        std::swap(prev, cur);
+    }
+    return best;
 }
 
 void ChainVoter::reset() {
@@ -274,12 +294,15 @@ std::vector<UnitEmission> decodeStream(const std::vector<int>& phonemes,
                                        const std::vector<double>& times,
                                        const UnitIndex& idx, const ChainParams& p) {
     if (phonemes.empty()) return {};
-    struct Fire { double w1; int unit; double cost; };
-    std::vector<Fire> fires;
+    // kind 0 = prefix-check event (largest scale only, carries the window); kind 1 = fire
+    struct Ev { double w1; int kind; int unit; double cost; std::vector<int> win; };
+    std::vector<Ev> evs;
     const double tEnd = times.back();
     const int N = (int)phonemes.size();
-    for (double sc : kChainScales) {
-        const double w = p.windowSec * sc;
+    const int nScales = (int)(sizeof(kChainScales) / sizeof(kChainScales[0]));
+    for (int si = 0; si < nScales; ++si) {
+        const double w = p.windowSec * kChainScales[si];
+        const bool largest = si == nScales - 1;
         double t = 0.0;
         int j0 = 0;
         while (t <= tEnd + 1e-6) {
@@ -290,18 +313,35 @@ std::vector<UnitEmission> decodeStream(const std::vector<int>& phonemes,
             std::vector<int> win(phonemes.begin() + j0, phonemes.begin() + j1);
             t += p.hopSec;
             if ((int)win.size() < 4) continue;
-            auto [u, cost] = windowBest(win, idx);
-            if (u >= 0 && cost <= p.costThresh) fires.push_back({w1, u, cost});
+            if (p.earlyPrefix > 0 && largest) evs.push_back({w1, 0, -1, 0.0, win});
+            auto [u, cost] = windowBest(win, idx, p.costThresh);
+            if (u >= 0 && cost <= p.costThresh) evs.push_back({w1, 1, u, cost, {}});
         }
     }
-    // reference sorts fire tuples (w1, key, cost) — Python tuple order, key is a string
-    std::sort(fires.begin(), fires.end(), [&](const Fire& a, const Fire& b) {
+    // reference sorts (w1, kind, key, cost) — Python tuple order, key is a string
+    // (prefix events carry key "" which sorts before any unit key)
+    std::sort(evs.begin(), evs.end(), [&](const Ev& a, const Ev& b) {
         if (a.w1 != b.w1) return a.w1 < b.w1;
-        if (idx.key(a.unit) != idx.key(b.unit)) return idx.key(a.unit) < idx.key(b.unit);
+        if (a.kind != b.kind) return a.kind < b.kind;
+        const std::string& ka = a.unit >= 0 ? idx.key(a.unit) : std::string();
+        const std::string& kb = b.unit >= 0 ? idx.key(b.unit) : std::string();
+        if (ka != kb) return ka < kb;
         return a.cost < b.cost;
     });
     ChainVoter voter(idx, p);
-    for (const auto& f : fires) voter.onFire(f.w1, f.unit, f.cost);
+    for (const auto& e : evs) {
+        if (e.kind == 0) {
+            const int exp = voter.expectedUnit();
+            if (exp < 0) continue;
+            const int L = idx.len(exp);
+            const int minI = std::max(6, (int)std::ceil(p.earlyPrefix * L - 1e-9));
+            if (L < minI) continue;
+            const double pc = prefixNorm(idx.phonemes(exp), e.win, minI);
+            if (pc <= p.costThresh) voter.onFire(e.w1, exp, pc);
+        } else {
+            voter.onFire(e.w1, e.unit, e.cost);
+        }
+    }
     return voter.emitted();
 }
 
