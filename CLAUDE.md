@@ -267,10 +267,10 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   matcher already handles at 97%. Splits audition-approved by ear. (3) **Segment-chain decoder
   validated on continuous streams (2026-07-07)** — sliding multi-scale matched-filter windows
   (each window scale only fires refs of its own length class) + 3-gram retrieval + infix
-  scoring + successor votes + twin substitution + deferral assembly. On 747 continuous 4-ayah
-  test sequences: aligned-hit 85.9%, unit SER 14.5%, ayah-chain SER 14.8%, exact sequences
-  50.3%; sequential context resolves exact-twin units 40% → 76%. Iteration history (v1–v10,
-  each step measured) in research/CLAUDE.md. (4) **Segment-level ambiguity map** —
+  scoring + successor votes + twin substitution + deferral assembly (2-deep pending buffer =
+  junk tolerance 1). On 747 continuous 4-ayah test sequences: aligned-hit 87.3%, unit SER
+  13.2%, ayah-chain SER 13.3%, exact sequences 52.6%; sequential context resolves exact-twin
+  units 40% → 76%. Iteration history (v1–v10, each step measured) in research/CLAUDE.md. (4) **Segment-level ambiguity map** —
   `find_ambiguous.py --units` → `data/lang/ambiguous_units.json`: 206 ambiguous units / 84
   classes, 96% context-resolvable, 8 structural `needs_choice` cases (2:134↔2:141, 3:1↔2:1,
   99:8↔99:7); all cross-parent. Near-twin substitution in the decoder measured neutral —

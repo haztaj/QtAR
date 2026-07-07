@@ -238,41 +238,52 @@ def main():
         """Deferral-grade chain assembly (HighlightController logic at unit level):
         - the EXPECTED successor of the last confirmed unit confirms immediately;
         - a unit continuing the current parent forward confirms;
-        - an unexpected jump is DEFERRED: confirmed retroactively iff the next emission
-          supports it (its successor or same-parent forward), else dropped (interloper —
-          the twin-error signature);
+        - an unexpected jump is DEFERRED (up to TWO pending): confirmed retroactively
+          when a later emission supports it (its successor or same-parent forward).
+          The 2-deep buffer gives JUNK TOLERANCE 1 — one interloper between a true
+          unit and its supporter no longer kills the true unit (diagnostic 2026-07-07:
+          that single mechanism accounted for ~110/128 assembly-lost hits, dominated
+          by cold starts where the chain never got seeded);
+        - unsupported pendings age out (interloper — the twin-error signature);
         - backward/repeat emissions within the current parent are dropped (re-fires)."""
         confirmed: list[str] = []
-        deferred: str | None = None
+        pending: list[str] = []                    # oldest first, len <= 2
 
         def parent(u): return u.split("#")[0]
         def idx(u): return int(u.split("#")[1]) if "#" in u else 0
 
+        def supports(p, u):
+            return u == succ_full(p) or (parent(u) == parent(p) and idx(u) > idx(p))
+
         for u in emitted:
-            if deferred is not None:
-                if u == succ_full(deferred) or (parent(u) == parent(deferred)
-                                                and idx(u) > idx(deferred)):
-                    confirmed.append(deferred)     # retro-confirm the jump
-                    confirmed.append(u)
-                    deferred = None
-                    continue
-                deferred = None                    # unsupported -> drop the interloper
-            if not confirmed:
-                deferred = u                       # cold start: even the first defers
+            sup = next((k for k in range(len(pending) - 1, -1, -1)
+                        if supports(pending[k], u)), None)
+            if sup is not None:                    # retro-confirm the supported pending
+                confirmed.append(pending[sup])     # (junk between/after it is dropped)
+                confirmed.append(u)
+                pending = []
                 continue
-            last = confirmed[-1]
-            if u == succ_full(last):
-                confirmed.append(u)                # expected successor: confirm now
-            elif parent(u) == parent(last):
-                if idx(u) > idx(last):
-                    confirmed.append(u)            # forward skip within the parent
-                # backward / repeat within parent: drop (re-fire)
-            else:
-                deferred = u                       # unexpected jump: await support
-        if deferred is not None and confirmed and deferred == succ_full(confirmed[-1]):
-            confirmed.append(deferred)
-        elif deferred is not None and not confirmed:
-            confirmed.append(deferred)             # lone emission — keep it
+            if confirmed:
+                last = confirmed[-1]
+                if u == succ_full(last):
+                    confirmed.append(u)            # expected successor: confirm now
+                    pending = []
+                    continue
+                if parent(u) == parent(last):
+                    if idx(u) > idx(last):
+                        confirmed.append(u)        # forward skip within the parent
+                        pending = []
+                    continue                       # backward/repeat: drop (re-fire)
+            pending.append(u)                      # unexpected jump: await support
+            if len(pending) > 2:
+                pending.pop(0)                     # oldest ages out (interloper)
+        for p in pending:                          # end of stream: flush chainable tail
+            if confirmed and (p == succ_full(confirmed[-1])
+                              or (parent(p) == parent(confirmed[-1])
+                                  and idx(p) > idx(confirmed[-1]))):
+                confirmed.append(p)
+        if not confirmed and pending:
+            confirmed.append(pending[0])           # lone emissions — keep the first
         return confirmed
 
     def parents_dedup(units, smooth: bool = False):

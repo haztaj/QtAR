@@ -106,14 +106,14 @@ segmented + unsegmented ayat mixed), v8 decoder with FULL context: within-ayah s
 succession + cross-ayah handoff. Metrics are alignment-based (edit traceback), not
 prefix-positional — one early insertion must not mark every later unit wrong.
 
-**Full-run result (747 seqs / 5,007 units, v10 config + deterministic index,
-2026-07-07): aligned-hit 88.5% raw / 85.9% after assembly; twins 40.0% blind ->
-76.0% with context+assembly (blind is a coin flip among identical-ref twins); unit
-SER 14.5%; ayah-chain SER 14.8%; exact 4-ayah sequences 50.3%.** The methodology's
-central claims are all measured: segments are the right unit, twins dominate the
-miss mass, sequential context resolves them, and window scale must be matched to
-ref length (filter bank + short-ref recovery: aligned-hit 78.5 -> 85.9, exact seqs
-32.3 -> 50.3, ayah-chain SER 22.2 -> 14.8 across the two changes).
+**Full-run result (747 seqs / 5,007 units, v10 config + deterministic index +
+2-deep assembly, 2026-07-07): aligned-hit 88.5% raw / 87.3% after assembly; twins
+40.0% blind -> 76.2% with context+assembly (blind is a coin flip among identical-ref
+twins); unit SER 13.2%; ayah-chain SER 13.3%; exact 4-ayah sequences 52.6%.** The
+methodology's central claims are all measured: segments are the right unit, twins
+dominate the miss mass, sequential context resolves them, and window scale must be
+matched to ref length. Cumulative across the detection + retention arc: aligned-hit
+78.5 -> 87.3, exact seqs 32.3 -> 52.6, ayah-chain SER 22.2 -> 13.3.
 
 **Determinism note (2026-07-07):** `build_ngram_index` used to store sets; set
 iteration order is hash-randomized per process, so Counter tie-breaks — exactly the
@@ -128,18 +128,30 @@ immediately; unexpected jumps defer until the next emission supports them** (suc
 or same-parent forward), else they're dropped as interlopers — the twin-error signature.
 Backward/repeat emissions within a parent are dropped as window re-fires.
 
-Full-run effect (747 seqs, third ablation arm on identical decodes, v10 config,
-2026-07-07): unit SER 27.7% -> **14.3%**, ayah-chain SER 35.3% -> **14.3%**,
-exact sequences 29.7% -> **50.9%**; retention cost -2.5 aligned-hit (88.6 -> 86.1).
+Full-run effect (747 seqs, ablation arm on identical decodes, v10 config,
+2026-07-07): unit SER 26.5% -> **13.2%**, ayah-chain SER 33.1% -> **13.3%**,
+exact sequences 29.7% -> **52.6%**; retention cost -1.2 aligned-hit (88.5 -> 87.3).
 Insertions are gone — the SER sits at the hit-miss floor.
+
+**Retention fix — 2-deep pending buffer (junk tolerance 1).** The original 1-deep
+deferral cost 2.6 pts aligned-hit (128 lost hits). The drop-fate diagnostic
+attributed ~110 of them to ONE mechanism: support was only checked against the
+immediately-next emission, so a single junk emission between a true unit and its
+supporter killed the true unit — dominated by cold starts (91 lost: true -> junk ->
+true cascades where the chain never seeds) plus terminal/interloper variants of the
+same sandwich. Fix: hold up to TWO pending emissions; an arrival that supports the
+OLDER pending retro-confirms it and discards the junk between. Junk still needs
+support to enter the chain, so insertion control is preserved by construction:
+SER went DOWN (14.5 -> 13.2) while recovering hits (85.9 -> 87.3), and the ayah
+chain improved to 13.3%.
 
 **Pipeline (each layer measured + ablated):** multi-scale matched-filter windows
 (each scale gated to its own ref-length band, 0.2-2.2 x 10 s) + 3-gram retrieval
 (raw-count + full-counter length-normalized shortlist) + infix scoring + blended
-selection -> successor votes + twin substitution -> deferral assembly. Remaining
-window-D losses (11%): munch overshoot in the 12-25 band and exact twins (downstream-
-resolvable); next levers: assembly retention (2.5-pt aligned-hit cost), then the
-C++ port of the winning design.
+selection -> successor votes + twin substitution -> deferral assembly (2-deep
+pending buffer). Remaining window-D losses (11%): munch overshoot in the 12-25 band
+and exact twins (downstream-resolvable); residual retention cost 1.2 pts. Next:
+the C++ port of the winning design.
 
 ## Segment-level ambiguity map (matcher/find_ambiguous.py --units)
 
