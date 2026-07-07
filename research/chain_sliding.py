@@ -62,7 +62,8 @@ def _edit_norm(a: list, b: list) -> float:
 
 
 SHORTLIST = 60     # n-gram-shortlisted candidates per window (speed; production scores all)
-FIRE_COST = 0.30   # windows firing at/below this enter maximal-munch selection
+FIRE_COST = 0.30   # windows firing at/below this enter blended selection
+COVER_BONUS = 0.15 # selection = cost - COVER_BONUS*coverage (anti-snippet AND anti-overshoot)
 STRONG_COST = 0.15 # near-certain fire (truth median 0.08): commits with a single vote
 MIN_ADVANCE = 2.0  # a new emission needs its window to extend this far past the last commit
 REPEAT_SUPPRESS = 20.0  # suppress re-emitting the same unit within this many seconds
@@ -98,37 +99,42 @@ def _infix_norm(ref: list, win: list) -> float:
 
 def window_best(win, ngram_idx, refs, ref_lens):
     """Best (key, cost) for one window: 3-gram shortlist -> infix edit-norm.
-    Length gate is loose upward: decoded streams run SHORT of the reference (PER
-    deletions), so a valid ref may exceed the window phoneme count."""
+    Length gate is TIGHT (0.5n..1.3n): with the multi-scale filter bank each window
+    size only fires refs of its own length class — small windows can't be swallowed
+    by long refs, big windows can't fire snippets. A loose gate (0.3..1.6) plus small
+    scales regressed end-to-end: recall rose but noisy small-window fires flooded the
+    vote machine (raw unit SER 32.6% -> 41.6%)."""
     from collections import Counter
     c = Counter()
     for i in range(len(win) - 2):
         for key in ngram_idx.get(tuple(win[i:i + 3]), ()):
             c[key] += 1
     n = len(win)
-    # Maximal munch: among candidates under the fire threshold, prefer the LONGEST ref
-    # (infix scoring lets short formulaic snippets embed at near-zero cost; the true
-    # segment is the one that actually covers the window). Fall back to cheapest.
-    best = []   # (L, -cost, key)
+    # Shortlist: top by raw shared-3gram count UNION top by length-normalized count —
+    # raw counts crowd out tiny refs (few 3-grams to share; oracle: <12-ph bucket 0%).
+    ranked = c.most_common(SHORTLIST * 3)
+    short = [k for k, _ in ranked[:SHORTLIST]]
+    short += [k for k, _ in sorted(ranked, key=lambda kv: -kv[1] / ref_lens[kv[0]])[:20]]
+    # Blended selection: cost - COVER_BONUS * coverage. Pure-cost lets short formulaic
+    # snippets embed at ~0 cost; pure-longest (maximal munch) swallows short truths with
+    # longer refs (oracle: 84.8% of losses). Coverage-blended cost handles both.
     best_key, best_cost = None, 1e9
-    for key, _ in c.most_common(SHORTLIST):
+    best_sel = 1e9
+    for key in dict.fromkeys(short):
         L = ref_lens[key]
-        if not (0.3 * n <= L <= 1.6 * n):
+        if not (0.5 * n <= L <= 1.3 * n):   # tight band: each scale serves its size class
             continue
         cost = _infix_norm(refs[key], win)
-        if cost < best_cost:
+        sel = cost - COVER_BONUS * min(L, n) / n
+        if cost <= FIRE_COST and sel < best_sel:
+            best_sel, best_key, best_cost = sel, key, cost
+        elif best_sel == 1e9 and cost < best_cost:
             best_key, best_cost = key, cost
-        if cost <= FIRE_COST:
-            best.append((L, -cost, key))
-    if best:
-        best.sort(reverse=True)
-        L, negc, key = best[0]
-        return key, -negc
     return best_key, best_cost
 
 
 def decode_sliding(stream, ngram_idx, refs, window_s, hop_s, cost_thresh,
-                   votes_next: int, votes_jump: int, ref_lens=None, scales=(1.0, 2.0),
+                   votes_next: int, votes_jump: int, ref_lens=None, scales=(0.7, 1.0, 1.5, 2.2),
                    use_twin_sub: bool = True, succ_fn=None):
     """Multi-scale sliding windows; per window the production whole-window edit-norm
     (trie-shortlisted); vote state machine emits the chain."""
@@ -178,7 +184,8 @@ def decode_sliding(stream, ngram_idx, refs, window_s, hop_s, cost_thresh,
         # Twin substitution: exact twins (identical refs) tie on cost AND length — the
         # matcher cannot pick between them. If the fire is a twin of the EXPECTED unit,
         # context resolves it: emit the expected one. (The dissection's core claim.)
-        if use_twin_sub and expected is not None and top != expected                 and refs[top] == refs[expected]:
+        if (use_twin_sub and expected is not None and top != expected
+                and refs[top] == refs[expected]):
             top = expected
         need = votes_next if top == expected else votes_jump
         if cost <= STRONG_COST:
