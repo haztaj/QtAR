@@ -104,17 +104,20 @@ def window_best(win, ngram_idx, refs, ref_lens):
     by long refs, big windows can't fire snippets. A loose gate (0.3..1.6) plus small
     scales regressed end-to-end: recall rose but noisy small-window fires flooded the
     vote machine (raw unit SER 32.6% -> 41.6%)."""
+    import heapq
     from collections import Counter
     c = Counter()
     for i in range(len(win) - 2):
         for key in ngram_idx.get(tuple(win[i:i + 3]), ()):
             c[key] += 1
     n = len(win)
-    # Shortlist: top by raw shared-3gram count UNION top by length-normalized count —
-    # raw counts crowd out tiny refs (few 3-grams to share; oracle: <12-ph bucket 0%).
-    ranked = c.most_common(SHORTLIST * 3)
-    short = [k for k, _ in ranked[:SHORTLIST]]
-    short += [k for k, _ in sorted(ranked, key=lambda kv: -kv[1] / ref_lens[kv[0]])[:20]]
+    # Shortlist: top by raw shared-3gram count UNION top by length-normalized count.
+    # The normalized pass runs over the FULL counter: a 5-ph ref shares at most 3
+    # 3-grams, ranking ~230th by raw count even when decoded perfectly (diagnostic
+    # 2026-07-07) — restricting normalization to the raw top-180 never sees it.
+    short = [k for k, _ in c.most_common(SHORTLIST)]
+    short += [k for k, _ in heapq.nlargest(20, c.items(),
+                                           key=lambda kv: kv[1] / ref_lens[kv[0]])]
     # Blended selection: cost - COVER_BONUS * coverage. Pure-cost lets short formulaic
     # snippets embed at ~0 cost; pure-longest (maximal munch) swallows short truths with
     # longer refs (oracle: 84.8% of losses). Coverage-blended cost handles both.
@@ -134,7 +137,8 @@ def window_best(win, ngram_idx, refs, ref_lens):
 
 
 def decode_sliding(stream, ngram_idx, refs, window_s, hop_s, cost_thresh,
-                   votes_next: int, votes_jump: int, ref_lens=None, scales=(0.7, 1.0, 1.5, 2.2),
+                   votes_next: int, votes_jump: int, ref_lens=None,
+                   scales=(0.2, 0.7, 1.0, 1.5, 2.2),
                    use_twin_sub: bool = True, succ_fn=None):
     """Multi-scale sliding windows; per window the production whole-window edit-norm
     (trie-shortlisted); vote state machine emits the chain."""

@@ -63,6 +63,20 @@ iteration chain (each step isolated by a targeted diagnostic — see git history
 | v8 | + TWIN SUBSTITUTION via context | 63% | twins tie on cost AND length; only context can pick |
 | v9 | + blended selection (cost - 0.15*coverage) | oracle D 78% | pure-cost fires snippets, pure-longest swallows short truths |
 | v9+ | + MATCHED FILTER BANK: scales (0.7,1,1.5,2.2), TIGHT gate 0.5n-1.3n | oracle D 85% | see below — the gate/scale pairing is the point |
+| v10 | + full-counter shortlist normalization + 0.2 tiny scale | oracle D 89% | short refs were crowded out + gate-orphaned, NOT badly decoded |
+
+**Short-ref recovery (2026-07-07) — a hypothesis overturned by its diagnostic.** The
+plan was posterior-aware retrieval for the <12-ph bucket (oracle A=0%). The diagnostic
+(scratch diag_short.py) showed the decodes are nearly perfect (mean 3-gram recall 0.90,
+`kallā` decoded exactly, infix cost 0.00, 100% appear in the counter) — posteriors are
+NOT the problem. Two mechanical faults instead: (1) the length-normalized shortlist
+pass ran over the raw-count top-180 only, and a 5-ph ref ranks ~230th by raw count even
+when decoded perfectly -> normalize over the FULL counter (heapq.nlargest); (2) no
+window scale served the L 4-12 band (smallest window 7 s ~ 25 ph -> gate needs L >= 12.5)
+-> add scale 0.2 (2 s ~ 7 ph; band ~L 4-9; noise bounded — only 16 refs live there;
+0.2 beat 0.25 on the oracle: <12 D 36.4% vs 18.2%). Oracle: <12 A 0 -> 82%, D 0 -> 36%;
+12-25 D 71 -> 82%; ALL D 84.6 -> 88.7%. Remaining <12 D-losses are mostly exact twins
+(kallā = 89:17#01/83:14#01/104:4#01) — resolved downstream by twin substitution.
 
 **Matched filter bank (2026-07-07).** Loss dumps showed v9's remaining D-losses were
 same-parent neighbor swallows: a 5-phoneme segment covers 18% of a 10 s window while its
@@ -92,13 +106,14 @@ segmented + unsegmented ayat mixed), v8 decoder with FULL context: within-ayah s
 succession + cross-ayah handoff. Metrics are alignment-based (edit traceback), not
 prefix-positional — one early insertion must not mark every later unit wrong.
 
-**Full-run result (747 seqs / 5,007 units, filter-bank config, 2026-07-07):
-aligned-hit 87.0% raw / 84.5% after assembly; twins 45.2% blind -> 77.9% with
-context+assembly (+32.7 — blind is a coin flip among identical-ref twins); unit SER
-15.9%; ayah-chain SER 16.5%; exact 4-ayah sequences 46.6%.** The methodology's central
-claims are all measured: segments are the right unit, twins dominate the miss mass,
-sequential context resolves them, and window scale must be matched to ref length
-(filter bank: aligned-hit 78.5 -> 84.5, exact seqs 32.3 -> 46.6 in one change).
+**Full-run result (747 seqs / 5,007 units, v10 config, 2026-07-07): aligned-hit
+88.6% raw / 86.1% after assembly; twins 47.1% blind -> 77.4% with context+assembly
+(blind is a coin flip among identical-ref twins); unit SER 14.3%; ayah-chain SER
+14.3%; exact 4-ayah sequences 50.9%.** The methodology's central claims are all
+measured: segments are the right unit, twins dominate the miss mass, sequential
+context resolves them, and window scale must be matched to ref length (filter bank
++ short-ref recovery: aligned-hit 78.5 -> 86.1, exact seqs 32.3 -> 50.9, ayah-chain
+SER 22.2 -> 14.3 across the two changes).
 
 ## Assembly layer (deferral confirmation) — in continuous_eval.py
 
@@ -107,14 +122,16 @@ immediately; unexpected jumps defer until the next emission supports them** (suc
 or same-parent forward), else they're dropped as interlopers — the twin-error signature.
 Backward/repeat emissions within a parent are dropped as window re-fires.
 
-Full-run effect (747 seqs, third ablation arm on identical decodes, filter-bank
-config, 2026-07-07): unit SER 27.5% -> **15.9%**, ayah-chain SER 34.3% -> **16.5%**,
-exact sequences 27.3% -> **46.6%**; retention cost -2.5 aligned-hit (87.0 -> 84.5).
+Full-run effect (747 seqs, third ablation arm on identical decodes, v10 config,
+2026-07-07): unit SER 27.7% -> **14.3%**, ayah-chain SER 35.3% -> **14.3%**,
+exact sequences 29.7% -> **50.9%**; retention cost -2.5 aligned-hit (88.6 -> 86.1).
 Insertions are gone — the SER sits at the hit-miss floor.
 
-**Pipeline (each layer measured + ablated):** multi-scale matched-filter windows +
-3-gram retrieval + infix scoring + blended selection -> successor votes + twin
-substitution -> deferral assembly. Remaining detection gap: refs <12 phonemes never
-retrieve (2.6% of units — needs sub-3-gram or posterior-aware retrieval), 12-25 bucket
-at 71% window-D, residual decode quality on short segments; next levers: posterior-aware
-matching, segment-level ambiguity map, then the C++ port of the winning design.
+**Pipeline (each layer measured + ablated):** multi-scale matched-filter windows
+(each scale gated to its own ref-length band, 0.2-2.2 x 10 s) + 3-gram retrieval
+(raw-count + full-counter length-normalized shortlist) + infix scoring + blended
+selection -> successor votes + twin substitution -> deferral assembly. Remaining
+window-D losses (11%): munch overshoot in the 12-25 band and exact twins (downstream-
+resolvable); next levers: segment-level ambiguity map (formalize twin classes for
+deferral), assembly retention (2.5-pt aligned-hit cost), then the C++ port of the
+winning design.

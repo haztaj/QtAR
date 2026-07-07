@@ -67,7 +67,7 @@ def main():
                 return name
         return ">=80"
 
-    scales = (0.7, 1.0, 1.5, 2.2)   # matched filter bank (mirror chain_sliding defaults)
+    scales = (0.2, 0.7, 1.0, 1.5, 2.2)   # matched filter bank (mirror chain_sliding defaults)
     funnel = defaultdict(Counter)
     beat = Counter()
     for st in streams:
