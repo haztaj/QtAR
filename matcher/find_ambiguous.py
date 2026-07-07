@@ -7,8 +7,10 @@ Corpus-agnostic: run it on the Juz Amma lexicon now and the full-Quran lexicon l
 It reuses the matcher's edit metric (plain normalized Levenshtein, 1/1/1) so "ambiguous"
 matches what the runtime matcher actually confuses.
 
-  python matcher/find_ambiguous.py                              # Juz Amma, tau 0.15
+  python matcher/find_ambiguous.py                              # ayah level, tau 0.15
   python matcher/find_ambiguous.py --lexicon <path> --tau 0.12 --out <path>
+  python matcher/find_ambiguous.py --units      # segment-level unit index (waqf segments
+                                                # + unsegmented ayat) -> ambiguous_units.json
 
 Output JSON — for every ambiguous ayah:
   confusable_with : the candidate set the highlighter would have to choose among
@@ -21,6 +23,11 @@ Output JSON — for every ambiguous ayah:
 This is the data the deferral + highlight logic consumes: when a detected ayah is
 ambiguous, hold it, surface `confusable_with` as options, and resolve via the neighbour
 that `resolvable_by` names.
+
+Unit mode (--units) additionally emits `cross_parent` per ambiguous unit: whether any
+confusable peer belongs to a DIFFERENT ayah. Within-parent confusions are harmless for
+mushaf highlighting (the highlighted ayah is the same either way); only cross-parent
+ones need deferral.
 """
 
 from __future__ import annotations
@@ -32,6 +39,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 DEFAULT_LEXICON = REPO / "data" / "lang" / "ayah_phonemes.json"
 DEFAULT_OUT = REPO / "data" / "lang" / "ambiguous_ayat.json"
+SEGMENT_LEXICON = REPO / "data" / "lang" / "segment_phonemes.json"
+UNITS_OUT = REPO / "data" / "lang" / "ambiguous_units.json"
 
 try:
     from rapidfuzz.distance import Levenshtein as _RF
@@ -62,15 +71,20 @@ def _lev(a: str, b: str, cutoff: int) -> int:
     return prev[lb]
 
 
-def _key(sa: str) -> tuple[int, int]:
+def _key(u: str) -> tuple[int, int, int]:
+    """Sort key for 's:a' (ayah) or 's:a#NN' (waqf-segment unit) keys."""
+    sa, _, seg = u.partition("#")
     s, a = sa.split(":")
-    return int(s), int(a)
+    return int(s), int(a), int(seg) if seg else 0
 
 
-def load_lexicon(path: Path):
-    """-> ({id: encoded phoneme string}, {id: (surah, ayah)}). Phonemes -> single chars
-    so edit distance is character-level (fast, and matches the matcher's per-token metric)."""
-    raw = json.loads(path.read_text(encoding="utf-8"))
+def _parent(u: str) -> str:
+    return u.partition("#")[0]
+
+
+def _encode_all(raw: dict[str, str]) -> dict[str, str]:
+    """Phonemes -> single chars so edit distance is character-level (fast, and matches
+    the matcher's per-token metric)."""
     vocab: dict[str, str] = {}
 
     def encode(seq: str) -> str:
@@ -83,8 +97,35 @@ def load_lexicon(path: Path):
             out.append(c)
         return "".join(out)
 
-    enc = {sa: encode(seq) for sa, seq in raw.items()}
-    return enc, {sa: _key(sa) for sa in raw}
+    return {sa: encode(seq) for sa, seq in raw.items()}
+
+
+def load_lexicon(path: Path) -> dict[str, str]:
+    return _encode_all(json.loads(path.read_text(encoding="utf-8")))
+
+
+def load_units(seg_path: Path, ayah_path: Path) -> dict[str, str]:
+    """The chain decoder's unit index: waqf segments + unsegmented ayat as single units."""
+    seg_raw = json.loads(seg_path.read_text(encoding="utf-8"))
+    raw = {k: v["phonemes"] for k, v in seg_raw.items()}
+    parents = {_parent(k) for k in raw}
+    ayah_raw = json.loads(ayah_path.read_text(encoding="utf-8"))
+    raw.update({k: v for k, v in ayah_raw.items() if k not in parents})
+    return _encode_all(raw)
+
+
+def chain_neighbors(keys):
+    """pred/succ along the recitation chain of units, within each surah: segment n-1/n+1
+    inside an ayah, last/first segment across ayah boundaries. Reduces to ayah±1 for
+    plain 's:a' keys (contiguous corpora)."""
+    seq = sorted(keys, key=_key)
+    pred: dict[str, str | None] = {}
+    succ: dict[str, str | None] = {}
+    for i, u in enumerate(seq):
+        p = seq[i - 1] if i > 0 and _key(seq[i - 1])[0] == _key(u)[0] else None
+        n = seq[i + 1] if i + 1 < len(seq) and _key(seq[i + 1])[0] == _key(u)[0] else None
+        pred[u], succ[u] = p, n
+    return pred, succ
 
 
 def find_confusable(enc: dict[str, str], tau: float) -> dict[str, dict[str, float]]:
@@ -118,31 +159,21 @@ def find_confusable(enc: dict[str, str], tau: float) -> dict[str, dict[str, floa
     return {k: v for k, v in neigh.items() if v}
 
 
-def classify(neigh, order):
-    """For each ambiguous ayah, find its in-surah neighbours and whether predecessor /
+def classify(neigh, pred_map, succ_map, unit_mode: bool = False):
+    """For each ambiguous unit, find its chain neighbours and whether predecessor /
     successor uniquely pins it out of its confusable set (and is itself unambiguous)."""
     ambiguous = set(neigh)
 
-    def pred(sa):
-        s, a = order[sa]
-        p = f"{s}:{a - 1}"
-        return p if p in order else None
-
-    def succ(sa):
-        s, a = order[sa]
-        n = f"{s}:{a + 1}"
-        return n if n in order else None
-
-    def reliable(sa):                                  # a neighbour we can confidently detect
-        return sa is not None and sa not in ambiguous
+    def reliable(u):                                   # a neighbour we can confidently detect
+        return u is not None and u not in ambiguous
 
     out = {}
     for sa, others in neigh.items():
         cset = list(others)
-        p, s = pred(sa), succ(sa)
+        p, s = pred_map[sa], succ_map[sa]
         # predecessor resolves iff it exists, is unambiguous, and no confusable peer shares it
-        by_pred = reliable(p) and all(pred(o) != p for o in cset)
-        by_succ = reliable(s) and all(succ(o) != s for o in cset)
+        by_pred = reliable(p) and all(pred_map.get(o) != p for o in cset)
+        by_succ = reliable(s) and all(succ_map.get(o) != s for o in cset)
         resolvable = ("both" if by_pred and by_succ else
                       "predecessor" if by_pred else
                       "successor" if by_succ else "none")
@@ -153,6 +184,10 @@ def classify(neigh, order):
             "successor": s,
             "resolvable_by": resolvable,
         }
+        if unit_mode:
+            # within-parent confusions don't change the highlighted ayah — only
+            # cross-parent ones need deferral at the highlight layer
+            out[sa]["cross_parent"] = any(_parent(o) != _parent(sa) for o in cset)
     return out
 
 
@@ -181,12 +216,22 @@ def main():
     ap.add_argument("--tau", type=float, default=0.15,
                     help="max normalized edit distance to call two ayat confusable "
                          "(default 0.15 ~ the matcher's commit margin)")
-    ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
+    ap.add_argument("--out", type=Path, default=None)
+    ap.add_argument("--units", action="store_true",
+                    help="segment-level unit index (waqf segments + unsegmented ayat)")
     args = ap.parse_args()
+    out_path = args.out or (UNITS_OUT if args.units else DEFAULT_OUT)
 
-    enc, order = load_lexicon(args.lexicon)
+    if args.units:
+        enc = load_units(SEGMENT_LEXICON, args.lexicon)
+        lex_desc = f"{SEGMENT_LEXICON.relative_to(REPO)} + {args.lexicon.relative_to(REPO)}"
+    else:
+        enc = load_lexicon(args.lexicon)
+        lex_desc = (str(args.lexicon.relative_to(REPO)) if args.lexicon.is_relative_to(REPO)
+                    else str(args.lexicon))
+    pred_map, succ_map = chain_neighbors(enc)
     neigh = find_confusable(enc, args.tau)
-    ayat = classify(neigh, order)
+    ayat = classify(neigh, pred_map, succ_map, unit_mode=args.units)
     comps = clusters(neigh)
 
     by_res = {"both": 0, "predecessor": 0, "successor": 0, "none": 0}
@@ -196,12 +241,11 @@ def main():
 
     report = {
         "meta": {
-            "lexicon": str(args.lexicon.relative_to(REPO)) if args.lexicon.is_relative_to(REPO)
-                       else str(args.lexicon),
+            "lexicon": lex_desc,
             "tau": args.tau,
             "metric": "normalized Levenshtein (1/1/1), matcher-consistent",
             "rapidfuzz": _RF is not None,
-            "n_ayat": len(enc),
+            ("n_units" if args.units else "n_ayat"): len(enc),
         },
         "summary": {
             "n_ambiguous": len(ayat),
@@ -212,20 +256,33 @@ def main():
         "classes": [{"members": c, "size": len(c)} for c in comps],
         "ambiguous": {k: ayat[k] for k in sorted(ayat, key=_key)},
     }
-    args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    if args.units:
+        n_cross = sum(1 for v in ayat.values() if v["cross_parent"])
+        report["summary"]["n_cross_parent"] = n_cross
+    out_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    print(f"corpus       : {len(enc)} ayat  ({report['meta']['lexicon']}, tau={args.tau}, "
+    unit_word = "units" if args.units else "ayat"
+    print(f"corpus       : {len(enc)} {unit_word}  ({lex_desc}, tau={args.tau}, "
           f"rapidfuzz={'yes' if _RF else 'no (DP fallback)'})")
-    print(f"ambiguous    : {len(ayat)} ayat in {len(comps)} classes "
+    print(f"ambiguous    : {len(ayat)} {unit_word} in {len(comps)} classes "
           f"({n_exact} in exact-duplicate pairs)")
     print(f"resolvable by: predecessor {by_res['predecessor']}  successor {by_res['successor']}"
           f"  both {by_res['both']}  NONE {by_res['none']}")
+    if args.units:
+        print(f"cross-parent : {n_cross} / {len(ayat)} "
+              f"(within-parent confusions don't move the highlighted ayah)")
     if by_res["none"]:
-        print("  ⚠ context-insensitive (need option fallback / deeper N-back):")
-        for k, v in sorted(ayat.items(), key=lambda kv: _key(kv[0])):
-            if v["resolvable_by"] == "none":
-                print(f"      {k}  <-> {', '.join(v['confusable_with'])}")
-    print(f"wrote        : {args.out.relative_to(REPO) if args.out.is_relative_to(REPO) else args.out}")
+        n_none_cross = [k for k, v in ayat.items()
+                        if v["resolvable_by"] == "none" and v.get("cross_parent", True)]
+        print(f"  ⚠ context-insensitive (need option fallback / deeper N-back): "
+              f"{by_res['none']}" + (f" ({len(n_none_cross)} cross-parent)" if args.units else ""))
+        show = n_none_cross if args.units else \
+            [k for k, v in ayat.items() if v["resolvable_by"] == "none"]
+        for k in sorted(show, key=_key)[:20]:
+            print(f"      {k}  <-> {', '.join(ayat[k]['confusable_with'][:6])}")
+        if len(show) > 20:
+            print(f"      ... and {len(show) - 20} more")
+    print(f"wrote        : {out_path.relative_to(REPO) if out_path.is_relative_to(REPO) else out_path}")
 
 
 if __name__ == "__main__":

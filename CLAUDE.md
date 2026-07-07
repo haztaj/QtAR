@@ -268,9 +268,13 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   validated on continuous streams (2026-07-07)** — sliding multi-scale matched-filter windows
   (each window scale only fires refs of its own length class) + 3-gram retrieval + infix
   scoring + successor votes + twin substitution + deferral assembly. On 747 continuous 4-ayah
-  test sequences: aligned-hit 86.1%, unit SER 14.3%, ayah-chain SER 14.3%, exact sequences
-  50.9%; sequential context resolves exact-twin units 47% → 77%. Iteration history (v1–v10,
-  each step measured) in research/CLAUDE.md.
+  test sequences: aligned-hit 85.9%, unit SER 14.5%, ayah-chain SER 14.8%, exact sequences
+  50.3%; sequential context resolves exact-twin units 40% → 76%. Iteration history (v1–v10,
+  each step measured) in research/CLAUDE.md. (4) **Segment-level ambiguity map** —
+  `find_ambiguous.py --units` → `data/lang/ambiguous_units.json`: 206 ambiguous units / 84
+  classes, 96% context-resolvable, 8 structural `needs_choice` cases (2:134↔2:141, 3:1↔2:1,
+  99:8↔99:7); all cross-parent. Near-twin substitution in the decoder measured neutral —
+  the map's value is the deferral/highlight contract.
 - **Corpus expanded + model retrained (2026-07-05/06).** Surahs 1-3 added (1,057 ayat, 153.9 h);
   `best_s123.pt` (combined val PER 0.130; s1-3 0.130 / juz 0.110). End-to-end test: s1-3 96.1%
   top-1, juz 95.3% (vs 97.4% juz-only baseline, with a doubled index). Training perf: the batch

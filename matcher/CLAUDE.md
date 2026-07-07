@@ -43,6 +43,8 @@ lexicon later (length-pruned pairwise; `rapidfuzz` if installed, DP fallback oth
 ```bash
 python matcher/find_ambiguous.py            # -> data/lang/ambiguous_ayat.json
 python matcher/find_ambiguous.py --tau 0.12 --lexicon <full-quran.json> --out <path>
+python matcher/find_ambiguous.py --units    # segment-level unit index (waqf segments +
+                                            # unsegmented ayat) -> data/lang/ambiguous_units.json
 ```
 
 Metric = the matcher's own normalized Levenshtein (1/1/1), so "ambiguous" == what the runtime
@@ -53,6 +55,17 @@ option fallback). This is the input to the deferral + centralized-highlight logi
 
 Juz Amma @ tau 0.15: **26 ambiguous ayat / 13 pairs** (10 exact-duplicate). All resolvable by
 context except **99:8↔99:7** — consecutive *and* 99:8 ends the surah, so no neighbour helps.
+(Still the ONLY ayah-level `none` case on the expanded 1,057-ayah corpus.)
+
+**Unit mode (`--units`, 2026-07-07):** runs over the chain decoder's unit index (1,029 waqf
+segments + unsegmented ayat = 1,741 units); neighbours follow the unit chain (segment n±1,
+crossing ayah boundaries within the surah) and each ambiguous unit gets a `cross_parent`
+flag (does the confusion change the highlighted ayah?). Result @ tau 0.15: **206 ambiguous
+units / 84 classes** (141 in exact-duplicate classes — verified equal to the decoder's twin
+sets), 96% context-resolvable (pred 22 / succ 23 / both 153), **8 `none`** (2:134↔2:141 unit
+pairs — successors also confusable, needs deeper N-back; 3:1↔2:1 alif-lām-mīm; 99:8↔99:7);
+all 206 cross-parent. Near-twin (non-exact) substitution in the research decoder measured
+neutral end-to-end — the map's consumer is the deferral/highlight layer, not the matcher.
 
 ## `highlight_controller.py` — centralized highlight state machine (Stage 3)
 

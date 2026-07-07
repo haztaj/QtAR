@@ -106,14 +106,20 @@ segmented + unsegmented ayat mixed), v8 decoder with FULL context: within-ayah s
 succession + cross-ayah handoff. Metrics are alignment-based (edit traceback), not
 prefix-positional — one early insertion must not mark every later unit wrong.
 
-**Full-run result (747 seqs / 5,007 units, v10 config, 2026-07-07): aligned-hit
-88.6% raw / 86.1% after assembly; twins 47.1% blind -> 77.4% with context+assembly
-(blind is a coin flip among identical-ref twins); unit SER 14.3%; ayah-chain SER
-14.3%; exact 4-ayah sequences 50.9%.** The methodology's central claims are all
-measured: segments are the right unit, twins dominate the miss mass, sequential
-context resolves them, and window scale must be matched to ref length (filter bank
-+ short-ref recovery: aligned-hit 78.5 -> 86.1, exact seqs 32.3 -> 50.9, ayah-chain
-SER 22.2 -> 14.3 across the two changes).
+**Full-run result (747 seqs / 5,007 units, v10 config + deterministic index,
+2026-07-07): aligned-hit 88.5% raw / 85.9% after assembly; twins 40.0% blind ->
+76.0% with context+assembly (blind is a coin flip among identical-ref twins); unit
+SER 14.5%; ayah-chain SER 14.8%; exact 4-ayah sequences 50.3%.** The methodology's
+central claims are all measured: segments are the right unit, twins dominate the
+miss mass, sequential context resolves them, and window scale must be matched to
+ref length (filter bank + short-ref recovery: aligned-hit 78.5 -> 85.9, exact seqs
+32.3 -> 50.3, ayah-chain SER 22.2 -> 14.8 across the two changes).
+
+**Determinism note (2026-07-07):** `build_ngram_index` used to store sets; set
+iteration order is hash-randomized per process, so Counter tie-breaks — exactly the
+twin cases — varied run to run (~±0.5 SER, ±5 pts twins). The index now stores
+sorted tuples; two independent processes produce byte-identical results. All numbers
+above are from the deterministic version.
 
 ## Assembly layer (deferral confirmation) — in continuous_eval.py
 
@@ -132,6 +138,28 @@ Insertions are gone — the SER sits at the hit-miss floor.
 (raw-count + full-counter length-normalized shortlist) + infix scoring + blended
 selection -> successor votes + twin substitution -> deferral assembly. Remaining
 window-D losses (11%): munch overshoot in the 12-25 band and exact twins (downstream-
-resolvable); next levers: segment-level ambiguity map (formalize twin classes for
-deferral), assembly retention (2.5-pt aligned-hit cost), then the C++ port of the
-winning design.
+resolvable); next levers: assembly retention (2.5-pt aligned-hit cost), then the
+C++ port of the winning design.
+
+## Segment-level ambiguity map (matcher/find_ambiguous.py --units)
+
+Formalizes the twin classes for the production deferral layer:
+`data/lang/ambiguous_units.json` over the chain decoder's unit index (1,029 waqf
+segments + 712 unsegmented ayat = 1,741 units, tau 0.15, matcher-consistent metric).
+
+- **206 ambiguous units / 84 classes** (11.8% of units vs 2.5% at ayah level —
+  segmentation multiplies ambiguity, as the miss dissection predicted); 141 units in
+  exact-duplicate classes == EXACTLY the decoder's twin sets (cross-checked equal).
+- **Context resolves 198/206 (96%)**: predecessor 22 / successor 23 / both 153 —
+  neighbours now follow the unit chain (segment n±1, crossing ayah boundaries within
+  the surah). The **8 context-insensitive** cases are structural: 2:134↔2:141 unit
+  pairs (near-identical ayat whose successors are also confusable — needs deeper
+  N-back), 3:1↔2:1 (both alif-lam-mim, surah openers), 99:8↔99:7 (the known ayah-level
+  case). These are the `needs_choice` fallback set.
+- **All 206 are cross-parent** (`cross_parent` flag): every unit confusion changes the
+  highlighted ayah — no harmless within-ayah twins exist in this corpus.
+- **Negative result — near-twin substitution:** extending the decoder's twin
+  substitution from exact-ref equality to map confusables (`decode_sliding(confusable=)`)
+  measured NEUTRAL on the full 747 run (SER 14.5% = 14.5%; quick-pass +0.4 was noise).
+  Exact twins already capture the resolvable mass; the 65 near-twin units are too rare.
+  The map's value is the deferral/highlight contract, not decoder accuracy.

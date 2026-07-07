@@ -163,6 +163,11 @@ def main():
         by_ref[" ".join(v)].append(k)
     twins = {k for ks in by_ref.values() if len(ks) > 1 for k in ks}
 
+    # NOTE: extending twin substitution to NEAR-twins via the segment ambiguity map
+    # (data/lang/ambiguous_units.json -> decode_sliding(confusable=...)) measured
+    # NEUTRAL on the full 747 run (SER 14.5% = 14.5%) — exact-twin substitution
+    # already captures the resolvable mass; the 65 near-twin units are too rare.
+
     # --- compose sequences: non-overlapping runs of consecutive ayat per reciter ---
     seqs = []
     ayat_by_surah = defaultdict(list)
@@ -287,16 +292,17 @@ def main():
                 out.append(p)
         return out
 
-    for name, vn, vj, tw, asm in (("context+twin+ASSEMBLY", 1, 2, True, True),
-                                  ("context+twin", 1, 2, True, False),
-                                  ("blind", 2, 2, False, False)):
+    for name, vn, vj, tw, asm, conf in (
+            ("context+twin+ASSEMBLY", 1, 2, True, True, None),
+            ("context+twin", 1, 2, True, False, None),
+            ("blind", 2, 2, False, False, None)):
         ser_n = ser_d = exact = 0
         pos_ok = pos_n = twin_ok = twin_n = 0
         aser_n = aser_d = 0
         for q in seqs:
             emitted = decode_sliding(q, ngram_idx, refs, args.window, args.hop, args.cost,
                                      vn, vj, ref_lens=ref_lens, use_twin_sub=tw,
-                                     succ_fn=succ_full)
+                                     succ_fn=succ_full, confusable=conf)
             if asm:
                 emitted = assemble(emitted)
             truth = q["truth"]

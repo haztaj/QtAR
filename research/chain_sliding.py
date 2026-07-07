@@ -72,13 +72,22 @@ REPEAT_SUPPRESS = 20.0  # suppress re-emitting the same unit within this many se
 def build_ngram_index(refs, n: int = 3):
     """Inverted index phoneme-3gram -> ref keys. Alignment-free candidate retrieval:
     the trie shortlist (root-anchored, even with restart) failed to surface refs whose
-    match starts mid-window; shared-3gram counting has no anchoring assumptions."""
+    match starts mid-window; shared-3gram counting has no anchoring assumptions.
+    Values are SORTED TUPLES, not sets: set iteration order is hash-randomized per
+    process, which made Counter tie-breaks (exactly the twin cases) nondeterministic
+    across runs (~±5 pts on the twin metric)."""
     from collections import defaultdict as dd
     idx = dd(set)
     for key, ph in refs.items():
         for i in range(len(ph) - n + 1):
             idx[tuple(ph[i:i + n])].add(key)
-    return idx
+    return {g: tuple(sorted(ks, key=_key_sort)) for g, ks in idx.items()}
+
+
+def _key_sort(u: str):
+    sa, _, seg = u.partition("#")
+    s, a = sa.split(":")
+    return int(s), int(a), int(seg) if seg else 0
 
 
 def _infix_norm(ref: list, win: list) -> float:
@@ -139,7 +148,7 @@ def window_best(win, ngram_idx, refs, ref_lens):
 def decode_sliding(stream, ngram_idx, refs, window_s, hop_s, cost_thresh,
                    votes_next: int, votes_jump: int, ref_lens=None,
                    scales=(0.2, 0.7, 1.0, 1.5, 2.2),
-                   use_twin_sub: bool = True, succ_fn=None):
+                   use_twin_sub: bool = True, succ_fn=None, confusable=None):
     """Multi-scale sliding windows; per window the production whole-window edit-norm
     (trie-shortlisted); vote state machine emits the chain."""
     if ref_lens is None:
@@ -188,8 +197,12 @@ def decode_sliding(stream, ngram_idx, refs, window_s, hop_s, cost_thresh,
         # Twin substitution: exact twins (identical refs) tie on cost AND length — the
         # matcher cannot pick between them. If the fire is a twin of the EXPECTED unit,
         # context resolves it: emit the expected one. (The dissection's core claim.)
+        # With `confusable` (the ambiguity map), extend to NEAR-twins: within tau the
+        # acoustic evidence can't reliably separate them either, and the sequential
+        # prior favors the expected unit.
         if (use_twin_sub and expected is not None and top != expected
-                and refs[top] == refs[expected]):
+                and (refs[top] == refs[expected]
+                     or (confusable is not None and expected in confusable.get(top, ())))):
             top = expected
         need = votes_next if top == expected else votes_jump
         if cost <= STRONG_COST:
