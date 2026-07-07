@@ -25,6 +25,7 @@ add_library(quranrecite_core STATIC
     src/stream.cpp
     src/autodet.cpp
     src/highlight.cpp
+    src/chain.cpp
     src/inference.cpp
     src/vad.cpp
     src/assets.cpp

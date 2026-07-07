@@ -48,7 +48,9 @@ struct HighlightSnapshot {
 enum class Mode {
     Auto,      // sliding + stream merged — handles any ayah length (default)
     Sliding,   // fixed-window content segmentation; handles continuous short ayat
-    Buffer     // legacy growing-buffer + completion (reciters who pause between ayat)
+    Buffer,    // legacy growing-buffer + completion (reciters who pause between ayat)
+    Chain      // unit-chain decoder over waqf segments (the research winning design;
+               //   requires unitPhonemesPath + a model window >= chainMaxWindowSec)
 };
 
 // All paths point at the downloaded/bundled asset bundle (see android ModelManager).
@@ -88,6 +90,16 @@ struct Config {
 
     // Front-end (must match conformance/spec.md §Stage 1).
     float normRms = 0.1f;
+
+    // Unit-chain decoder (Mode::Chain): sliding matched-filter windows over waqf segments.
+    // The phoneme stream is decoded once per hop from the rolling buffer (largest chain
+    // window), then all scale windows are sliced from that decode by time.
+    std::string unitPhonemesPath;   // unit_phonemes.json (waqf segments + unsegmented ayat)
+    float chainWindowSec = 10.0f;   // base window (scales 0.2/0.7/1.0/1.5/2.2 x this)
+    float chainHopSec = 1.5f;
+    float chainCost = 0.30f;        // window fire threshold
+    int chainVotesNext = 1;
+    int chainVotesJump = 2;
 
     // Silero VAD (Auto mode): if vadPath is set, feed speech-END events reset the buffers +
     // matcher so paused ayah-by-ayah recitation segments cleanly. Empty -> no VAD (energy gate

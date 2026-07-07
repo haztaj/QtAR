@@ -113,6 +113,41 @@ appends to `confirmed`, and sets `active = key`.
 
 ---
 
+## Stage 2b — unit-chain decoder (phoneme stream → unit chain)  [research winning design]
+
+Reference: `research/chain_sliding.py` (`decode_sliding`, `windowBest` internals,
+`assemble`, `make_succ_full`) — the design validated on 747 continuous 4-ayah sequences
+(aligned-hit 87.3%, ayah-chain SER 13.3%). C++ port: `sdk/core/src/chain.{h,cpp}`.
+
+Units = waqf segments ("S:A#NN") + unsegmented ayat ("S:A") from
+`assets/unit_phonemes.json`; the ayah is the derived (parent) label.
+
+Pipeline the port must reproduce EXACTLY over a decoded phoneme stream (per-phoneme
+times in seconds):
+
+1. **Multi-scale windows** — scales (0.2, 0.7, 1.0, 1.5, 2.2) × window_s (10), hop 1.5 s;
+   per scale, windows [t, t+W) for t = 0, 1.5, 3.0 … while t ≤ t_end + 1e-6. Windows with
+   < 4 phonemes are skipped.
+2. **windowBest** — 3-gram inverted index retrieval (posting lists in canonical
+   (surah, ayah, segment) order); shortlist = raw-count top-60 UNION length-normalized
+   (count/L) top-20 over the FULL counter, tie-breaks by first-insertion order (Python
+   `Counter.most_common` / `heapq.nlargest` stability); tight length gate 0.5n ≤ L ≤ 1.3n;
+   infix edit-norm (ref as substring of window, free edge gaps, / len(ref)); blended
+   selection sel = cost − 0.15·min(L,n)/n among fires ≤ 0.30.
+3. **Vote machine** — fires sorted by (w1, key, cost); consumed-time gate (MIN_ADVANCE 2.0,
+   consumed = w1 − 2.0 on commit), same-unit / REPEAT_SUPPRESS (20 s, first occurrence)
+   gates, exact-twin substitution toward the expected successor, votes_next=1 /
+   votes_jump=2, strong fires (≤ 0.15) commit with one vote.
+4. **Assembly** — 2-deep pending deferral: expected successor / same-parent forward
+   confirms; an unexpected jump defers until a later emission supports it (junk
+   tolerance 1); backward/repeat drops; end-of-stream flush of the chainable tail.
+
+**Comparison:** `emitted` (unit key sequence) and `assembled` (chain) must match
+**exactly** (`golden/chain/<name>.chain.json`). Fixtures: `fixtures/chain/<name>.json`
+(`{"stream": {"phonemes": [...], "times": [...]}, "params": {...}}`). Beyond the
+committed fixtures, the port was cross-validated EXACT over 200 real decoded test
+streams (2026-07-07).
+
 ## Model inference (ONNX Runtime — same engine as Python)
 
 The acoustic model runs via **ONNX Runtime** on all platforms, so it isn't re-implemented.

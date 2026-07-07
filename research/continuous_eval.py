@@ -112,7 +112,8 @@ def main():
     ap.add_argument("--rebuild-cache", action="store_true")
     args = ap.parse_args()
 
-    from chain_sliding import decode_sliding, build_ngram_index
+    from chain_sliding import (decode_sliding, build_ngram_index, make_succ_full,
+                               assemble as assemble_chain)
     from phoneme_matcher import PhonemeTrie  # noqa: F401  (parity with other scripts)
 
     # --- per-clip stream lookup: (reciter, ayah-key) -> stream ---
@@ -143,19 +144,8 @@ def main():
         return ([f"{ayah}#{i:02d}" for i in range(1, n_segs[ayah] + 1)]
                 if ayah in segmented else [ayah])
 
-    def first_unit(ayah: str) -> str:
-        return f"{ayah}#01" if ayah in segmented else ayah
-
     # cross-ayah successor: within ayah -> next segment; last unit -> next ayah's first
-    def succ_full(key: str) -> str | None:
-        parent = key.split("#")[0]
-        if "#" in key:
-            idx = int(key.split("#")[1])
-            if idx < n_segs.get(parent, 0):
-                return f"{parent}#{idx + 1:02d}"
-        s, a = (int(x) for x in parent.split(":"))
-        nxt = f"{s}:{a + 1}"
-        return first_unit(nxt) if (nxt in segmented or nxt in refs) else None
+    succ_full = make_succ_full(refs)
 
     # twin units (identical refs)
     by_ref = defaultdict(list)
@@ -234,57 +224,9 @@ def main():
                 j -= 1
         return hits
 
+    # deferral-grade chain assembly (2-deep pending buffer) — lives in chain_sliding
     def assemble(emitted):
-        """Deferral-grade chain assembly (HighlightController logic at unit level):
-        - the EXPECTED successor of the last confirmed unit confirms immediately;
-        - a unit continuing the current parent forward confirms;
-        - an unexpected jump is DEFERRED (up to TWO pending): confirmed retroactively
-          when a later emission supports it (its successor or same-parent forward).
-          The 2-deep buffer gives JUNK TOLERANCE 1 — one interloper between a true
-          unit and its supporter no longer kills the true unit (diagnostic 2026-07-07:
-          that single mechanism accounted for ~110/128 assembly-lost hits, dominated
-          by cold starts where the chain never got seeded);
-        - unsupported pendings age out (interloper — the twin-error signature);
-        - backward/repeat emissions within the current parent are dropped (re-fires)."""
-        confirmed: list[str] = []
-        pending: list[str] = []                    # oldest first, len <= 2
-
-        def parent(u): return u.split("#")[0]
-        def idx(u): return int(u.split("#")[1]) if "#" in u else 0
-
-        def supports(p, u):
-            return u == succ_full(p) or (parent(u) == parent(p) and idx(u) > idx(p))
-
-        for u in emitted:
-            sup = next((k for k in range(len(pending) - 1, -1, -1)
-                        if supports(pending[k], u)), None)
-            if sup is not None:                    # retro-confirm the supported pending
-                confirmed.append(pending[sup])     # (junk between/after it is dropped)
-                confirmed.append(u)
-                pending = []
-                continue
-            if confirmed:
-                last = confirmed[-1]
-                if u == succ_full(last):
-                    confirmed.append(u)            # expected successor: confirm now
-                    pending = []
-                    continue
-                if parent(u) == parent(last):
-                    if idx(u) > idx(last):
-                        confirmed.append(u)        # forward skip within the parent
-                        pending = []
-                    continue                       # backward/repeat: drop (re-fire)
-            pending.append(u)                      # unexpected jump: await support
-            if len(pending) > 2:
-                pending.pop(0)                     # oldest ages out (interloper)
-        for p in pending:                          # end of stream: flush chainable tail
-            if confirmed and (p == succ_full(confirmed[-1])
-                              or (parent(p) == parent(confirmed[-1])
-                                  and idx(p) > idx(confirmed[-1]))):
-                confirmed.append(p)
-        if not confirmed and pending:
-            confirmed.append(pending[0])           # lone emissions — keep the first
-        return confirmed
+        return assemble_chain(emitted, succ_full)
 
     def parents_dedup(units, smooth: bool = False):
         seq = [u.split("#")[0] for u in units]

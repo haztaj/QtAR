@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "autodet.h"
+#include "chain.h"
 #include "decoder.h"
 #include "frontend.h"
 #include "highlight.h"
@@ -80,6 +81,12 @@ struct Detector::Impl {
     HighlightController hl;
     std::unique_ptr<SileroVAD> vad;   // optional (Auto mode): resets on paused-recitation boundaries
 
+    // Mode::Chain — unit-chain decoder (waqf segments; research winning design)
+    std::unique_ptr<UnitIndex> units;
+    std::unique_ptr<ChainVoter> chainVoter;
+    std::unique_ptr<ChainAssembler> chainAsm;
+    std::string chainParent;          // last confirmed parent ayah ("" before the first)
+
     std::mutex mtx;
     std::vector<float> rolling;   // recent 16 kHz audio (up to ~30 s; sliding uses the last window)
     std::vector<float> vadBuf;    // 16 kHz audio pending VAD, fed in 512-sample chunks
@@ -103,6 +110,17 @@ struct Detector::Impl {
           hl(c.ambiguousPath) {
         if (!c.vadPath.empty())
             vad = std::make_unique<SileroVAD>(c.vadPath, kSr, c.vadThreshold, c.vadMinSilenceSec);
+        if (c.mode == Mode::Chain) {
+            units = std::make_unique<UnitIndex>(c.unitPhonemesPath, c.tokensPath);
+            ChainParams p;
+            p.windowSec = c.chainWindowSec;
+            p.hopSec = c.chainHopSec;
+            p.costThresh = c.chainCost;
+            p.votesNext = c.chainVotesNext;
+            p.votesJump = c.chainVotesJump;
+            chainVoter = std::make_unique<ChainVoter>(*units, p);
+            chainAsm = std::make_unique<ChainAssembler>(*units);
+        }
     }
 
     // A Silero speech-END: paused ayah boundary. Drop the buffered ayah + trailing silence and
@@ -208,6 +226,84 @@ struct Detector::Impl {
             streamStartAbs = std::max<long>(streamStartAbs, totalSamples - (long)(*st.refocusSec * kSr));
     }
 
+    // One chain step (Mode::Chain): decode the rolling buffer ONCE, slice all scale
+    // windows ending "now" from that decode by time, fire -> vote -> assemble; each
+    // newly-confirmed unit whose parent differs from the last drives an ayah event +
+    // highlight. The chain survives pauses natively (time-gated, no VAD reset needed).
+    void stepChain(double timeSec) {
+        if ((int)rolling.size() < kSr / 2) return;
+        const double r = rms(rolling.data() + rolling.size() - std::min<std::size_t>(rolling.size(), kSr),
+                             std::min<std::size_t>(rolling.size(), kSr));
+        if (r < 0.005) {
+            if (debug) QR_LOG("chain hop t=%.1fs rms=%.4f -> silent, skip", timeSec, r);
+            return;
+        }
+        const double bufStartSec = (double)(totalSamples - (long)rolling.size()) / kSr;
+        int T;
+        auto lm = frontend.logMel(rolling.data(), rolling.size(), T);
+        int Tout, V;
+        auto lp = model.run(lm, T, Tout, V);
+        std::vector<int> ph;
+        std::vector<double> tm;
+        int prev = -1;
+        for (int f = 0; f < Tout; ++f) {
+            const float* row = lp.data() + (std::size_t)f * V;
+            int best = 0;
+            for (int v = 1; v < V; ++v)
+                if (row[v] > row[best]) best = v;
+            if (best != prev && best != 0) {
+                ph.push_back(best);
+                tm.push_back(bufStartSec + f * 0.04);
+            }
+            prev = best;
+        }
+        if (debug) QR_LOG("chain hop t=%.1fs rms=%.4f ph=%zu (buf=%.1fs)",
+                          timeSec, r, ph.size(), (double)rolling.size() / kSr);
+        for (double sc : kChainScales) {
+            const double w0 = timeSec - cfg.chainWindowSec * sc;
+            auto lo = std::lower_bound(tm.begin(), tm.end(), w0);
+            std::vector<int> win(ph.begin() + (lo - tm.begin()), ph.end());
+            if ((int)win.size() < 4) continue;
+            auto [u, cost] = windowBest(win, *units);
+            if (u < 0 || cost > cfg.chainCost) continue;
+            if (auto em = chainVoter->onFire(timeSec, u, cost)) {
+                if (debug) QR_LOG("chain EMIT %s cost=%.2f at %.1fs",
+                                  units->key(em->unit).c_str(), cost, timeSec);
+                for (int cu : chainAsm->push(em->unit)) confirmUnit(cu, timeSec);
+            }
+        }
+    }
+
+    // A confirmed unit: parent transitions drive the public ayah events + highlight;
+    // the last unit of an ayah reveals the darker "up next" (successor being verified).
+    void confirmUnit(int unit, double timeSec) {
+        const std::string& pk = units->parentKey(unit);
+        if (pk != chainParent) {
+            EventType type = EventType::Detect;
+            if (!chainParent.empty()) {
+                const auto c = chainParent.find(':');
+                const std::string nxt = chainParent.substr(0, c + 1) +
+                    std::to_string(std::stoi(chainParent.substr(c + 1)) + 1);
+                type = pk == nxt ? EventType::Advance : EventType::Jump;
+            }
+            chainParent = pk;
+            emit(type, pk, timeSec);
+        }
+        // last unit of the parent -> the successor ayah is being verified now
+        const int succ = units->succFull(unit);
+        if ((succ < 0 || units->parentOf(succ) != units->parentOf(unit)) && hlCb && !upNextShown) {
+            const auto c = pk.find(':');
+            const int surah = std::stoi(pk.substr(0, c));
+            const int ayah = std::stoi(pk.substr(c + 1));
+            if (units->firstUnitOf(std::to_string(surah) + ":" + std::to_string(ayah + 1)) >= 0) {
+                lastSnap.hasUpNext = true;
+                lastSnap.upNext = {surah, ayah + 1};
+                upNextShown = true;
+                hlCb(lastSnap);
+            }
+        }
+    }
+
     static double rms(const float* x, std::size_t n) {
         double ss = 0.0;
         for (std::size_t i = 0; i < n; ++i) ss += (double)x[i] * x[i];
@@ -229,15 +325,19 @@ void Detector::feed(const float* pcm, std::size_t n, int sampleRate) {
     impl_->rolling.insert(impl_->rolling.end(), r.begin(), r.end());
     impl_->totalSamples += (long)r.size();
 
-    // Auto keeps up to ~30 s (the stream matcher's max buffer); sliding needs only ~2 windows.
-    const std::size_t cap = impl_->cfg.mode == Mode::Auto
-        ? (std::size_t)(30 * kSr) : (std::size_t)(2 * impl_->windowSamples());
+    // Auto keeps up to ~30 s (the stream matcher's max buffer); sliding needs only ~2
+    // windows; Chain needs the largest filter-bank window (2.2 x base).
+    const std::size_t cap = impl_->cfg.mode == Mode::Auto ? (std::size_t)(30 * kSr)
+        : impl_->cfg.mode == Mode::Chain
+            ? (std::size_t)(impl_->cfg.chainWindowSec * kChainScales[4] * kSr)
+            : (std::size_t)(2 * impl_->windowSamples());
     if (impl_->rolling.size() > cap)
         impl_->rolling.erase(impl_->rolling.begin(), impl_->rolling.end() - cap);
 
     // Silero VAD (Auto): feed the same 16 kHz audio in fixed 512-sample chunks; a speech-END
-    // event marks an ayah boundary -> drop the buffer + re-anchor so the next ayah decodes fresh.
-    if (impl_->vad) {
+    // event marks an ayah boundary -> drop the buffer + re-anchor so the next ayah decodes
+    // fresh. Chain mode needs no VAD reset: windows are time-gated and pause-tolerant.
+    if (impl_->vad && impl_->cfg.mode != Mode::Chain) {
         impl_->vadBuf.insert(impl_->vadBuf.end(), r.begin(), r.end());
         const int VC = SileroVAD::chunkSize();
         bool boundary = false;
@@ -250,10 +350,12 @@ void Detector::feed(const float* pcm, std::size_t n, int sampleRate) {
         if (boundary) impl_->boundaryReset();
     }
 
-    const long hop = (long)(impl_->cfg.hopSec * kSr);
+    const long hop = (long)((impl_->cfg.mode == Mode::Chain ? impl_->cfg.chainHopSec
+                                                            : impl_->cfg.hopSec) * kSr);
     if (impl_->totalSamples - impl_->lastProc >= hop) {
         impl_->lastProc = impl_->totalSamples;
-        if (impl_->cfg.mode == Mode::Auto) impl_->stepAuto((double)impl_->totalSamples / kSr);
+        if (impl_->cfg.mode == Mode::Chain) impl_->stepChain((double)impl_->totalSamples / kSr);
+        else if (impl_->cfg.mode == Mode::Auto) impl_->stepAuto((double)impl_->totalSamples / kSr);
         else impl_->step((double)impl_->totalSamples / kSr);
     }
 }
@@ -271,6 +373,9 @@ void Detector::reset() {
     impl_->totalSamples = impl_->lastProc = impl_->streamStartAbs = 0;
     impl_->seg.reset();
     impl_->autod.reset();
+    if (impl_->chainVoter) impl_->chainVoter->reset();
+    if (impl_->chainAsm) impl_->chainAsm->reset();
+    impl_->chainParent.clear();
     impl_->hl.reset();
     impl_->lastSnap = HighlightSnapshot{};
     impl_->curActive.clear();

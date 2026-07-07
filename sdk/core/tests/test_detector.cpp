@@ -47,7 +47,10 @@ static std::vector<float> readWavMonoF32(const std::string& path) {
 }
 
 int main(int argc, char** argv) {
-    if (argc < 4) { std::fprintf(stderr, "usage: test_detector <model.onnx> <conf_dir> <wav>\n"); return 2; }
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: test_detector <model.onnx> <conf_dir> <wav> [vad.onnx|--chain]\n");
+        return 2;
+    }
     std::string model = argv[1], conf = argv[2], wav = argv[3];
 
     Config cfg;
@@ -56,7 +59,14 @@ int main(int argc, char** argv) {
     cfg.tokensPath = conf + "/assets/tokens.txt";
     cfg.melFilterbankPath = conf + "/assets/mel_filterbank.bin";
     cfg.hannWindowPath = conf + "/assets/hann_window.bin";
-    if (argc >= 5) cfg.vadPath = argv[4];   // optional Silero VAD (paused-recitation reset)
+    if (argc >= 5) {
+        if (std::string(argv[4]) == "--chain") {   // unit-chain decoder (waqf segments)
+            cfg.mode = Mode::Chain;
+            cfg.unitPhonemesPath = conf + "/assets/unit_phonemes.json";
+        } else {
+            cfg.vadPath = argv[4];   // optional Silero VAD (paused-recitation reset)
+        }
+    }
 
     Detector det(cfg);
     std::vector<std::string> seq;

@@ -79,6 +79,22 @@ def check_highlight(man, get_states):
     return ok
 
 
+def check_chain(man, get_chain):
+    """Emitted unit sequence + assembled chain are compared EXACTLY."""
+    ok = True
+    for fx in man.get("chain", []):
+        gold = json.loads((CONF / fx["chain"]).read_text(encoding="utf-8"))
+        cand = get_chain(fx)
+        if cand is None:
+            print(f"  [chain]    {fx['name']:24} MISSING candidate output"); ok = False; continue
+        good = (cand.get("emitted") == gold["emitted"]
+                and cand.get("assembled") == gold["assembled"])
+        ok &= good
+        print(f"  [chain]    {fx['name']:24} {'OK' if good else 'FAIL'}  "
+              f"chain={gold['assembled'] if good else cand.get('assembled')}")
+    return ok
+
+
 def self_check(man):
     """Recompute from the Python reference and compare to golden."""
     sys.path.insert(0, str(CONF.parent / "training"))
@@ -118,7 +134,23 @@ def self_check(man):
             out.append(snap.to_dict())
         return out
 
-    return get_logmel, get_events, get_states
+    sys.path.insert(0, str(CONF.parent / "research"))
+    from chain_sliding import decode_sliding, build_ngram_index, make_succ_full, assemble
+    unit_ph = json.loads((CONF / "assets" / "unit_phonemes.json").read_text(encoding="utf-8"))
+    refs = {k: v.split() for k, v in unit_ph.items()}
+    ngram_idx = build_ngram_index(refs)
+    ref_lens = {k: len(v) for k, v in refs.items()}
+    succ_full = make_succ_full(refs)
+
+    def get_chain(fx):
+        spec = json.loads((CONF / fx["stream"]).read_text(encoding="utf-8"))
+        p = spec["params"]
+        emitted = decode_sliding(spec["stream"], ngram_idx, refs, p["window_s"], p["hop_s"],
+                                 p["cost"], p["votes_next"], p["votes_jump"],
+                                 ref_lens=ref_lens, use_twin_sub=True, succ_fn=succ_full)
+        return {"emitted": emitted, "assembled": assemble(emitted, succ_full)}
+
+    return get_logmel, get_events, get_states, get_chain
 
 
 def candidate_loaders(cand_dir: Path, man):
@@ -134,7 +166,11 @@ def candidate_loaders(cand_dir: Path, man):
         p = cand_dir / Path(fx["states"]).name
         return json.loads(p.read_text(encoding="utf-8")).get("states") if p.exists() else None
 
-    return get_logmel, get_events, get_states
+    def get_chain(fx):
+        p = cand_dir / Path(fx["chain"]).name
+        return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
+
+    return get_logmel, get_events, get_states, get_chain
 
 
 def main():
@@ -146,14 +182,15 @@ def main():
 
     if args.candidate:
         print(f"Verifying candidate: {args.candidate}")
-        gl, ge, gs = candidate_loaders(Path(args.candidate), man)
+        gl, ge, gs, gc = candidate_loaders(Path(args.candidate), man)
     else:
         print("SELF-CHECK (Python reference vs its own golden):")
-        gl, ge, gs = self_check(man)
+        gl, ge, gs, gc = self_check(man)
 
     ok = check_frontend(man, gl, tol)
     ok &= check_matcher(man, ge)
     ok &= check_highlight(man, gs)
+    ok &= check_chain(man, gc)
     print("\nRESULT:", "ALL PASS" if ok else "FAILURES")
     sys.exit(0 if ok else 1)
 

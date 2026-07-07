@@ -44,6 +44,85 @@ def successor(key: str, refs) -> str | None:
     return nxt if nxt in refs else None
 
 
+def make_succ_full(refs):
+    """Cross-ayah successor over the unit index: within an ayah -> next segment;
+    last unit -> the next ayah's first unit. (The deployment-condition succ_fn.)"""
+    n_segs: dict[str, int] = {}
+    for k in refs:
+        if "#" in k:
+            parent, idx = k.split("#")
+            n_segs[parent] = max(n_segs.get(parent, 0), int(idx))
+    segmented = set(n_segs)
+
+    def first_unit(ayah: str) -> str:
+        return f"{ayah}#01" if ayah in segmented else ayah
+
+    def succ_full(key: str) -> str | None:
+        parent = key.split("#")[0]
+        if "#" in key:
+            idx = int(key.split("#")[1])
+            if idx < n_segs.get(parent, 0):
+                return f"{parent}#{idx + 1:02d}"
+        s, a = (int(x) for x in parent.split(":"))
+        nxt = f"{s}:{a + 1}"
+        return first_unit(nxt) if (nxt in segmented or nxt in refs) else None
+
+    return succ_full
+
+
+def assemble(emitted, succ_fn):
+    """Deferral-grade chain assembly (HighlightController logic at unit level):
+    - the EXPECTED successor of the last confirmed unit confirms immediately;
+    - a unit continuing the current parent forward confirms;
+    - an unexpected jump is DEFERRED (up to TWO pending): confirmed retroactively
+      when a later emission supports it (its successor or same-parent forward).
+      The 2-deep buffer gives JUNK TOLERANCE 1 — one interloper between a true
+      unit and its supporter no longer kills the true unit (diagnostic 2026-07-07:
+      that single mechanism accounted for ~110/128 assembly-lost hits, dominated
+      by cold starts where the chain never got seeded);
+    - unsupported pendings age out (interloper — the twin-error signature);
+    - backward/repeat emissions within the current parent are dropped (re-fires)."""
+    confirmed: list[str] = []
+    pending: list[str] = []                    # oldest first, len <= 2
+
+    def parent(u): return u.split("#")[0]
+    def idx(u): return int(u.split("#")[1]) if "#" in u else 0
+
+    def supports(p, u):
+        return u == succ_fn(p) or (parent(u) == parent(p) and idx(u) > idx(p))
+
+    for u in emitted:
+        sup = next((k for k in range(len(pending) - 1, -1, -1)
+                    if supports(pending[k], u)), None)
+        if sup is not None:                    # retro-confirm the supported pending
+            confirmed.append(pending[sup])     # (junk between/after it is dropped)
+            confirmed.append(u)
+            pending = []
+            continue
+        if confirmed:
+            last = confirmed[-1]
+            if u == succ_fn(last):
+                confirmed.append(u)            # expected successor: confirm now
+                pending = []
+                continue
+            if parent(u) == parent(last):
+                if idx(u) > idx(last):
+                    confirmed.append(u)        # forward skip within the parent
+                    pending = []
+                continue                       # backward/repeat: drop (re-fire)
+        pending.append(u)                      # unexpected jump: await support
+        if len(pending) > 2:
+            pending.pop(0)                     # oldest ages out (interloper)
+    for p in pending:                          # end of stream: flush chainable tail
+        if confirmed and (p == succ_fn(confirmed[-1])
+                          or (parent(p) == parent(confirmed[-1])
+                              and idx(p) > idx(confirmed[-1]))):
+            confirmed.append(p)
+    if not confirmed and pending:
+        confirmed.append(pending[0])           # lone emissions — keep the first
+    return confirmed
+
+
 def _edit_norm(a: list, b: list) -> float:
     """Normalized edit distance (0=identical) — the production window score (demo/sliding.py)."""
     if len(b) < len(a):

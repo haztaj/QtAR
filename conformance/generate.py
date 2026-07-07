@@ -84,6 +84,106 @@ def gen_highlight(CONF):
               f"final active={states[-1]['active']} pending={states[-1]['pending']}")
     return entries
 
+def gen_chain(CONF):
+    """Golden for the unit-chain decoder (the research 'winning design': multi-scale
+    matched-filter windows + 3-gram retrieval + infix scoring + blended selection ->
+    successor votes + twin substitution -> 2-deep deferral assembly).
+
+    Model-independent: streams are synthetic (ground-truth unit phonemes, deterministic
+    times, seeded noise), so the golden regenerates anywhere. The C++ port must match
+    emitted units (key + fire time) and the assembled chain EXACTLY.
+    Returns the manifest fragment.
+    """
+    sys.path.insert(0, str(REPO / "research"))
+    import random
+    from chain_sliding import (decode_sliding, build_ngram_index, make_succ_full,
+                               assemble)
+
+    (CONF / "assets").mkdir(parents=True, exist_ok=True)
+    (CONF / "fixtures" / "chain").mkdir(parents=True, exist_ok=True)
+    (CONF / "golden" / "chain").mkdir(parents=True, exist_ok=True)
+
+    ayah_ph = {k: v.split() for k, v in json.loads(
+        (REPO / "data/lang/ayah_phonemes.json").read_text(encoding="utf-8")).items()}
+    seg_raw = json.loads((REPO / "data/lang/segment_phonemes.json").read_text(encoding="utf-8"))
+    refs = {k: v["phonemes"].split() for k, v in seg_raw.items()}
+    segmented = {k.split("#")[0] for k in refs}
+    refs.update({k: v for k, v in ayah_ph.items() if k not in segmented})
+    # self-contained flat unit lexicon for the C++ port
+    (CONF / "assets" / "unit_phonemes.json").write_text(
+        json.dumps({k: " ".join(v) for k, v in refs.items()}, ensure_ascii=False, indent=0),
+        encoding="utf-8")
+    ref_lens = {k: len(v) for k, v in refs.items()}
+    ngram_idx = build_ngram_index(refs)
+    succ_full = make_succ_full(refs)
+    vocab = sorted({p for v in refs.values() for p in v})
+
+    PH_SEC = 0.26            # realistic decoded phoneme rate (~3.8 ph/s)
+    GAP_SEC = 0.5            # inter-unit pause
+
+    def units_of(ayah):
+        n = max((int(k.split("#")[1]) for k in refs if k.startswith(ayah + "#")), default=0)
+        return [f"{ayah}#{i:02d}" for i in range(1, n + 1)] if n else [ayah]
+
+    def synth(ayat, sub=0.0, dele=0.0, seed=0, junk_after=None, junk_len=12):
+        """Ground-truth phoneme stream for consecutive ayat, seeded noise; optional junk
+        block (random phonemes) after the unit at index `junk_after`."""
+        rng = random.Random(seed)
+        phons, times = [], []
+        t = 0.0
+        for ui, u in enumerate([x for a in ayat for x in units_of(a)]):
+            for p in refs[u]:
+                if dele and rng.random() < dele:
+                    continue
+                phons.append(rng.choice(vocab) if sub and rng.random() < sub else p)
+                times.append(round(t, 4))
+                t += PH_SEC
+            t += GAP_SEC
+            if junk_after is not None and ui == junk_after:
+                for _ in range(junk_len):
+                    phons.append(rng.choice(vocab))
+                    times.append(round(t, 4))
+                    t += PH_SEC
+                t += GAP_SEC
+        return {"phonemes": phons, "times": times}
+
+    params = dict(window_s=10.0, hop_s=1.5, cost=0.30, votes_next=1, votes_jump=2)
+    scenarios = {
+        # clean multi-segment chaining across an ayah boundary
+        "clean_seg_run": synth(["2:6", "2:7", "2:8"]),
+        # decode-error robustness: substitutions + deletions
+        "noisy_sub_del": synth(["2:30", "2:31"], sub=0.08, dele=0.08, seed=7),
+        # exact-twin context resolution (104:4#01 'kalla' is a cross-surah twin)
+        "twin_context_run": synth(["104:3", "104:4", "104:5"], sub=0.05, seed=3),
+        # junk block between two true units: the 2-deep assembly must bridge it
+        "junk_sandwich": synth(["3:5", "3:6", "3:7"], junk_after=1, seed=11),
+    }
+
+    entries = []
+    for name, stream in scenarios.items():
+        emitted_t = []
+        emitted = decode_sliding(stream, ngram_idx, refs, params["window_s"],
+                                 params["hop_s"], params["cost"], params["votes_next"],
+                                 params["votes_jump"], ref_lens=ref_lens,
+                                 use_twin_sub=True, succ_fn=succ_full)
+        # re-run capturing fire times: decode_sliding returns keys only; recompute times
+        # by re-tracing (times are the window-end w1 of the committing fire). To keep the
+        # contract simple and exact, golden pins the emitted KEY SEQUENCE + assembled chain.
+        chain = assemble(emitted, succ_full)
+        (CONF / "fixtures" / "chain" / f"{name}.json").write_text(
+            json.dumps({"stream": stream, "params": params}, ensure_ascii=False, indent=0),
+            encoding="utf-8")
+        (CONF / "golden" / "chain" / f"{name}.chain.json").write_text(
+            json.dumps({"emitted": emitted, "assembled": chain},
+                       ensure_ascii=False, indent=1), encoding="utf-8")
+        entries.append({"name": name, "stream": f"fixtures/chain/{name}.json",
+                        "chain": f"golden/chain/{name}.chain.json",
+                        "n_phonemes": len(stream["phonemes"]), "n_emitted": len(emitted)})
+        print(f"  chain/{name}: {len(stream['phonemes'])} ph -> emitted {emitted} "
+              f"-> chain {chain}")
+    return entries
+
+
 from data import (logmel_16k, _mel, SAMPLE_RATE, N_MELS, N_FFT, HOP, WIN,  # noqa: E402
                   FMIN, FMAX, LOG_FLOOR, NORM_RMS, load_tokens, load_ayah_phonemes)
 from model import EmformerCTC                                              # noqa: E402
@@ -100,6 +200,19 @@ def save_f32(arr: np.ndarray, path: Path):
 
 
 def main():
+    import argparse
+    apar = argparse.ArgumentParser()
+    apar.add_argument("--only", choices=["chain", "highlight"], default=None,
+                      help="regenerate just one model-independent section (updates manifest in place)")
+    args = apar.parse_args()
+    if args.only:
+        man_path = CONF / "manifest.json"
+        manifest = json.loads(man_path.read_text(encoding="utf-8"))
+        manifest[args.only] = gen_chain(CONF) if args.only == "chain" else gen_highlight(CONF)
+        man_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"updated manifest section: {args.only}")
+        return
+
     for d in ["assets", "fixtures/frontend", "fixtures/matcher", "golden/frontend", "golden/matcher"]:
         (CONF / d).mkdir(parents=True, exist_ok=True)
 
@@ -118,8 +231,9 @@ def main():
                 "checkpoint": str(CKPT.relative_to(REPO)),
                 "frontend": [], "matcher": [], "highlight": [], "edit_cases": "assets/edit_cases.json"}
 
-    # --- 0) highlight golden (model-independent — do it first) ---
+    # --- 0) highlight + chain golden (model-independent — do them first) ---
     manifest["highlight"] = gen_highlight(CONF)
+    manifest["chain"] = gen_chain(CONF)
 
     # --- exact constants the C++ should reuse verbatim ---
     mel = _mel(SAMPLE_RATE)

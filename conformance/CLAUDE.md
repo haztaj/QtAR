@@ -24,12 +24,15 @@ python conformance/verify.py --candidate <out_dir>    # check the C++ port's out
 - `verify.py` — comparison logic: front-end log-mel within `1e-2`; matcher event sequences
   exact. Self-check recomputes from the reference (currently 0.0 diff, ALL PASS).
 
-Three port-risk stages are covered independently: **front-end** (WAV→log-mel; the C++ reuses
+Four port-risk stages are covered independently: **front-end** (WAV→log-mel; the C++ reuses
 the provided filterbank/window constants so only STFT+matmul+log can differ),
-**matcher/segmenter** (phonemes→ayah events, decoupled from the model), and the **Stage-3
+**matcher/segmenter** (phonemes→ayah events, decoupled from the model), the **Stage-3
 highlight controller** (committed detections→render-ready state snapshots; model-independent,
-the SDK's output contract — `golden/highlight/`, exact match, C++ port byte-identical). Model
-inference is ONNX Runtime (shared engine, parity already established — not re-implemented).
+the SDK's output contract — `golden/highlight/`, exact match, C++ port byte-identical), and
+the **unit-chain decoder** (spec.md §Stage 2b; phoneme streams→unit chains, `golden/chain/`,
+exact match; `--only chain` regenerates just this section; additionally cross-validated EXACT
+over 200 real decoded streams). Model inference is ONNX Runtime (shared engine, parity
+already established — not re-implemented).
 
 `gen_highlight()` in `generate.py` is self-contained (needs only `data/lang/ambiguous_ayat.json`
 + the controller), so the highlight golden can be regenerated without the model/audio.

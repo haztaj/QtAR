@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "assets.h"
+#include "chain.h"
 #include "frontend.h"
 #include "highlight.h"
 #include "matcher.h"
@@ -114,6 +115,34 @@ int main(int argc, char** argv) {
             }
             std::ofstream o(out + "/" + name + ".states.json");
             o << json{{"states", states}}.dump(1);
+        }
+    }
+
+    // --- unit-chain decoder (research winning design) ---
+    if (man.contains("chain")) {
+        UnitIndex uidx(conf + "/assets/unit_phonemes.json", conf + "/assets/tokens.txt");
+        for (auto& fx : man["chain"]) {
+            std::string name = fx["name"].get<std::string>();
+            auto spec = json::parse(readFile(conf + "/" + fx["stream"].get<std::string>()));
+            ChainParams p;
+            p.windowSec = spec["params"]["window_s"];
+            p.hopSec = spec["params"]["hop_s"];
+            p.costThresh = spec["params"]["cost"];
+            p.votesNext = spec["params"]["votes_next"];
+            p.votesJump = spec["params"]["votes_jump"];
+            std::vector<int> phon;
+            for (auto& t : spec["stream"]["phonemes"]) phon.push_back(uidx.tokenId(t.get<std::string>()));
+            std::vector<double> times;
+            for (auto& t : spec["stream"]["times"]) times.push_back(t.get<double>());
+            auto emissions = decodeStream(phon, times, uidx, p);
+            ChainAssembler asmr(uidx);
+            for (auto& e : emissions) asmr.push(e.unit);
+            asmr.flush();
+            json emitted = json::array(), assembled = json::array();
+            for (auto& e : emissions) emitted.push_back(uidx.key(e.unit));
+            for (int u : asmr.confirmed()) assembled.push_back(uidx.key(u));
+            std::ofstream o(out + "/" + name + ".chain.json");
+            o << json{{"emitted", emitted}, {"assembled", assembled}}.dump(1);
         }
     }
 

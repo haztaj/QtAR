@@ -129,5 +129,35 @@
       "states": "golden/highlight/defer_broken_sequence.states.json",
       "n_steps": 2
     }
+  ],
+  "chain": [
+    {
+      "name": "clean_seg_run",
+      "stream": "fixtures/chain/clean_seg_run.json",
+      "chain": "golden/chain/clean_seg_run.chain.json",
+      "n_phonemes": 227,
+      "n_emitted": 7
+    },
+    {
+      "name": "noisy_sub_del",
+      "stream": "fixtures/chain/noisy_sub_del.json",
+      "chain": "golden/chain/noisy_sub_del.chain.json",
+      "n_phonemes": 259,
+      "n_emitted": 4
+    },
+    {
+      "name": "twin_context_run",
+      "stream": "fixtures/chain/twin_context_run.json",
+      "chain": "golden/chain/twin_context_run.chain.json",
+      "n_phonemes": 76,
+      "n_emitted": 4
+    },
+    {
+      "name": "junk_sandwich",
+      "stream": "fixtures/chain/junk_sandwich.json",
+      "chain": "golden/chain/junk_sandwich.chain.json",
+      "n_phonemes": 449,
+      "n_emitted": 11
+    }
   ]
 }

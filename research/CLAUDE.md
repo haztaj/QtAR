@@ -150,8 +150,15 @@ chain improved to 13.3%.
 (raw-count + full-counter length-normalized shortlist) + infix scoring + blended
 selection -> successor votes + twin substitution -> deferral assembly (2-deep
 pending buffer). Remaining window-D losses (11%): munch overshoot in the 12-25 band
-and exact twins (downstream-resolvable); residual retention cost 1.2 pts. Next:
-the C++ port of the winning design.
+and exact twins (downstream-resolvable); residual retention cost 1.2 pts.
+
+**C++ port — done (2026-07-07).** `sdk/core/src/chain.{h,cpp}` (`Mode::Chain` in the
+Detector: one rolling-buffer decode per hop, scale windows sliced by time). Pinned by
+conformance (`golden/chain/`, spec.md §Stage 2b, exact match) AND cross-validated
+EXACT (emitted + assembled) over 200 real decoded test streams. Audio-level smoke
+(119 s, 2:30-2:33 held-out reciter): C++ Detector parent chain == offline Python
+reference on the same audio. `assemble`/`make_succ_full` now live in chain_sliding.py
+(module-level = the citable reference).
 
 ## Segment-level ambiguity map (matcher/find_ambiguous.py --units)
 

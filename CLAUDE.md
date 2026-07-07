@@ -270,7 +270,10 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   scoring + successor votes + twin substitution + deferral assembly (2-deep pending buffer =
   junk tolerance 1). On 747 continuous 4-ayah test sequences: aligned-hit 87.3%, unit SER
   13.2%, ayah-chain SER 13.3%, exact sequences 52.6%; sequential context resolves exact-twin
-  units 40% → 76%. Iteration history (v1–v10, each step measured) in research/CLAUDE.md. (4) **Segment-level ambiguity map** —
+  units 40% → 76%. Iteration history (v1–v10, each step measured) in research/CLAUDE.md.
+  **C++ port done (2026-07-07):** `sdk/core/src/chain.{h,cpp}` + `Mode::Chain` in the Detector,
+  conformance-pinned (`golden/chain/`, spec.md §Stage 2b) + exact over 200 real streams.
+  (4) **Segment-level ambiguity map** —
   `find_ambiguous.py --units` → `data/lang/ambiguous_units.json`: 206 ambiguous units / 84
   classes, 96% context-resolvable, 8 structural `needs_choice` cases (2:134↔2:141, 3:1↔2:1,
   99:8↔99:7); all cross-parent. Near-twin substitution in the decoder measured neutral —
