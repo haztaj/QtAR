@@ -18,6 +18,9 @@ constexpr double kCoverBonus = 0.15;    // selection = cost - bonus*coverage
 constexpr double kStrongCost = 0.15;    // near-certain fire: commits with a single vote
 constexpr double kMinAdvance = 2.0;     // emission gate past the last commit
 constexpr double kRepeatSuppress = 20.0;
+constexpr int kStreakMin = 3;           // consecutive expected commits before jumps escalate
+constexpr int kStreakExtra = 1;         // extra votes a NON-near jump needs when streaked
+constexpr int kNearAhead = 2;           // same surah, 0..this many ayat ahead = cheap recovery
 
 struct KeyParts { int s, a, seg; };
 KeyParts parseKey(const std::string& k) {
@@ -200,6 +203,7 @@ void ChainVoter::reset() {
     emitted_.clear();
     expected_ = pending_ = -1;
     votes_ = 0;
+    streak_ = 0;
     consumed_ = -1e9;
 }
 
@@ -215,11 +219,23 @@ std::optional<UnitEmission> ChainVoter::onFire(double w1, int unit, double cost)
     // Twin substitution: exact twins tie on cost AND length — context picks.
     if (expected_ >= 0 && unit != expected_ && idx_.phonemes(unit) == idx_.phonemes(expected_))
         unit = expected_;
-    int need = unit == expected_ ? p_.votesNext : p_.votesJump;
-    if (cost <= kStrongCost) need = std::min(need, 1);        // strong fires commit alone
+    // Streak escalation: after kStreakMin consecutive expected commits, a fire that is
+    // neither the expected successor nor a NEAR continuation (same surah, up to
+    // kNearAhead ayat ahead — keeps recovery after a missed unit cheap) needs extra
+    // votes, and a strong fire no longer commits alone.
+    bool near = true;
+    if (unit != expected_ && !emitted_.empty()) {
+        const auto lp = parseKey(idx_.key(emitted_.back().unit));
+        const auto tp = parseKey(idx_.key(unit));
+        near = tp.s == lp.s && tp.a - lp.a >= 0 && tp.a - lp.a <= kNearAhead;
+    }
+    const bool escalate = streak_ >= kStreakMin && unit != expected_ && !near;
+    int need = unit == expected_ ? p_.votesNext : p_.votesJump + (escalate ? kStreakExtra : 0);
+    if (cost <= kStrongCost) need = std::min(need, escalate ? 2 : 1);  // confidence-scaled
     if (unit == pending_) ++votes_;
     else { pending_ = unit; votes_ = 1; }
     if (votes_ < need) return std::nullopt;
+    streak_ = (unit == expected_ && expected_ >= 0) ? streak_ + 1 : 0;
     UnitEmission em{unit, w1};
     emitted_.push_back(em);
     consumed_ = w1 - 2.0;                                     // keep overlap for the next unit
@@ -331,8 +347,11 @@ std::vector<UnitEmission> decodeStream(const std::vector<int>& phonemes,
     ChainVoter voter(idx, p);
     for (const auto& e : evs) {
         if (e.kind == 0) {
+            // Early-prefix only on a TRUSTED expectation (last commit extended the
+            // chain) — after a junk/jump emission it would probe for the junk's
+            // successor every hop and manufacture the assembler's supporter.
             const int exp = voter.expectedUnit();
-            if (exp < 0) continue;
+            if (exp < 0 || voter.streak() < 1) continue;
             const int L = idx.len(exp);
             const int minI = std::max(6, (int)std::ceil(p.earlyPrefix * L - 1e-9));
             if (L < minI) continue;

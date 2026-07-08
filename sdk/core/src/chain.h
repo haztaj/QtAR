@@ -79,6 +79,8 @@ public:
     std::optional<UnitEmission> onFire(double w1, int unit, double cost);
     const std::vector<UnitEmission>& emitted() const { return emitted_; }
     int expectedUnit() const { return expected_; }   // -1 if none (early-prefix check)
+    int streak() const { return streak_; }           // consecutive expected commits;
+                                                     // early-prefix requires >= 1
 
 private:
     const UnitIndex& idx_;
@@ -87,6 +89,7 @@ private:
     int expected_ = -1;
     int pending_ = -1;
     int votes_ = 0;
+    int streak_ = 0;
     double consumed_ = -1e9;
 };
 

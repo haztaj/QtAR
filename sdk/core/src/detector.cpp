@@ -263,7 +263,7 @@ struct Detector::Impl {
         // its prefix matches the decode tail (before the scale fires, like the reference).
         if (cfg.chainEarlyPrefix > 0.0f) {
             const int exp = chainVoter->expectedUnit();
-            if (exp >= 0 && (int)ph.size() >= 4) {
+            if (exp >= 0 && chainVoter->streak() >= 1 && (int)ph.size() >= 4) {
                 const int L = units->len(exp);
                 const int minI = std::max(6, (int)std::ceil(cfg.chainEarlyPrefix * L - 1e-9));
                 if (L >= minI) {

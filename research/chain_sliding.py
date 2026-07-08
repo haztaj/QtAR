@@ -146,6 +146,10 @@ COVER_BONUS = 0.15 # selection = cost - COVER_BONUS*coverage (anti-snippet AND a
 STRONG_COST = 0.15 # near-certain fire (truth median 0.08): commits with a single vote
 MIN_ADVANCE = 2.0  # a new emission needs its window to extend this far past the last commit
 REPEAT_SUPPRESS = 20.0  # suppress re-emitting the same unit within this many seconds
+STREAK_MIN = 3     # consecutive expected-successor commits before jumps get costlier
+STREAK_EXTRA = 1   # extra votes a NON-near jump needs once the streak is established
+NEAR_AHEAD = 2     # "near continuation": same surah, 0..this many ayat ahead (recovery
+                   #   after a missed unit stays cheap — only real jumps escalate)
 
 
 def build_ngram_index(refs, n: int = 3):
@@ -292,15 +296,25 @@ def decode_sliding(stream, ngram_idx, refs, window_s, hop_s, cost_thresh,
                 fires.append((w1, 1, key, cost, None))
     fires.sort(key=lambda f: (f[0], f[1], f[2], f[3]))
 
+    def parent_sa(u):
+        s, a = u.split("#")[0].split(":")
+        return int(s), int(a)
+
     emitted: list[str] = []
     emit_t: list[float] = []
     expected: str | None = None
     pending: str | None = None
     votes = 0
+    streak = 0                             # consecutive expected-successor commits
     consumed = -1e9                        # soft time anchor: emission gate only —
     for w1, kind, top, cost, win in fires:  # matching stays stateless (no cascade risk)
         if kind == 0:                      # prefix-check event: early-fire the EXPECTED unit
-            if expected is None:
+            # Only when the expectation is TRUSTED (last commit extended the chain).
+            # After a junk/jump emission, `expected` is the junk's successor — early
+            # prefix would probe for it every hop and eventually pseudo-match on noisy
+            # decode, manufacturing the supporter that confirms the junk (observed
+            # live: 2:255->2:257 streak, junk 2:275#05, EARLY 2:275#06 -> wrong jump).
+            if expected is None or streak < 1:
                 continue
             L = ref_lens[expected]
             min_i = max(6, int(early_prefix * L + 0.999999))
@@ -326,14 +340,25 @@ def decode_sliding(stream, ngram_idx, refs, window_s, hop_s, cost_thresh,
                 and (refs[top] == refs[expected]
                      or (confusable is not None and expected in confusable.get(top, ())))):
             top = expected
-        need = votes_next if top == expected else votes_jump
+        # Streak escalation: after STREAK_MIN consecutive expected commits, a fire that
+        # is neither the expected successor nor a NEAR continuation (same surah, up to
+        # NEAR_AHEAD ayat ahead — keeps recovery after a missed unit cheap) needs extra
+        # votes, and a strong fire no longer commits alone.
+        near = True
+        if top != expected and emitted:
+            ls, la = parent_sa(emitted[-1])
+            ts, ta = parent_sa(top)
+            near = ts == ls and 0 <= ta - la <= NEAR_AHEAD
+        escalate = streak >= STREAK_MIN and top != expected and not near
+        need = votes_next if top == expected else votes_jump + (STREAK_EXTRA if escalate else 0)
         if cost <= STRONG_COST:
-            need = min(need, 1)            # confidence-scaled: strong fires commit alone
+            need = min(need, 2 if escalate else 1)   # confidence-scaled commits
         if top == pending:
             votes += 1
         else:
             pending, votes = top, 1
         if votes >= need:
+            streak = streak + 1 if (top == expected and expected is not None) else 0
             emitted.append(top)
             emit_t.append(w1)
             consumed = w1 - 2.0            # keep some overlap for the next unit's window

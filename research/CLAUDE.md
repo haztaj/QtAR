@@ -189,10 +189,22 @@ Debugged from per-hop engine logs + pulled session WAVs, each reproduced offline
   now shows immediately as the provisional ACTIVE highlight (public-snapshot layer;
   the conformance-pinned controller and assembly are untouched); the first real
   confirmation overwrites it. Cold start only — mid-stream pendings stay invisible.
-- **Remaining phone-latency wall: decode quality.** Mid-surah units on the quiet mic
-  fire at 0.41-0.44 (threshold 0.45) — commits land when alignment luck dips under.
-  The fix is model-side: re-apply the poor-mic augmentation recipe (best_mic: learner
-  16 -> 67%) to the expanded-corpus model — mic-adaptation fine-tune of best_s123.
+- **Remaining phone-latency wall: decode quality — RESOLVED by the mic retrain.**
+  Mid-surah units on the quiet mic fired at 0.41-0.44 (threshold 0.45); best_s123_mic
+  (val PER 0.130 -> 0.079, learners 48 -> 66%) puts them comfortably under. User
+  verdict on-device: "tracking is fast now."
+- **v12 — streak protection + trusted-expectation gate (2026-07-08, from a live wrong
+  jump).** Observed: 2:255->2:257 streak, junk fire 2:275#05, then EARLY 2:275#06 at
+  0.29 -> COMMIT 2:275 (jump). Root cause is an early-prefix amplification loop: after
+  ANY junk emission, `expected` is the junk's successor and the prefix probe hunts for
+  it EVERY hop at the loose phone threshold — on noisy decode it eventually
+  pseudo-matches, manufacturing the assembler's supporter. Two changes: (1) early
+  prefix requires a TRUSTED expectation (voter streak >= 1 — the last commit extended
+  the chain); (2) once streak >= 3, non-NEAR jumps (near = same surah, 0..2 ayat
+  ahead, so post-miss recovery stays cheap) need votes_jump+1 and strong fires no
+  longer commit alone. Session replay: the exact audio now yields the clean
+  2:255 -> 2:256 -> 2:257 -> 2:258 chain. Conformance golden unchanged (synthetic
+  fixtures have no streak-triggering junk); C++ exact.
 
 ## Segment-level ambiguity map (matcher/find_ambiguous.py --units)
 
