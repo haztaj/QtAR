@@ -123,6 +123,13 @@ def main():
     ap.add_argument("--lr", type=float, default=5e-4)
     ap.add_argument("--warmup", type=int, default=1000)
     ap.add_argument("--init-from", default=None, help="checkpoint to warm-start weights (fine-tune)")
+    ap.add_argument("--resume", default=None,
+                    help="checkpoint to FULLY resume (model+optimizer+scaler+step+epoch); "
+                         "--epochs stays the TOTAL, training continues from the saved epoch")
+    ap.add_argument("--epochs-per-run", type=int, default=0,
+                    help="exit (code 75) after this many epochs — the supervisor restarts the "
+                         "process to bound the audiomentations RAM leak (grows ~8.5 GB/epoch "
+                         "in the MAIN process; worker respawn alone doesn't free it)")
     ap.add_argument("--tag", default="", help="suffix for checkpoint filenames (e.g. _aug)")
     ap.add_argument("--train-manifest", default=None,
                     help="custom training manifest (e.g. phase-2 combined clean+RetaSy); "
@@ -184,8 +191,21 @@ def main():
 
     total_steps = (len(train_dl) // args.accum) * args.epochs
     step, best_per = 0, float("inf")
+    start_epoch = 1
+    if args.resume:
+        ck = torch.load(REPO / args.resume, map_location=device)
+        model.load_state_dict(ck["model"])
+        if "opt" in ck:
+            opt.load_state_dict(ck["opt"])
+            scaler.load_state_dict(ck["scaler"])
+        step = ck.get("step", 0)
+        best_per = ck.get("best_per", float("inf"))
+        start_epoch = ck.get("epoch", 0) + 1
+        print(f"resumed from {args.resume} (epoch {ck.get('epoch')}, step {step}, "
+              f"best_per {best_per:.3f}, opt={'yes' if 'opt' in ck else 'NO — weights only'})")
 
-    for epoch in range(1, args.epochs + 1):
+    epochs_done = 0
+    for epoch in range(start_epoch, args.epochs + 1):
         train_sampler.set_epoch(epoch)
         model.train()
         t0 = time.time()
@@ -233,13 +253,21 @@ def main():
               f"val_loss {val_loss:6.3f} | val_PER {val_per:6.3f} | "
               f"lr {cur_lr:.2e} | {dt:5.1f}s" + (f" | inf={n_inf}" if n_inf else ""))
 
-        torch.save({"model": model.state_dict(), "epoch": epoch, "val_per": val_per,
-                    "vocab": vocab}, EXP_DIR / f"last{args.tag}.pt")
         if val_per < best_per:
             best_per = val_per
             torch.save({"model": model.state_dict(), "epoch": epoch,
                         "val_per": val_per, "vocab": vocab}, EXP_DIR / f"best{args.tag}.pt")
             print(f"           new best PER {best_per:.3f} -> best{args.tag}.pt")
+        # full state for exact resume (supervisor restarts bound the aug RAM leak)
+        torch.save({"model": model.state_dict(), "epoch": epoch, "val_per": val_per,
+                    "vocab": vocab, "opt": opt.state_dict(), "scaler": scaler.state_dict(),
+                    "step": step, "best_per": best_per}, EXP_DIR / f"last{args.tag}.pt")
+
+        epochs_done += 1
+        if args.epochs_per_run and epochs_done >= args.epochs_per_run and epoch < args.epochs:
+            print(f"epochs-per-run reached ({epochs_done}) at epoch {epoch} — "
+                  f"exiting for supervisor restart")
+            sys.exit(75)
 
     print(f"done. best val PER {best_per:.3f}")
 

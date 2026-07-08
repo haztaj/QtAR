@@ -58,6 +58,36 @@ OOM the moment a batch catches several long clips. Solution:
 - **Split is by reciter** → val/test PER measures speaker generalization, the thing
   that actually matters for new users.
 
+## Resume + supervisor (audiomentations RAM leak)
+
+`--augment` leaks RAM across epochs in BOTH the workers (mitigated by per-epoch worker
+respawn, `persistent_workers` off) **and the MAIN process** (~8.5 GB/epoch; measured
+30.7 GB private after ~3.5 epochs). The main-process leak evicts the OS file cache,
+then pages — each epoch runs slower than the last (reference symptom: 609 s fresh
+epoch vs 1,805 s one leak-epoch later, same data/machine), and only a process restart
+resets it. Fix, by construction:
+
+- `last<tag>.pt` now stores FULL resume state (optimizer, AMP scaler, LR step,
+  best_per); `train.py --resume last<tag>.pt` continues exactly (`--epochs` stays the
+  TOTAL). `--epochs-per-run N` exits with code 75 after N epochs.
+- `train_supervisor.py` reruns train.py in fresh processes until done — with
+  `--epochs-per-run 1` every epoch runs leak-free in the fast band:
+
+```bash
+python training/train_supervisor.py --epochs 12 --tag _s123_mic \
+    --train-manifest data/raw/phase2/combined_train.csv --epochs-per-run 1 \
+    --init-from training/exp/last_s123_mic.pt -- \
+    --lr 1.4e-4 --augment --frame-budget 24000 --num-workers 8
+```
+
+Worker count: augmented epochs are CPU-bound (phase-vocoder pitch/time + MP3
+round-trips); 4 workers barely keep the GPU fed, 8-14 give headroom. Balance against
+RAM: each spawned worker holds ~2.8 GB private; workers + one epoch of main-process
+leak + OS must leave room for the page cache or epochs slow down again. Also note:
+Windows power-throttles (EcoQoS) hidden/background processes — detached runs can see
+multi-x epoch swings during idle periods (`powercfg /powerthrottling disable /pid <id>`
+from an elevated prompt exempts them).
+
 ## Known noise / gotchas
 
 - A handful of MP3s emit libmpg123 ID3/frame warnings on decode (`unrealistic small

@@ -279,7 +279,17 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   `Config.chainCost`); v11 early-prefix firing (fires the expected unit from a 50% prefix
   match — faster AND more accurate: clean aligned-hit 87.5→91.4, exact 45.3→56.7);
   cold-start provisional highlight kills the 10-20 s first-detection dead window. Verified
-  live tracking on surahs 2 and 111. Remaining wall: mic-adaptation training for best_s123.
+  live tracking on surahs 2 and 111.
+- **Mic-adaptation retrain — done (2026-07-08).** `best_s123_mic.pt`: phase-2 recipe (poor-mic
+  augmentation + RetaSy) re-applied to the expanded corpus, fine-tuned from best_s123 over
+  regenerated phase-2 splits (26,855 clips / 130.3 h; 92 held-out learner reciters). Val PER
+  0.130 → **0.079**; held-out learners **48.0% → 66.0%** top-1 (false commits 42% → 25%);
+  clean test 95.9% (no regression). On the pulled phone session, the strict-threshold chain
+  went from 1 recovered unit to 3. Deployed: `model_s123_mic_22s.int8.onnx` (13.4 MB, int8
+  argmax lossless) bundled in the demo, asset version `best_s123_mic-22s-v1`. Training infra:
+  audiomentations leaks ~8.5 GB/epoch in the MAIN process (epochs slow monotonically as the
+  file cache dies) → `train.py --resume` (full optimizer state) + `train_supervisor.py`
+  restart every epoch — flat ~600 s epochs. See training/CLAUDE.md.
   (4) **Segment-level ambiguity map** —
   `find_ambiguous.py --units` → `data/lang/ambiguous_units.json`: 206 ambiguous units / 84
   classes, 96% context-resolvable, 8 structural `needs_choice` cases (2:134↔2:141, 3:1↔2:1,
