@@ -106,14 +106,15 @@ segmented + unsegmented ayat mixed), v8 decoder with FULL context: within-ayah s
 succession + cross-ayah handoff. Metrics are alignment-based (edit traceback), not
 prefix-positional — one early insertion must not mark every later unit wrong.
 
-**Full-run result (747 seqs / 5,007 units, v10 config + deterministic index +
-2-deep assembly, 2026-07-07): aligned-hit 88.5% raw / 87.3% after assembly; twins
-40.0% blind -> 76.2% with context+assembly (blind is a coin flip among identical-ref
-twins); unit SER 13.2%; ayah-chain SER 13.3%; exact 4-ayah sequences 52.6%.** The
-methodology's central claims are all measured: segments are the right unit, twins
-dominate the miss mass, sequential context resolves them, and window scale must be
-matched to ref length. Cumulative across the detection + retention arc: aligned-hit
-78.5 -> 87.3, exact seqs 32.3 -> 52.6, ayah-chain SER 22.2 -> 13.3.
+**Full-run result (747 seqs / 5,007 units, v12 config: v10 + early-prefix +
+streak gating, 2026-07-08): aligned-hit 90.5% raw / 89.3% after assembly; twins
+63.6% blind -> 79.3% with context+assembly; unit SER 11.3%; ayah-chain SER 12.4%;
+exact 4-ayah sequences 58.8%.** (v10 baseline for comparison: SER 13.2 / hit 87.3 /
+ayah 13.3 / exact 52.6 — early-prefix pays for the streak gating and then some.)
+The methodology's central claims are all measured: segments are the right unit,
+twins dominate the miss mass, sequential context resolves them, and window scale
+must be matched to ref length. Cumulative across the whole arc: aligned-hit
+78.5 -> 89.3, exact seqs 32.3 -> 58.8, ayah-chain SER 22.2 -> 12.4.
 
 **Determinism note (2026-07-07):** `build_ngram_index` used to store sets; set
 iteration order is hash-randomized per process, so Counter tie-breaks — exactly the
@@ -204,7 +205,10 @@ Debugged from per-hop engine logs + pulled session WAVs, each reproduced offline
   ahead, so post-miss recovery stays cheap) need votes_jump+1 and strong fires no
   longer commit alone. Session replay: the exact audio now yields the clean
   2:255 -> 2:256 -> 2:257 -> 2:258 chain. Conformance golden unchanged (synthetic
-  fixtures have no streak-triggering junk); C++ exact.
+  fixtures have no streak-triggering junk); C++ exact. Full 747 with v11+v12: unit
+  SER 13.2 -> 11.3, aligned-hit 87.3 -> 89.3, ayah-chain SER 13.3 -> 12.4, exact
+  52.6 -> 58.8 — the gating costs nothing on clean audio and kills the live
+  wrong-jump class.
 
 ## Segment-level ambiguity map (matcher/find_ambiguous.py --units)
 

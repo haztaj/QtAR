@@ -268,9 +268,10 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   validated on continuous streams (2026-07-07)** — sliding multi-scale matched-filter windows
   (each window scale only fires refs of its own length class) + 3-gram retrieval + infix
   scoring + successor votes + twin substitution + deferral assembly (2-deep pending buffer =
-  junk tolerance 1). On 747 continuous 4-ayah test sequences: aligned-hit 87.3%, unit SER
-  13.2%, ayah-chain SER 13.3%, exact sequences 52.6%; sequential context resolves exact-twin
-  units 40% → 76%. Iteration history (v1–v10, each step measured) in research/CLAUDE.md.
+  junk tolerance 1). On 747 continuous 4-ayah test sequences (v12 config: + early-prefix +
+  streak gating): aligned-hit 89.3%, unit SER 11.3%, ayah-chain SER 12.4%, exact sequences
+  58.8%; sequential context resolves exact-twin units 64% → 79%. Iteration history (v1–v12,
+  each step measured) in research/CLAUDE.md.
   **C++ port done (2026-07-07):** `sdk/core/src/chain.{h,cpp}` + `Mode::Chain` in the Detector,
   conformance-pinned (`golden/chain/`, spec.md §Stage 2b) + exact over 200 real streams.
   **On-device (2026-07-08):** the demo app runs Mode.CHAIN live (1,057-ayah corpus, 22 s
