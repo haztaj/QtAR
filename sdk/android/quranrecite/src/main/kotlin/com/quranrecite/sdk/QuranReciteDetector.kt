@@ -111,6 +111,7 @@ class QuranReciteDetector(
 
     private var nativeHandle: Long = 0
     private var listener: Listener? = null
+    @Volatile private var modelPath: String? = null   // resolved at onModelReady (for debug info)
     private var capture: AudioCapture? = null
     private var debugRec: DebugWavRecorder? = null
     @Volatile private var debugLogging = false   // logcat: engine assets + native per-hop stats
@@ -134,11 +135,16 @@ class QuranReciteDetector(
     /** Absolute path of the most recently recorded session WAV, or null. */
     fun lastRecording(): String? = lastRecordingPath
 
+    /** Basename of the resolved model (e.g. "best_s123_mic_clean-22s-v1.onnx"), for debug
+     *  info; null before [Listener.onModelReady]. */
+    fun modelName(): String? = modelPath?.substringAfterLast('/')
+
     /** Ensures the model is present (downloads on first launch), then creates the engine. */
     fun prepare() {
         ModelManager(context, config.corpus).ensureAsync(
             onProgress = { f -> mainHandler.post { listener?.onModelDownloadProgress(f) } },
             onReady = { assets ->                       // worker thread: build engine here
+                modelPath = assets.modelPath
                 if (debugLogging) android.util.Log.i("QuranRecite",
                     "engine assets: model=${assets.modelPath.substringAfterLast('/')} " +
                         "vad=${if (assets.vadPath.isEmpty()) "<none>" else assets.vadPath.substringAfterLast('/')} " +

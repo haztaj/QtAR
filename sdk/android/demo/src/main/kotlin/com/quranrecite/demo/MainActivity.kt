@@ -93,6 +93,7 @@ class MainActivity : ComponentActivity() {
                         // clear the on-screen highlight.
                         detector.reset()
                         highlight = HighlightInfo()
+                        startSessionLog()             // fresh detection trace for this session
                         detector.start()
                         listening = true
                         status = "Listening…"
@@ -117,6 +118,7 @@ class MainActivity : ComponentActivity() {
                                 " upNext=${state.upNext?.let { "${it.surah}:${it.ayah}" }}" +
                                 " confirmed=${state.confirmed.joinToString(",") { "${it.surah}:${it.ayah}" }}" +
                                 " pending=${state.pending?.let { p -> "${p.reason}:${p.options.joinToString("/") { "${it.surah}:${it.ayah}" }}" }}")
+                            logHighlight(state)                 // into the shareable debug trace
                             highlight = state.toInfo()
                             status = state.pending?.let { p ->
                                 val opts = p.options.joinToString(" / ") { "${it.surah}:${it.ayah}" }
@@ -125,6 +127,7 @@ class MainActivity : ComponentActivity() {
                         }
                         override fun onError(error: Throwable) {
                             if (debugLogging) Log.e("QRDemo", "onError", error)
+                            logSession("ERROR: ${error.message}")
                             status = "Error: ${error.message}"
                         }
                     })
@@ -171,6 +174,7 @@ class MainActivity : ComponentActivity() {
                         onToggleListen = {
                             if (listening) {
                                 if (debugLogging) Log.i("QRDemo", "STOP pressed")
+                                logSession("STOP")
                                 detector.stop(); listening = false; status = "Stopped"
                             } else {
                                 if (debugLogging) Log.i("QRDemo", "START pressed")
@@ -226,22 +230,96 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() { detector.release(); super.onDestroy() }
 
-    /** Share the most recent debug session WAV (record a session first). */
+    // --- session debug trace (accumulated from detection callbacks; bundled by shareRecording) ---
+    private val sessionLog = StringBuilder()
+    private var sessionStartMs = 0L
+    private var lastHlLine = ""
+
+    /** Begin a fresh detection trace (called when a session starts). */
+    fun startSessionLog() {
+        synchronized(sessionLog) { sessionLog.setLength(0) }
+        lastHlLine = ""
+        sessionStartMs = System.currentTimeMillis()
+        logSession("START")
+    }
+
+    /** Append a timestamped line to the current session trace. */
+    fun logSession(line: String) {
+        val t = if (sessionStartMs == 0L) 0.0 else (System.currentTimeMillis() - sessionStartMs) / 1000.0
+        synchronized(sessionLog) { sessionLog.append("+%6.1fs  %s%n".format(t, line)) }
+    }
+
+    /** Log a highlight snapshot, de-duplicated against the previous line. */
+    private fun logHighlight(state: HighlightState) {
+        val line = "active=${state.active?.let { "${it.surah}:${it.ayah}" } ?: "-"}" +
+            " upNext=${state.upNext?.let { "${it.surah}:${it.ayah}" } ?: "-"}" +
+            " confirmed=[${state.confirmed.joinToString(",") { "${it.surah}:${it.ayah}" }}]" +
+            (state.pending?.let { p -> " pending=${p.reason}:${p.options.joinToString("/") { "${it.surah}:${it.ayah}" }}" } ?: "")
+        if (line != lastHlLine) { lastHlLine = line; logSession(line) }
+    }
+
+    /**
+     * Share the last debug session as a ZIP bundling everything useful for debugging: the session
+     * WAV (exact 16 kHz PCM the engine heard), an `info.txt` with device / app / model / config,
+     * and the timestamped detection trace. Record a session first ('Record session audio').
+     */
     private fun shareRecording() {
-        val path = detector.lastRecording()
-        if (path == null) {
+        val wav = detector.lastRecording()?.let { java.io.File(it) }
+        if (wav == null || !wav.exists()) {
             android.widget.Toast.makeText(this, "No recording yet — enable 'Record session audio' and run detection",
                 android.widget.Toast.LENGTH_LONG).show()
             return
         }
+        val zip = java.io.File(getExternalFilesDir(null), "qtar_debug_${wav.nameWithoutExtension}.zip")
+        try {
+            java.util.zip.ZipOutputStream(zip.outputStream().buffered()).use { zos ->
+                zos.putNextEntry(java.util.zip.ZipEntry("info.txt"))
+                zos.write(buildDebugInfo().toByteArray()); zos.closeEntry()
+                zos.putNextEntry(java.util.zip.ZipEntry(wav.name))
+                wav.inputStream().use { it.copyTo(zos) }; zos.closeEntry()
+            }
+        } catch (t: Throwable) {
+            android.widget.Toast.makeText(this, "Couldn't bundle debug zip: ${t.message}",
+                android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
         val uri = androidx.core.content.FileProvider.getUriForFile(
-            this, "$packageName.fileprovider", java.io.File(path))
+            this, "$packageName.fileprovider", zip)
         val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-            type = "audio/wav"
+            type = "application/zip"
             putExtra(android.content.Intent.EXTRA_STREAM, uri)
             addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        startActivity(android.content.Intent.createChooser(send, "Share recording"))
+        startActivity(android.content.Intent.createChooser(send, "Share debug session"))
+    }
+
+    /** Human-readable device / app / model / config context for the debug bundle. */
+    private fun buildDebugInfo(): String {
+        val pm = runCatching { packageManager.getPackageInfo(packageName, 0) }.getOrNull()
+        @Suppress("DEPRECATION") val vcode = pm?.versionCode
+        return buildString {
+            appendLine("QtAR debug session")
+            appendLine("generated: " + java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
+                .format(java.util.Date()))
+            appendLine()
+            appendLine("== Device ==")
+            appendLine("manufacturer: ${android.os.Build.MANUFACTURER}")
+            appendLine("model: ${android.os.Build.MODEL} (${android.os.Build.DEVICE})")
+            appendLine("android: ${android.os.Build.VERSION.RELEASE} (SDK ${android.os.Build.VERSION.SDK_INT})")
+            appendLine("abis: ${android.os.Build.SUPPORTED_ABIS.joinToString()}")
+            appendLine()
+            appendLine("== App ==")
+            appendLine("package: $packageName")
+            appendLine("version: ${pm?.versionName} ($vcode)")
+            appendLine()
+            appendLine("== Detector ==")
+            appendLine("mode: CHAIN")
+            appendLine("model: ${detector.modelName() ?: "(not ready)"}")
+            appendLine("recording: ${detector.lastRecording()?.substringAfterLast('/')}")
+            appendLine()
+            appendLine("== Session detection trace ==")
+            synchronized(sessionLog) { append(sessionLog.toString().ifBlank { "(no detections)\n" }) }
+        }
     }
 }
 
