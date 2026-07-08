@@ -38,9 +38,9 @@ private const val PREVIEW_LINES = 4        // next-page preview: how many top li
 /**
  * The mushaf reader. Chrome is a printed-mushaf frame: the top strip shows the page's surah name
  * (left) and juz number (right); the page number sits at the bottom, mirrored by parity (odd →
- * right, even → left). Tapping the page toggles two control panels — top (jump + debug), bottom
- * (start/stop detection) — that slide in over the frame. The page auto-advances to follow the
- * detected ayah (from [highlight]).
+ * right, even → left). Tapping the page toggles two control panels — top (jump button + a ☰
+ * menu of debug controls, right), bottom (status + start/stop on one line) — that slide in over
+ * the frame. The page auto-advances to follow the detected ayah (from [highlight]).
  */
 @Composable
 fun MushafScreen(
@@ -198,16 +198,19 @@ fun MushafScreen(
             modifier = Modifier.align(Alignment.BottomCenter),
         ) {
             Surface(tonalElevation = 3.dp, shadowElevation = 8.dp) {
-                Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                    Text(status, style = MaterialTheme.typography.bodyMedium)
-                    Spacer(Modifier.height(8.dp))
+                Row(
+                    Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(status, style = MaterialTheme.typography.bodyMedium,
+                         maxLines = 2, modifier = Modifier.weight(1f))
+                    Spacer(Modifier.width(12.dp))
                     Button(
                         onClick = {
                             if (!listening) chrome = false   // hide both panels when starting
                             onToggleListen()
                         },
                         enabled = modelReady,
-                        modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(if (listening) "Stop detection" else "Start detection")
                     }
@@ -232,22 +235,45 @@ private fun TopControls(
     recording: Boolean, onRecordingChange: (Boolean) -> Unit,
     onShareRecording: () -> Unit,
 ) {
+    var menuOpen by remember { mutableStateOf(false) }
     Surface(tonalElevation = 3.dp, shadowElevation = 8.dp) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-            TextButton(onClick = onJump) { Text("Jump to page") }
-            ToggleRow("Debug logging", debugLogging, onDebugLoggingChange)
-            ToggleRow("Record session audio", recording, onRecordingChange)
-            TextButton(onClick = onShareRecording) { Text("Share last recording") }
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Button(onClick = onJump) { Text("Jump to page") }
+            Spacer(Modifier.weight(1f))
+            // Hamburger (☰) → debug controls menu, anchored top-right.
+            Box {
+                IconButton(onClick = { menuOpen = true }) {
+                    Text("☰", fontSize = 24.sp)
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { MenuToggle("Debug logging", debugLogging) },
+                        onClick = { onDebugLoggingChange(!debugLogging) },
+                    )
+                    DropdownMenuItem(
+                        text = { MenuToggle("Record session audio", recording) },
+                        onClick = { onRecordingChange(!recording) },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Share last recording") },
+                        onClick = { menuOpen = false; onShareRecording() },
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-        Text(label, style = MaterialTheme.typography.bodyMedium)
-        Spacer(Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onChange)
+private fun MenuToggle(label: String, checked: Boolean) {
+    // Display-only switch (onCheckedChange = null) — the DropdownMenuItem's onClick toggles.
+    Row(Modifier.width(220.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        Spacer(Modifier.width(12.dp))
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 
