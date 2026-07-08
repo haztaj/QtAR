@@ -33,6 +33,10 @@ data class HighlightInfo(
     val active: String? = null,
     val upNext: String? = null,
     val options: Set<String> = emptySet(),
+    // Waqf-segment progress within [active] (Mode.CHAIN): "part [segment] of [segmentCount]".
+    // segmentCount <= 1 means no sub-ayah progress to show.
+    val segment: Int = 0,
+    val segmentCount: Int = 0,
 )
 
 private const val BASMALLAH_GLYPH = "﷽"   // U+FDFD, rendered in quran-common.ttf

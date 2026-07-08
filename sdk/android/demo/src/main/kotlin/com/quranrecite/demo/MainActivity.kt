@@ -334,6 +334,8 @@ private fun HighlightState.toInfo() = HighlightInfo(
     active = active?.let { ayahKey(it.surah, it.ayah) },
     upNext = upNext?.let { ayahKey(it.surah, it.ayah) },
     options = pending?.options?.map { ayahKey(it.surah, it.ayah) }?.toSet() ?: emptySet(),
+    segment = activeSegment,
+    segmentCount = activeSegmentCount,
 )
 
 @Composable

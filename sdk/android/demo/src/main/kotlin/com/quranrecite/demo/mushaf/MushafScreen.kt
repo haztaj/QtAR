@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -104,6 +105,11 @@ fun MushafScreen(
                     Text(repo.surahNameGlyph(topSurah), fontFamily = surahNameFamily, fontSize = 26.sp,
                          maxLines = 1, softWrap = false)
                     Spacer(Modifier.weight(1f))
+                    // Waqf-segment progress of the active ayah (Mode.CHAIN), centered in the strip.
+                    if (highlight.segmentCount > 1) {
+                        SegmentProgress(highlight.segment, highlight.segmentCount)
+                        Spacer(Modifier.weight(1f))
+                    }
                     Text(repo.juzGlyph(juz), fontFamily = quranCommonFamily, fontSize = 22.sp,
                          maxLines = 1, softWrap = false)
                 }
@@ -263,6 +269,32 @@ private fun TopControls(
                     )
                 }
             }
+        }
+    }
+}
+
+/** Waqf-segment progress of the active ayah — "which part of a long verse am I on". Dots for a
+ *  handful of segments; a filled bar + "N/M" for long ayat (many waqf stops) so it stays compact. */
+@Composable
+private fun SegmentProgress(current: Int, count: Int) {
+    val on = MaterialTheme.colorScheme.primary
+    val off = MaterialTheme.colorScheme.outlineVariant
+    if (count <= 8) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            for (i in 1..count) {
+                Box(Modifier.padding(horizontal = 2.dp).size(9.dp).clip(CircleShape)
+                    .background(if (i <= current) on else off))
+            }
+        }
+    } else {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.width(70.dp).height(6.dp).clip(RoundedCornerShape(3.dp)).background(off)) {
+                Box(Modifier.fillMaxWidth(current.coerceIn(0, count) / count.toFloat())
+                    .fillMaxHeight().clip(RoundedCornerShape(3.dp)).background(on))
+            }
+            Spacer(Modifier.width(6.dp))
+            Text("$current/$count", fontSize = 12.sp,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
