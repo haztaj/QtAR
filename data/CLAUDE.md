@@ -78,10 +78,20 @@ the other 1,983 were unjudged (counted as misses in the learner eval, poisoned t
   auto-discard). Extremes (ok=keep, silent/garbage/noise_only=discard) are pre-verdicted with
   a spot sample surfaced. Exports `review_verdicts.json`.
 - Save verdicts to **`data/retasy_verdicts.json`** (committed — reproducible cleanup, like
-  `BAD_LABELS`; audio stays uncommitted). `make_phase2_splits.py` applies it AFTER the reciter
-  split (holdout unchanged): drops `discard`, re-keys `relabel`. Re-run splits -> retrain
-  (`train_supervisor.py`) -> re-eval; report the learner number on the cleaned test set (the
-  new honest reference) alongside the old for continuity.
+  `BAD_LABELS`; audio stays uncommitted). `make_phase2_splits.py` resolves ONE decision per
+  clip with human priority: relabel > explicit discard > explicit keep > baseline
+  (BAD_LABELS ∪ flag auto-discard buckets). The reciter split is computed on the STABLE
+  BAD_LABELS-filtered universe so the holdout is unchanged by cleaning (comparable to prior
+  runs). A human keep/relabel overrides the old `final_label` blacklist — a `not_match_aya`
+  clip the reviewer re-identified is rescued, not dropped.
+
+**Applied (2026-07-08):** 2,235 → 1,678 clips (557 dropped, 8 relabeled); cleaned
+`retasy_test.csv` = 530 clips / 57 reciters (35 reciters were entirely junk). **The dirty
+test set deflated the learner number ~16 pts** — `best_s123_mic` reads 66.0% dirty vs 81.9%
+cleaned (unjudgeable clips counted as misses). **Use the cleaned `retasy_test.csv` as the
+learner reference.** Retrain on cleaned data (`best_s123_mic_clean.pt`) → 83.8% learner /
+96.0% clean (RetaSy is ~4% of training, so the retrain effect is small; the eval correction
+is the win).
 
 ## G2P (`quran_g2p.py`)
 

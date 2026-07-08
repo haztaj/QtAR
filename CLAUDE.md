@@ -284,13 +284,23 @@ python demo/live_detect.py            # default mic; --list-devices to choose
 - **Mic-adaptation retrain — done (2026-07-08).** `best_s123_mic.pt`: phase-2 recipe (poor-mic
   augmentation + RetaSy) re-applied to the expanded corpus, fine-tuned from best_s123 over
   regenerated phase-2 splits (26,855 clips / 130.3 h; 92 held-out learner reciters). Val PER
-  0.130 → **0.079**; held-out learners **48.0% → 66.0%** top-1 (false commits 42% → 25%);
-  clean test 95.9% (no regression). On the pulled phone session, the strict-threshold chain
+  0.130 → **0.079**; held-out learners 48.0% → 66.0% top-1 on the *dirty* test (81.9% on the
+  cleaned test — see the cleanup entry below; false commits 42% → 25%); clean test 95.9%. On the pulled phone session, the strict-threshold chain
   went from 1 recovered unit to 3. Deployed: `model_s123_mic_22s.int8.onnx` (13.4 MB, int8
   argmax lossless) bundled in the demo, asset version `best_s123_mic-22s-v1`. Training infra:
   audiomentations leaks ~8.5 GB/epoch in the MAIN process (epochs slow monotonically as the
   file cache dies) → `train.py --resume` (full optimizer state) + `train_supervisor.py`
   restart every epoch — flat ~600 s epochs. See training/CLAUDE.md.
+- **RetaSy learner-data cleanup — done (2026-07-08).** Tool built (`data/retasy_flag.py` →
+  `retasy_review.py` → `retasy_verdicts.json` merge; see data/CLAUDE.md). User by-ear review
+  applied: 2,235 → 1,678 clips (557 junk dropped, 8 relabeled); cleaned learner test 530 clips
+  / 57 reciters. **Key finding: the learner number was deflated ~16 pts by unjudgeable test
+  clips.** `best_s123_mic` reads **66.0% on the DIRTY test but 81.9% on the CLEANED test** —
+  same model, no retraining; the 66% counted silence/noise/mislabels as misses. Retrain on
+  cleaned data (`best_s123_mic_clean.pt`) adds +1.9 → **83.8%** learner (clean test 96.0%, no
+  regression). RetaSy is only ~4% of training so the retrain effect is small by construction;
+  the cleanup's value is the honest eval. **Learner numbers on the cleaned test set are the
+  reference going forward.**
   (4) **Segment-level ambiguity map** —
   `find_ambiguous.py --units` → `data/lang/ambiguous_units.json`: 206 ambiguous units / 84
   classes, 96% context-resolvable, 8 structural `needs_choice` cases (2:134↔2:141, 3:1↔2:1,
