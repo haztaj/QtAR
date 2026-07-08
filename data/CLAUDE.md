@@ -15,6 +15,11 @@ python data/build_lexicon.py    # G2P over ayat -> lang/ayah_phonemes.json + tok
 # Waqf segmentation (research: segment-level detection; audition-approved 2026-07-06)
 python data/segment_waqf.py     # audition sample: segment wavs + audition.html (by-ear QA)
 python data/build_segments.py   # full corpus: lang/segment_phonemes.json + raw/segments/segment_spans.csv
+
+# RetaSy learner-data cleanup (junk/mislabel triage; feeds make_phase2_splits)
+python data/retasy_flag.py      # auto-flag -> raw/retasy_audio/flags.csv (buckets + signals)
+python data/retasy_review.py    # by-ear review page -> raw/retasy_audio/review.html
+#   review, Download verdicts, save to data/retasy_verdicts.json, then re-run splits
 ```
 
 `prepare.py` and `derive_aya_ids.py` are independent; everything else is sequential.
@@ -51,6 +56,32 @@ python data/build_segments.py   # full corpus: lang/segment_phonemes.json + raw/
 - **Arabic in JSONL:** lhotse's writer uses cp1252 on Windows and chokes on Arabic.
   Ayah text is kept out of the supervisions — stored in `manifests/ayah_text.json`
   (UTF-8) and referenced by `ayah_text_key` ("surah:ayah").
+
+## RetaSy cleanup (`retasy_flag.py` -> `retasy_review.py` -> `make_phase2_splits.py`)
+
+RetaSy is crowd-sourced learner audio: many clips are silence, mic-noise, false starts, or
+recitations of a DIFFERENT ayah than labeled. Only 252 of 2,235 carry a human `final_label`;
+the other 1,983 were unjudged (counted as misses in the learner eval, poisoned training).
+
+- **`retasy_flag.py`** — one model pass, three signal tiers: energy/VAD (silent / noise_only /
+  too_short), decode sanity (phoneme count), and infix cost of the `best_s123_mic` decode vs
+  (a) the LABELED ayah and (b) the whole unit index. Buckets each clip: ok / silent /
+  noise_only / too_short / borderline / garbage / **possible_mislabel** (decode matches a
+  DIFFERENT ayah better — recoverable, suggests the correction). Writes `raw/retasy_audio/
+  flags.csv` + a distribution and a cross-check vs the 252 human labels (validation: 0–8%
+  false-flag on `correct`, ~94–100% catch on `not_related_quran`/`not_match_aya`).
+  **Full-corpus result (2026-07-08, best_s123_mic): 70% ok, ~30% flagged** (noise_only 11%,
+  too_short 5.5%, borderline 4.8%, garbage 4.4%, silent 3.2%, possible_mislabel 1.1%).
+- **`retasy_review.py`** — static by-ear page (waqf-audition pattern, `file://` audio, no
+  copies). Full-review band = possible_mislabel + borderline + too_short (~255 clips, ~1 h;
+  too_short shown in full because that's where good-but-brief learner clips leak into
+  auto-discard). Extremes (ok=keep, silent/garbage/noise_only=discard) are pre-verdicted with
+  a spot sample surfaced. Exports `review_verdicts.json`.
+- Save verdicts to **`data/retasy_verdicts.json`** (committed — reproducible cleanup, like
+  `BAD_LABELS`; audio stays uncommitted). `make_phase2_splits.py` applies it AFTER the reciter
+  split (holdout unchanged): drops `discard`, re-keys `relabel`. Re-run splits -> retrain
+  (`train_supervisor.py`) -> re-eval; report the learner number on the cleaned test set (the
+  new honest reference) alongside the old for continuity.
 
 ## G2P (`quran_g2p.py`)
 
