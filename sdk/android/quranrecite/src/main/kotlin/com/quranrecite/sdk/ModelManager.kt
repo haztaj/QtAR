@@ -135,7 +135,7 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
     companion object {
         // Remote model artifact (download-on-first-launch). Fill URL + sha256 when the
         // versioned artifact is hosted; until then bundle a dev model (see class doc).
-        const val MODEL_VERSION = "best_s123_mic-22s-v1"   // mic-adapted 1,057-ayah + 22 s chain
+        const val MODEL_VERSION = "best_s123_mic_clean-22s-v1"   // mic-adapted + RetaSy-cleaned
         const val MODEL_URL = ""      // TODO: hosted, versioned model URL
         const val MODEL_SHA256 = ""   // TODO: expected sha256 (empty = skip verify)
         const val BUNDLED_MODEL = "model.int8.onnx"
