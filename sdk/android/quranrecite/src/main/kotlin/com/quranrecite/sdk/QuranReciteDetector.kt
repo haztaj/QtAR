@@ -102,6 +102,9 @@ class QuranReciteDetector(
         fun onAyahDetected(ayah: AyahId, confidence: Float) {}
         fun onAyahAdvance(from: AyahId, to: AyahId) {}
         fun onModelDownloadProgress(fraction: Float) {}
+        /** A newly-released model was downloaded, replacing the previous one. [description] is
+         *  the manifest's "what's new" note (may be empty). Fired before [onModelReady]. */
+        fun onModelUpdated(version: String, description: String) {}
         fun onModelReady() {}
         fun onError(error: Throwable) {}
     }
@@ -148,6 +151,9 @@ class QuranReciteDetector(
                 mainHandler.post { listener?.onModelReady() }
             },
             onError = { e -> mainHandler.post { listener?.onError(e) } },
+            onModelUpdate = { version, desc ->
+                mainHandler.post { listener?.onModelUpdated(version, desc) }
+            },
         )
     }
 

@@ -78,18 +78,27 @@ if (project.hasProperty("bundleModel")) {
 // Upload BOTH the model.int8.onnx and model_manifest.json to the hosting URL (a GitHub release
 // on the 'model' tag), then bump ModelManager.MODEL_MANIFEST_URL if the location changes.
 //   ./gradlew :demo:modelManifest   ->  build/model_manifest.json
+// -PmodelVersion / -PmodelDesc set the manifest's version and "what's new" note (shown to users
+// on update). Escape any quotes/backslashes so the JSON stays valid.
 tasks.register("modelManifest") {
     doLast {
         require(devModel.exists()) { "export the model first: $devModel" }
         val sha = MessageDigest.getInstance("SHA-256")
             .digest(devModel.readBytes()).joinToString("") { b -> "%02x".format(b) }
-        val version = "best_s123_mic_clean-22s-v1"
+        val version = (project.findProperty("modelVersion") as String?) ?: "best_s123_mic_clean-22s-v1"
+        val desc = (project.findProperty("modelDesc") as String?)
+            ?: "Mic-adapted + learner-data-cleaned recognizer (surahs 1–3 + Juz Amma). " +
+               "More accurate detection on phone microphones."
+        fun esc(s: String) = s.replace("\\", "\\\\").replace("\"", "\\\"")
         val hostBase = "https://github.com/haztaj/QtAR/releases/download/model"
         val out = layout.buildDirectory.file("model_manifest.json").get().asFile
         out.parentFile.mkdirs()
-        out.writeText("""{"version":"$version","url":"$hostBase/model.int8.onnx","sha256":"$sha"}""")
+        out.writeText(
+            """{"version":"${esc(version)}","url":"$hostBase/model.int8.onnx",""" +
+                """"sha256":"$sha","description":"${esc(desc)}"}""")
         logger.lifecycle(
             "wrote $out\n  version=$version  sha256=$sha  (${devModel.length() / 1024} KB)\n" +
+                "  description=\"$desc\"\n" +
                 "upload to the 'model' release:\n" +
                 "  $devModel  ->  $hostBase/model.int8.onnx\n" +
                 "  $out  ->  $hostBase/model_manifest.json")

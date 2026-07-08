@@ -55,6 +55,7 @@ class MainActivity : ComponentActivity() {
                 var modelReady by remember { mutableStateOf(false) }
                 var listening by remember { mutableStateOf(false) }
                 var highlight by remember { mutableStateOf(HighlightInfo()) }
+                var modelUpdate by remember { mutableStateOf<Pair<String, String>?>(null) }  // (version, what's-new)
 
                 // Debug toggles (persisted) — control logcat + session recording at runtime from
                 // the top control panel, so the instrumentation stays in the build, off by default.
@@ -102,6 +103,10 @@ class MainActivity : ComponentActivity() {
                     detector.setListener(object : QuranReciteDetector.Listener {
                         override fun onModelDownloadProgress(fraction: Float) {
                             status = "Downloading model ${(fraction * 100).toInt()}%"
+                        }
+                        override fun onModelUpdated(version: String, description: String) {
+                            if (debugLogging) Log.i("QRDemo", "onModelUpdated $version: $description")
+                            modelUpdate = version to description
                         }
                         override fun onModelReady() {
                             if (debugLogging) Log.i("QRDemo", "onModelReady")
@@ -183,6 +188,23 @@ class MainActivity : ComponentActivity() {
                             prefs.edit().putBoolean("recording", it).apply()
                         },
                         onShareRecording = { shareRecording() },
+                    )
+                }
+
+                // "What's new" — shown once when a newly-released model was downloaded (not silent).
+                modelUpdate?.let { (version, desc) ->
+                    AlertDialog(
+                        onDismissRequest = { modelUpdate = null },
+                        title = { Text("Detection model updated") },
+                        text = {
+                            Column {
+                                if (desc.isNotBlank()) Text(desc)
+                                Spacer(Modifier.height(8.dp))
+                                Text(version, style = MaterialTheme.typography.bodySmall,
+                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        },
+                        confirmButton = { TextButton(onClick = { modelUpdate = null }) { Text("OK") } },
                     )
                 }
             }

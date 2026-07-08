@@ -20,8 +20,11 @@ data class ModelAssets(
     val unitPhonemesPath: String,// waqf-segment unit lexicon; "" if not bundled (Chain mode off)
 )
 
-/** A released model, from the remote manifest (see [ModelManager.MODEL_MANIFEST_URL]). */
-private data class ModelRelease(val version: String, val url: String, val sha256: String)
+/** A released model, from the remote manifest (see [ModelManager.MODEL_MANIFEST_URL]).
+ *  `description` is the optional "what's new" note shown to the user on an update. */
+private data class ModelRelease(
+    val version: String, val url: String, val sha256: String, val description: String,
+)
 
 /**
  * Asset delivery. The small assets (lexicon, tokens, mel filterbank, Hann window, + optional
@@ -49,11 +52,14 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
     // Downloaded models live in EXTERNAL files so they survive app updates (like the page fonts).
     private val modelsDir = File(context.getExternalFilesDir(null), "quranrecite/models").apply { mkdirs() }
 
-    /** Resolve all assets off the main thread; callbacks fire on the worker thread. */
+    /** Resolve all assets off the main thread; callbacks fire on the worker thread.
+     *  [onModelUpdate] fires with (version, description) when a NEW model replaces a previously
+     *  cached one (a genuine update — not the first-launch download). */
     fun ensureAsync(
         onProgress: (Float) -> Unit,
         onReady: (ModelAssets) -> Unit,
         onError: (Throwable) -> Unit,
+        onModelUpdate: (version: String, description: String) -> Unit = { _, _ -> },
     ) {
         thread(name = "quranrecite-model") {
             try {
@@ -67,7 +73,7 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
                     extractBundled("silero_vad.onnx") else ""
                 val units = if (assetExists("quranrecite/unit_phonemes.json"))
                     extractBundled("unit_phonemes.json") else ""
-                val model = resolveModel(onProgress)
+                val model = resolveModel(onProgress, onModelUpdate)
                 onReady(ModelAssets(model, lexicon, tokens, filterbank, hann, ambiguous, vad, units))
             } catch (t: Throwable) {
                 onError(t)
@@ -77,7 +83,10 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
 
     /** Bundled dev model → else the manifest's current release (cached or downloaded) → else the
      *  newest cached model (offline). */
-    private fun resolveModel(onProgress: (Float) -> Unit): String {
+    private fun resolveModel(
+        onProgress: (Float) -> Unit,
+        onModelUpdate: (version: String, description: String) -> Unit,
+    ): String {
         // 1. Bundled dev/offline model (-PbundleModel): use it directly, no network.
         if (assetExists("quranrecite/$BUNDLED_MODEL"))
             return extractBundled(BUNDLED_MODEL, into = modelsDir)
@@ -88,12 +97,15 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
             val cached = File(modelsDir, "${release.version}.onnx")
             if (cached.exists() && (release.sha256.isEmpty() || sha256(cached) == release.sha256))
                 return cached.absolutePath
+            // A prior cached model means this download is an UPDATE (not the first install).
+            val isUpdate = newestCachedModel() != null
             download(release.url, cached, onProgress)
             if (release.sha256.isNotEmpty() && sha256(cached) != release.sha256) {
                 cached.delete()
                 error("Downloaded model failed sha256 verification (${release.version})")
             }
             modelsDir.listFiles { f -> f.extension == "onnx" && f != cached }?.forEach { it.delete() }
+            if (isUpdate) onModelUpdate(release.version, release.description)
             return cached.absolutePath
         }
 
@@ -116,7 +128,8 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
                 conn.disconnect()
             }
             val o = JSONObject(json)
-            ModelRelease(o.getString("version"), o.getString("url"), o.optString("sha256", ""))
+            ModelRelease(o.getString("version"), o.getString("url"),
+                o.optString("sha256", ""), o.optString("description", ""))
         }.getOrNull()
     }
 
