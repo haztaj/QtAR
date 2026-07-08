@@ -312,6 +312,14 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   "what's new" dialog from the manifest `description` (`./gradlew :demo:modelManifest
   -PmodelDesc=...`). (c) **Compact demo UI** — status + Start/Stop on one line; debug controls
   moved to a ☰ dropdown top-right; Jump-to-page is a filled button. See sdk/android/README.md.
+- **Waqf-segment progress exposed (2026-07-08).** `Mode::Chain` detects at the waqf-segment
+  level internally; the public `HighlightSnapshot` now surfaces it as `activeSegment` /
+  `activeSegmentCount` ("part N of M" within the active ayah; 0 = non-Chain/none, 1 =
+  unsegmented, N = split). Added at the detector/public-snapshot layer (the conformance-pinned
+  HighlightController is untouched, like `upNext`); `UnitIndex::segCountOf`; wired C++ →
+  JNI JSON → Kotlin `HighlightState`; demo status shows "· part N/M". Verified on the
+  2:30–2:33 smoke (2:30 → 1/3·2/3·3/3, 2:31 → 1/1, 2:32/2:33 → N/2). Coverage note: only
+  segmented ayat (currently 345) report N>1 — expected to grow with full-Quran coverage.
   (4) **Segment-level ambiguity map** —
   `find_ambiguous.py --units` → `data/lang/ambiguous_units.json`: 206 ambiguous units / 84
   classes, 96% context-resolvable, 8 structural `needs_choice` cases (2:134↔2:141, 3:1↔2:1,

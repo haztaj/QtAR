@@ -48,6 +48,8 @@ std::string snapshotJson(const HighlightSnapshot& s) {
     j += s.hasActive ? "\"" + ayahKey(s.active) + "\"" : "null";
     j += ",\"upNext\":";
     j += s.hasUpNext ? "\"" + ayahKey(s.upNext) + "\"" : "null";
+    j += ",\"activeSegment\":" + std::to_string(s.activeSegment);
+    j += ",\"activeSegmentCount\":" + std::to_string(s.activeSegmentCount);
     j += "}";
     return j;
 }

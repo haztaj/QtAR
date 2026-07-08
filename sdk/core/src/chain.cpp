@@ -89,6 +89,11 @@ UnitIndex::UnitIndex(const std::string& unitPhonemesJson, const std::string& tok
         segIdx_.push_back(h == std::string::npos ? 0 : std::stoi(key.substr(h + 1)));
     }
 
+    // per-parent waqf-segment count: 1 if unsegmented (a single #0 unit), else the max seg index
+    parentSegCount_.assign(parentKeys_.size(), 1);
+    for (int u = 0; u < (int)keys_.size(); ++u)
+        parentSegCount_[parent_[u]] = std::max(parentSegCount_[parent_[u]], segIdx_[u]);
+
     // succFull: canonical adjacency within a parent; last unit -> next ayah's first unit
     succ_.assign(keys_.size(), -1);
     for (int u = 0; u < (int)keys_.size(); ++u) {

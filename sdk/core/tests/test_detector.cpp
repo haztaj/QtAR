@@ -76,6 +76,15 @@ int main(int argc, char** argv) {
         std::printf("  %-8s %s  (conf %.2f, t %.1fs)\n", k, a.c_str(), e.confidence, e.timeSec);
         seq.push_back(a);
     });
+    // waqf-segment progress within the active ayah (Mode::Chain)
+    std::string lastSegLine;
+    det.setHighlightCallback([&](const HighlightSnapshot& s) {
+        if (!s.hasActive || s.activeSegmentCount == 0) return;
+        char buf[64];
+        std::snprintf(buf, sizeof(buf), "    segment %d:%d  %d/%d",
+                      s.active.surah, s.active.ayah, s.activeSegment, s.activeSegmentCount);
+        if (buf != lastSegLine) { lastSegLine = buf; std::printf("%s\n", buf); }
+    });
 
     auto audio = readWavMonoF32(wav);
     std::printf("feeding %.1fs of audio in 100 ms chunks...\n", audio.size() / 16000.0);

@@ -111,6 +111,14 @@ appends to `confirmed`, and sets `active = key`.
 `golden/highlight/<name>.states.json`). Fixtures: `fixtures/highlight/<name>.json`
 (`{"steps": [{"detect": "S:A"} | {"choose": "S:A"}, ...]}`).
 
+**Public-snapshot extras (detector layer, NOT this controller):** the public
+`HighlightSnapshot` the host renders carries two fields the controller doesn't own,
+added by `Detector` on top of the controller state (so they're outside this golden):
+`upNext` (predicted same-surah successor, revealed near completion) and, for `Mode::Chain`,
+`activeSegment` / `activeSegmentCount` — waqf-segment progress within `active` ("part N of M";
+count 0 = non-Chain/none, 1 = unsegmented ayah, N = split into N segments). Verified by
+`tests/test_detector` (prints `segment S:A N/M`); the segment counts come from `UnitIndex`.
+
 ---
 
 ## Stage 2b — unit-chain decoder (phoneme stream → unit chain)  [research winning design]

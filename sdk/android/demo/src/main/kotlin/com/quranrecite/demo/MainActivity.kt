@@ -123,7 +123,12 @@ class MainActivity : ComponentActivity() {
                             status = state.pending?.let { p ->
                                 val opts = p.options.joinToString(" / ") { "${it.surah}:${it.ayah}" }
                                 if (p.reason == PendingReason.NEEDS_CHOICE) "Choose: $opts" else "Deciding… ($opts)"
-                            } ?: state.active?.let { "Listening — ${it.surah}:${it.ayah}" } ?: "Listening…"
+                            } ?: state.active?.let {
+                                // append waqf-segment progress "N/M" for segmented ayat (Mode.CHAIN)
+                                val seg = if (state.activeSegmentCount > 1)
+                                    " · part ${state.activeSegment}/${state.activeSegmentCount}" else ""
+                                "Listening — ${it.surah}:${it.ayah}$seg"
+                            } ?: "Listening…"
                         }
                         override fun onError(error: Throwable) {
                             if (debugLogging) Log.e("QRDemo", "onError", error)

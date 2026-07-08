@@ -144,7 +144,8 @@ struct Detector::Impl {
         return ctcGreedy(lp, Tout, V);                             // ids share tokens.txt space
     }
 
-    void emit(EventType type, const std::string& key, double timeSec) {
+    // seg/segCount are the waqf-segment progress of the active ayah (Mode::Chain); 0/0 elsewhere.
+    void emit(EventType type, const std::string& key, double timeSec, int seg = 0, int segCount = 0) {
         if (debug) QR_LOG("COMMIT %s (%s) at %.1fs", key.c_str(),
                type == EventType::Detect ? "detect" : type == EventType::Advance ? "advance" : "jump", timeSec);
         const auto c = key.find(':');
@@ -155,7 +156,9 @@ struct Detector::Impl {
         if (cb) cb(ev);
         if (hlCb) {
             lastSnap = toPublic(hl.detect(key));   // new active ayah (lighter); upNext hidden until
-            curActive = key;                       //   this ayah nears completion (see maybeUpNext)
+            lastSnap.activeSegment = seg;          //   this ayah nears completion (see maybeUpNext)
+            lastSnap.activeSegmentCount = segCount;
+            curActive = key;
             upNextShown = false;
             hlCb(lastSnap);
         }
@@ -312,10 +315,13 @@ struct Detector::Impl {
         hlCb(lastSnap);
     }
 
-    // A confirmed unit: parent transitions drive the public ayah events + highlight;
-    // the last unit of an ayah reveals the darker "up next" (successor being verified).
+    // A confirmed unit: parent transitions drive the public ayah events + highlight; within an
+    // ayah, each newly-confirmed waqf segment advances the snapshot's activeSegment. The last
+    // unit of an ayah reveals the darker "up next" (successor being verified).
     void confirmUnit(int unit, double timeSec) {
         const std::string& pk = units->parentKey(unit);
+        const int seg = std::max(1, units->segIdxOf(unit));   // 1-based; unsegmented -> 1
+        const int segCount = units->segCountOf(unit);
         if (pk != chainParent) {
             EventType type = EventType::Detect;
             if (!chainParent.empty()) {
@@ -325,7 +331,12 @@ struct Detector::Impl {
                 type = pk == nxt ? EventType::Advance : EventType::Jump;
             }
             chainParent = pk;
-            emit(type, pk, timeSec);
+            emit(type, pk, timeSec, seg, segCount);           // new ayah + its first segment
+        } else if (hlCb) {
+            // same ayah, next waqf segment -> update segment progress + re-emit the snapshot
+            lastSnap.activeSegment = seg;
+            lastSnap.activeSegmentCount = segCount;
+            hlCb(lastSnap);
         }
         // last unit of the parent -> the successor ayah is being verified now
         const int succ = units->succFull(unit);

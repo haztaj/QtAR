@@ -31,6 +31,11 @@ data class HighlightState(
     val pending: HighlightPending?,// awaiting disambiguation (deferred), or null
     val active: AyahId?,           // the ayah just detected (lighter highlight), or null
     val upNext: AyahId? = null,    // predicted next ayah, set once `active` nears completion (darker)
+    // Waqf-segment progress within `active` (Mode.CHAIN): "segment N of M". activeSegmentCount
+    // == 0 means no segment info (non-Chain mode / no active ayah); 1 = an unsegmented ayah;
+    // N = split into N waqf segments. activeSegment is the current one (1-based), or 0.
+    val activeSegment: Int = 0,
+    val activeSegmentCount: Int = 0,
 ) {
     companion object {
         fun fromJson(json: String): HighlightState {
@@ -49,7 +54,8 @@ data class HighlightState(
             }
             val active = if (o.isNull("active")) null else AyahId.parse(o.getString("active"))
             val upNext = if (o.isNull("upNext")) null else AyahId.parse(o.getString("upNext"))
-            return HighlightState(confirmed, pending, active, upNext)
+            return HighlightState(confirmed, pending, active, upNext,
+                o.optInt("activeSegment", 0), o.optInt("activeSegmentCount", 0))
         }
     }
 }

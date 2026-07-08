@@ -43,6 +43,12 @@ struct HighlightSnapshot {
     AyahId active{};
     bool hasUpNext = false;           // the predicted next ayah, shown only once `active` is
     AyahId upNext{};                  //   near-complete (darker highlight); same surah only
+    // Waqf-segment progress within `active` (Mode::Chain only): which sub-ayah unit is being
+    // recited. activeSegmentCount == 0 means no segment info (non-Chain mode, or no active ayah);
+    // >= 1 means known — 1 for an unsegmented ayah, N for one split into N waqf segments.
+    // activeSegment is the current segment, 1-based in [1, activeSegmentCount], else 0.
+    int activeSegment = 0;
+    int activeSegmentCount = 0;
 };
 
 enum class Mode {

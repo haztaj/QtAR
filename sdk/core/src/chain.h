@@ -39,6 +39,7 @@ public:
 
     int parentOf(int unit) const { return parent_[unit]; }      // parent index (dense id)
     int segIdxOf(int unit) const { return segIdx_[unit]; }      // 0 for whole-ayah units
+    int segCountOf(int unit) const { return parentSegCount_[parent_[unit]]; }  // 1 if unsegmented
     const std::string& parentKey(int unit) const;
     // First unit of an ayah ("S:A" -> "S:A#01" if segmented else "S:A"); -1 if absent.
     int firstUnitOf(const std::string& parentKey) const;
@@ -48,6 +49,7 @@ private:
     std::vector<std::vector<int>> phon_;
     std::vector<int> succ_, parent_, segIdx_;
     std::vector<std::string> parentKeys_;             // per dense parent id
+    std::vector<int> parentSegCount_;                 // per dense parent id: waqf-segment count
     std::unordered_map<std::string, int> parentFirst_;// parent key -> first unit index
     std::unordered_map<std::string, int> keyIdx_;
     std::unordered_map<std::string, int> tok2id_;
