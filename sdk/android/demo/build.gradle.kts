@@ -1,3 +1,5 @@
+import java.security.MessageDigest
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -44,28 +46,55 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 }
 
-// DEV-ONLY: bundle the exported int8 model into the demo so it runs fully offline (no server).
-// Mode.CHAIN decodes the rolling 22 s buffer once per hop, so the demo bundles the 22 s
-// fixed-window export of best_s123_mic_clean (mic-adapted + RetaSy-cleaned, 1,057-ayah
-// corpus). The old 4 s model (model_4s.int8.onnx) pairs with Mode.AUTO — swap back if reverting.
-// ModelManager prefers a bundled model at assets/quranrecite/model.int8.onnx over downloading.
-// Production consumers of the .aar instead use download-on-first-launch. The staged copy is
-// gitignored; if the model hasn't been exported yet, the task is skipped and the demo falls
-// back to ModelManager's (unset) download path.
+// Model delivery. By DEFAULT the demo ships WITHOUT the model — it is downloaded once at runtime
+// from the manifest (ModelManager.MODEL_MANIFEST_URL) and cached in external files (survives app
+// updates). `-PbundleModel` instead stages the exported 22 s int8 model into the APK for a fully
+// offline build (the "debug/deploy with model" variant, mirroring -PbundleFonts); ModelManager
+// then uses the bundled model directly with no network. The staged copy is gitignored.
 val devModel = rootProject.projectDir.parentFile.parentFile   // sdk/android -> repo root
     .resolve("export/onnx/model_s123_mic_clean_22s.int8.onnx")
-val bundleDevModel by tasks.registering(Copy::class) {
-    onlyIf { devModel.exists() }
-    from(devModel) { rename { "model.int8.onnx" } }   // ModelManager expects this name
-    into(layout.projectDirectory.dir("src/main/assets/quranrecite"))
-    doFirst {
-        if (!devModel.exists()) logger.warn(
-            "dev model not found at $devModel — run " +
-                "`python export/export_onnx.py --fixed-frames 416 --tag _4s`; " +
-                "the demo won't run until a model is bundled or hosted.")
+val stagedModel = layout.projectDirectory.file("src/main/assets/quranrecite/model.int8.onnx").asFile
+if (project.hasProperty("bundleModel")) {
+    val bundleDevModel by tasks.registering(Copy::class) {
+        onlyIf { devModel.exists() }
+        from(devModel) { rename { "model.int8.onnx" } }   // ModelManager expects this name
+        into(layout.projectDirectory.dir("src/main/assets/quranrecite"))
+        doFirst {
+            if (!devModel.exists()) logger.warn(
+                "-PbundleModel but no model at $devModel — export it first " +
+                    "(python export/export_onnx.py ... --fixed-frames 2200); the APK will ship " +
+                    "without a model and rely on the runtime download.")
+        }
+    }
+    tasks.named("preBuild") { dependsOn(bundleDevModel) }
+} else {
+    // Default (download) build: drop any model staged by a previous -PbundleModel build so the
+    // APK genuinely ships without one.
+    val unstageDevModel by tasks.registering(Delete::class) { delete(stagedModel) }
+    tasks.named("preBuild") { dependsOn(unstageDevModel) }
+}
+
+// Generate the remote model manifest (version + hosted URL + sha256) for the download build.
+// Upload BOTH the model.int8.onnx and model_manifest.json to the hosting URL (a GitHub release
+// on the 'model' tag), then bump ModelManager.MODEL_MANIFEST_URL if the location changes.
+//   ./gradlew :demo:modelManifest   ->  build/model_manifest.json
+tasks.register("modelManifest") {
+    doLast {
+        require(devModel.exists()) { "export the model first: $devModel" }
+        val sha = MessageDigest.getInstance("SHA-256")
+            .digest(devModel.readBytes()).joinToString("") { b -> "%02x".format(b) }
+        val version = "best_s123_mic_clean-22s-v1"
+        val hostBase = "https://github.com/haztaj/QtAR/releases/download/model"
+        val out = layout.buildDirectory.file("model_manifest.json").get().asFile
+        out.parentFile.mkdirs()
+        out.writeText("""{"version":"$version","url":"$hostBase/model.int8.onnx","sha256":"$sha"}""")
+        logger.lifecycle(
+            "wrote $out\n  version=$version  sha256=$sha  (${devModel.length() / 1024} KB)\n" +
+                "upload to the 'model' release:\n" +
+                "  $devModel  ->  $hostBase/model.int8.onnx\n" +
+                "  $out  ->  $hostBase/model_manifest.json")
     }
 }
-tasks.named("preBuild") { dependsOn(bundleDevModel) }
 
 // Package the 604 page fonts into a single zip for hosting (upload to the assets host, then set
 // MushafFonts.FONTS_URL/SHA256/VERSION). Entries are p1.ttf..p604.ttf at the zip root.

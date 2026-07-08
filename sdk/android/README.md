@@ -120,19 +120,23 @@ runtime. Both `ambiguous_ayat.json` and `silero_vad.onnx` are optional: if absen
 paused-recitation VAD-reset are simply disabled. `conformance/generate.py` reproduces the VAD
 asset from the pip `silero-vad` package (it's `.onnx`, hence gitignored).
 
-The **~15 MB `model.int8.onnx`** is *not* committed (repo rule) and is delivered by
-`ModelManager` at first launch:
+The **~13 MB `model.int8.onnx`** is *not* committed (repo rule) and is delivered by
+`ModelManager` at first launch. Delivery is **manifest-driven** so a new model can be pushed
+without an app update:
 
-- **Production:** set `MODEL_URL` + `MODEL_SHA256` in `ModelManager.kt` to a hosted,
-  versioned artifact — downloaded once, sha256-verified, cached under
-  `filesDir/quranrecite/<version>/`. The library `.aar` ships model-free.
-- **Dev/offline (default for the demo):** the demo's `bundleDevModel` Gradle task copies
-  the **4 s sliding-window model** (`export/onnx/model_4s.int8.onnx`, ~11 MB) into the demo's
-  assets at build time, so **the demo APK is fully self-contained and runs with no network**.
-  `ModelManager` prefers a bundled model over downloading. Run
-  `python export/export_onnx.py --fixed-frames 416 --tag _4s` once, then build the demo. The
-  bundled copy is gitignored; the library `.aar` is unaffected. (The 4 s model is ~15× cheaper
-  per hop than the 30 s full-utterance export with identical detections — see `export/CLAUDE.md`.)
+- **Download (default):** the APK ships model-free. On each launch (with network) the app GETs
+  `ModelManager.MODEL_MANIFEST_URL` → `{"version","url","sha256"}`, compares `version` to what it
+  has cached, and downloads + sha256-verifies only when it differs (a new release), pruning the
+  old one. The model is cached in **external files** so it survives app updates. Offline, the
+  newest cached model is used; only the very first launch needs a connection. Publish a new model:
+  `python export/export_onnx.py --checkpoint <ckpt> --fixed-frames 2200 --tag <t>`, then
+  `./gradlew :demo:modelManifest` (writes `build/model_manifest.json` with the real sha256) and
+  upload BOTH the `.onnx` and the manifest to the hosting URL (a GitHub release on the `model`
+  tag, like the fonts). Bump `MODEL_MANIFEST_URL` if the location changes.
+- **Bundled/offline (`-PbundleModel`):** `./gradlew :demo:assembleDebug -PbundleModel` stages the
+  22 s int8 export into the APK at `assets/quranrecite/model.int8.onnx`; `ModelManager` then uses
+  it directly with no network (mirrors `-PbundleFonts`). Combine with `-PbundleFonts` for a fully
+  self-contained deploy APK. The staged copy is gitignored; the library `.aar` is unaffected.
 
 ## API (host app)
 
