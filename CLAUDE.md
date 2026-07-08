@@ -300,7 +300,18 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   cleaned data (`best_s123_mic_clean.pt`) adds +1.9 → **83.8%** learner (clean test 96.0%, no
   regression). RetaSy is only ~4% of training so the retrain effect is small by construction;
   the cleanup's value is the honest eval. **Learner numbers on the cleaned test set are the
-  reference going forward.**
+  reference going forward.** `best_s123_mic_clean` is deployed on the phone.
+- **Android model delivery + UI — done (2026-07-08).** (a) **Manifest-driven model download**
+  (`ModelManager`): the default APK ships model-free and fetches on first launch from a hosted
+  manifest (`{version, url, sha256, description}`); a differing version is detected as a new
+  release and downloaded without an app update (cached in external files, survives updates,
+  sha256-verified, old pruned). `-PbundleModel` ships the model in the APK for a fully offline
+  build (mirrors `-PbundleFonts`). Validated on-device via a local server (adb reverse): first
+  install downloads, version bump re-downloads + prunes. (b) **Update is not silent** — a
+  genuine update fires `Listener.onModelUpdated(version, description)` and the demo shows a
+  "what's new" dialog from the manifest `description` (`./gradlew :demo:modelManifest
+  -PmodelDesc=...`). (c) **Compact demo UI** — status + Start/Stop on one line; debug controls
+  moved to a ☰ dropdown top-right; Jump-to-page is a filled button. See sdk/android/README.md.
   (4) **Segment-level ambiguity map** —
   `find_ambiguous.py --units` → `data/lang/ambiguous_units.json`: 206 ambiguous units / 84
   classes, 96% context-resolvable, 8 structural `needs_choice` cases (2:134↔2:141, 3:1↔2:1,
@@ -313,4 +324,7 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   paging cliff and collapsed throughput ~25x. Juz-30 revert: tag `juz30-v1` + `backups/juz30/`.
 - **Next options:** (1) **true streaming export** (`Emformer.infer` chunk-by-chunk — another
   ~4× + lower latency, the battery/wearable path); (2) in-house learner collection for the
-  long surahs (raises the learner ceiling); (3) iOS wrapper.
+  long surahs (raises the learner ceiling); (3) iOS wrapper; (4) host the model artifact +
+  manifest on the GitHub `model` release so the download build works for beta testers (the
+  mechanism is built + on-device-verified; only the upload remains); (5) deeper N-back context
+  for the 2:134↔2:141 unit class.

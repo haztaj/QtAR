@@ -125,12 +125,15 @@ The **~13 MB `model.int8.onnx`** is *not* committed (repo rule) and is delivered
 without an app update:
 
 - **Download (default):** the APK ships model-free. On each launch (with network) the app GETs
-  `ModelManager.MODEL_MANIFEST_URL` → `{"version","url","sha256"}`, compares `version` to what it
-  has cached, and downloads + sha256-verifies only when it differs (a new release), pruning the
-  old one. The model is cached in **external files** so it survives app updates. Offline, the
-  newest cached model is used; only the very first launch needs a connection. Publish a new model:
-  `python export/export_onnx.py --checkpoint <ckpt> --fixed-frames 2200 --tag <t>`, then
-  `./gradlew :demo:modelManifest` (writes `build/model_manifest.json` with the real sha256) and
+  `ModelManager.MODEL_MANIFEST_URL` → `{"version","url","sha256","description"}`, compares
+  `version` to what it has cached, and downloads + sha256-verifies only when it differs (a new
+  release), pruning the old one. The model is cached in **external files** so it survives app
+  updates. Offline, the newest cached model is used; only the very first launch needs a connection.
+  On a genuine update (a prior model was cached) the app is **not silent** — `Listener.onModelUpdated
+  (version, description)` fires and the demo shows a "what's new" dialog from the manifest's
+  `description`. Publish a new model: `python export/export_onnx.py --checkpoint <ckpt>
+  --fixed-frames 2200 --tag <t>`, then `./gradlew :demo:modelManifest -PmodelVersion=<v>
+  -PmodelDesc="<what changed>"` (writes `build/model_manifest.json` with the real sha256) and
   upload BOTH the `.onnx` and the manifest to the hosting URL (a GitHub release on the `model`
   tag, like the fonts). Bump `MODEL_MANIFEST_URL` if the location changes.
 - **Bundled/offline (`-PbundleModel`):** `./gradlew :demo:assembleDebug -PbundleModel` stages the

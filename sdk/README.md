@@ -52,7 +52,13 @@ sdk/
   - **Runtime debug** (`Detector::setDebug`) gating all native logcat, toggled from the demo UI.
   - Verified: the JNI `.so` links ORT (`NEEDED libonnxruntime.so`) + exports the native symbols;
     the APK bundles our `.so` + ORT `.so` + assets + VAD. See `android/README.md`.
-- **TODO:** host the model + font artifacts (font zip is wired via `MushafFonts`); on-device
+  - **Unit-chain decoder** (`Mode::Chain`, `chain.{h,cpp}`) — the research winning design
+    (waqf segments; conformance-pinned); live on-device with `best_s123_mic_clean`.
+  - **Model delivery** — manifest-driven download with update detection (`{version,url,sha256,
+    description}`): the default APK ships model-free and fetches on first launch, detects a new
+    release without an app update, and shows a "what's new" dialog on update; `-PbundleModel`
+    ships it in the APK for an offline build. See `android/README.md`.
+- **TODO:** host the model artifact + manifest (font zip is wired via `MushafFonts`); on-device
   RTF/memory profiling; then iOS.
 
 ```bash
