@@ -311,11 +311,30 @@ decode == `forward` decode (validated), and both degrade after the first ayah. T
 (in-distribution) and decodes well; the whole-stream decode is *worse*. So a matcher on the
 streaming stream (Phase D) would **regress** vs `auto`, not unify.
 
-**Conclusion:** streaming export's detection value is **single-ayah / push-to-talk** (decode is
-in-distribution and clean) + **battery/latency/wearable** — not the continuous mode-split. The
-real lever for robust *continuous* recitation is **training data** (continuous-recitation
-examples / streaming-consistent training; ties into the known learner-data gap), not the matcher
-and not the streaming export. `auto` remains the best continuous solution today.
+**Conclusion (2026-07-04):** streaming export's detection value is **single-ayah / push-to-talk**
+(decode is in-distribution and clean) + **battery/latency/wearable** — not the continuous
+mode-split. The real lever for robust *continuous* recitation is **training data**, not the
+matcher and not the streaming export. `auto` remains the best continuous solution today.
+
+### Phase D RE-CHECK (2026-07-10) — RESOLVED: continuous decode now works
+
+Re-ran the crux with the CURRENT model (`best_s123_mic_clean`, trained on surahs 1-3 + Juz Amma
+— i.e. WITH long/continuous-like ayat) + the segment-based **chain decoder** (not the old
+whole-ayah matcher). On 30 test sequences of 4 consecutive ayat, decoding the CONCATENATED audio
+in one forward pass (== streaming, parity re-confirmed 100% argmax on the current model):
+- **continuous (forward == streaming) ayah recall 87.5%** vs **stitched per-ayah recall 85.0%**.
+
+The continuous decode is now EQUAL-to-BETTER than in-distribution per-ayah decodes — the 2026-07-04
+under-decode is GONE. Two causes: (1) the expanded corpus put long/continuous ayat in
+distribution; (2) the chain decoder's waqf-segment units + context are robust to residual decode
+gaps. **So streaming is now a valid drop-in for the continuous Mode::Chain**, not just
+push-to-talk. And the compute case is stronger than in 2026-07: Mode::Chain re-decodes a **22 s**
+window every hop (not the old 4 s), so streaming (decode only the new audio) is a bigger win and
+directly cuts the on-device per-hop cost/latency the user felt. **Verdict: implement (C++ port).**
+
+Streaming export re-produced + validated for `best_s123_mic_clean` (2026-07-10):
+`stream_conv.onnx` 1.4 MB + `stream_encoder.int8.onnx` 10.1 MB; runtime == forward 100% phoneme
+match (fp32 AND int8); streaming RTF 0.013.
 
 ### Design-specific risks
 
