@@ -347,8 +347,10 @@ python demo/live_detect.py            # default mic; --list-devices to choose
     is the offline segment→word map — word-exact boundaries, ~85% correct-phrase, verifiable
     offline; see the assessment 2026-07-09).
   - *Research:* (7) **deeper N-back context** for the 8 structural `needs_choice` cases
-    (2:134↔2:141 unit class). (8) **posterior-aware matching** — Phase 0 (posteriors in the
-    cache) + Phase 1 (posterior retrieval) done 2026-07-09: retrieval is NOT the bottleneck
-    (v10 already saturated it; clean-neutral, phone +1 unit). Open lever: **Phase 2 —
-    posterior-aware SCORING** (soft substitution cost in the infix distance), where the
-    decode-quality headroom is; Phase 0 is its enabler. See research/CLAUDE.md.
+    (2:134↔2:141 unit class). (8) **posterior-aware matching — Phases 0/1/2 DONE
+    (2026-07-09/10).** Phase 0 (posteriors in the cache) + Phase 1 (retrieval, neutral — v10
+    already saturated retrieval) + Phase 2 (soft SCORING): on a noise-augmented ~30% PER eval,
+    sub_min~0 gives aligned-hit 84.0→85.7 / SER 16.6→14.8 / exact 48.9→52.6 with BYTE-neutral
+    clean audio — a real win in the phone regime, free on the benchmark. Off by default;
+    switch on for phones. **Open follow-on: C++ port** (route the posteriors inference.cpp →
+    chain.cpp) so on-device phone detection gets the win. See research/CLAUDE.md.
