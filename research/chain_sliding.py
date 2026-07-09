@@ -196,20 +196,45 @@ def _key_sort(u: str):
     return int(s), int(a), int(seg) if seg else 0
 
 
-def _infix_norm(ref: list, win: list) -> float:
+def _infix_norm(ref: list, win: list, win_alts=None, sub_min: float = 1.0) -> float:
     """Infix-normalized edit distance: best alignment of `ref` as a SUBSTRING of `win`
     (free leading/trailing window gaps), / len(ref). Windows start/end at arbitrary
     offsets relative to segment boundaries — whole-window distance punishes the edge
-    junk as errors; infix does not."""
-    m = len(ref)
-    prev = [0] * (len(win) + 1)              # free leading skips in the window
+    junk as errors; infix does not.
+
+    Phase-2 posterior-aware SCORING (win_alts given, sub_min < 1): a substitution of ref
+    phoneme `ri` for a mismatching window phoneme costs `max(sub_min, 1 - p(ri)/p(greedy))`
+    instead of a flat 1 — cheap where the model nearly picked `ri` (uncertain frame),
+    ~full where it was confidently different. sub_min floors it so real changes still cost.
+    sub_min >= 1 or win_alts None == the original hard 0/1 distance (baseline, fast path)."""
+    m, n = len(ref), len(win)
+    if win_alts is None or sub_min >= 1.0:
+        prev = [0] * (n + 1)                  # free leading skips in the window
+        for i in range(1, m + 1):
+            cur = [i] + [0] * n
+            ri = ref[i - 1]
+            for j in range(1, n + 1):
+                cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ri != win[j - 1]))
+            prev = cur
+        return min(prev) / max(1, m)          # free trailing skips
+    # soft path: per-position {phoneme: prob} + greedy prob for the substitution cost
+    amap = [({t: p for t, p in (a or ())}, (a[0][1] if a else 1e-9) or 1e-9)
+            for a in (win_alts + [None] * (n - len(win_alts)))[:n]]
+    prev = [0.0] * (n + 1)
     for i in range(1, m + 1):
-        cur = [i] + [0] * len(win)
+        cur = [float(i)] + [0.0] * n
         ri = ref[i - 1]
-        for j in range(1, len(win) + 1):
-            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ri != win[j - 1]))
+        for j in range(1, n + 1):
+            if ri == win[j - 1]:
+                sc = 0.0
+            else:
+                pm, gp = amap[j - 1]
+                # only phonemes the model actually CONSIDERED (in top-k) get the discount;
+                # a phoneme it never weighed still costs a full substitution.
+                sc = 1.0 if (r := pm.get(ri, 0.0)) == 0.0 else max(sub_min, 1.0 - r / gp)
+            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + sc)
         prev = cur
-    return min(prev) / max(1, m)             # free trailing skips
+    return min(prev) / max(1, m)
 
 
 def _prefix_norm(ref, win, min_i, end_slack: int = 2):
@@ -266,7 +291,7 @@ def window_counts(win, ngram_idx, win_alts=None, retr_conf=None):
 
 
 def window_best(win, ngram_idx, refs, ref_lens, fire_cost=FIRE_COST,
-                win_alts=None, retr_conf=None):
+                win_alts=None, retr_conf=None, sub_min=1.0):
     """Best (key, cost) for one window: 3-gram shortlist -> infix edit-norm.
     Length gate is TIGHT (0.5n..1.3n): with the multi-scale filter bank each window
     size only fires refs of its own length class — small windows can't be swallowed
@@ -274,8 +299,9 @@ def window_best(win, ngram_idx, refs, ref_lens, fire_cost=FIRE_COST,
     scales regressed end-to-end: recall rose but noisy small-window fires flooded the
     vote machine (raw unit SER 32.6% -> 41.6%).
 
-    win_alts/retr_conf enable Phase-1 posterior-aware RETRIEVAL (the shortlist); the
-    infix SCORING below still runs on the greedy `win` (Phase 2 would soften that too)."""
+    win_alts/retr_conf enable Phase-1 posterior-aware RETRIEVAL (the shortlist); win_alts/
+    sub_min enable Phase-2 posterior-aware SCORING (the infix substitution cost). Either,
+    both, or neither — off == greedy baseline."""
     import heapq
     c = window_counts(win, ngram_idx, win_alts, retr_conf)
     n = len(win)
@@ -295,7 +321,7 @@ def window_best(win, ngram_idx, refs, ref_lens, fire_cost=FIRE_COST,
         L = ref_lens[key]
         if not (0.5 * n <= L <= 1.3 * n):   # tight band: each scale serves its size class
             continue
-        cost = _infix_norm(refs[key], win)
+        cost = _infix_norm(refs[key], win, win_alts, sub_min)
         sel = cost - COVER_BONUS * min(L, n) / n
         if cost <= fire_cost and sel < best_sel:
             best_sel, best_key, best_cost = sel, key, cost
@@ -308,7 +334,8 @@ def decode_sliding(stream, ngram_idx, refs, window_s, hop_s, cost_thresh,
                    votes_next: int, votes_jump: int, ref_lens=None,
                    scales=(0.2, 0.7, 1.0, 1.5, 2.2),
                    use_twin_sub: bool = True, succ_fn=None, confusable=None,
-                   early_prefix: float | None = None, retr_conf: float | None = None):
+                   early_prefix: float | None = None, retr_conf: float | None = None,
+                   sub_min: float = 1.0):
     """Multi-scale sliding windows; per window the production whole-window edit-norm
     (trie-shortlisted); vote state machine emits the chain.
 
@@ -322,7 +349,8 @@ def decode_sliding(stream, ngram_idx, refs, window_s, hop_s, cost_thresh,
     if succ_fn is None:
         succ_fn = lambda k: successor(k, refs)   # within-ayah only (per-clip eval)
     phons, times = stream["phonemes"], stream["times"]
-    alts = stream.get("alts") if retr_conf is not None else None   # Phase-1 posterior retrieval
+    # posteriors feed Phase-1 retrieval (retr_conf) and/or Phase-2 scoring (sub_min < 1)
+    alts = stream.get("alts") if (retr_conf is not None or sub_min < 1.0) else None
     if not phons:
         return []
     # collect window fires (t, key, cost) across scales, then vote in time order;
@@ -349,7 +377,7 @@ def decode_sliding(stream, ngram_idx, refs, window_s, hop_s, cost_thresh,
             if early_prefix and largest:
                 fires.append((w1, 0, "", 0.0, win))
             key, cost = window_best(win, ngram_idx, refs, ref_lens, fire_cost=cost_thresh,
-                                    win_alts=win_alts, retr_conf=retr_conf)
+                                    win_alts=win_alts, retr_conf=retr_conf, sub_min=sub_min)
             if key is not None and cost <= cost_thresh:
                 fires.append((w1, 1, key, cost, None))
     fires.sort(key=lambda f: (f[0], f[1], f[2], f[3]))

@@ -223,12 +223,31 @@ Debugged from per-hop engine logs + pulled session WAVs, each reproduced offline
   unchanged, exact 58.8 -> 58.1, twins 76 -> 81 — a small twin gain offset by a small
   exact dip; the 250-seq subset was byte-identical); phone-mic (~30% PER, 9 pulled
   sessions) net +1 correct unit (2:258 recovered in one Ayat-al-Kursi session), no
-  regressions. So retrieval has little headroom; the
-  remaining decode-quality losses are in SCORING/selection (the ref is retrieved but
-  doesn't win) — **posterior-aware SCORING (Phase 2, soft substitution cost in
-  `_infix_norm`) is where the headroom is.** Phase 0 stays (it's Phase 2's enabler and
-  costs nothing); Phase 1 stays off by default (`retr_conf=None`), available for the
-  phone regime.
+  regressions. So retrieval has little headroom; the remaining decode-quality losses are
+  in SCORING/selection (the ref is retrieved but doesn't win).
+- **Posterior-aware matching Phase 2 (2026-07-10) — soft SCORING helps in the deployment
+  regime, free on the benchmark.** `_infix_norm(win_alts, sub_min)`: a substitution of ref
+  phoneme `ri` for a mismatching window phoneme costs `max(sub_min, 1 - p(ri)/p(greedy))`
+  when the model CONSIDERED `ri` (in top-k), else a full 1 — cheap where the model nearly
+  picked `ri`, full where it was confidently different. Measured on a NOISE-AUGMENTED eval
+  (phone-channel augmentation -> ~30% PER via `build_noisy_cache.py`, `continuous_eval
+  --noisy`), the deployment regime the clean caches (~10% PER) don't represent. Crux
+  diagnostic: at noisy substitution sites, the correct phoneme is in the top-k 60.9% of the
+  time (top-2 47.1%) — recoverable signal exists — but 42% of errors are DELETIONS (a
+  different mode, untouchable by substitution softening). Results:
+  - **Clean 747: byte-neutral** at any sub_min (SER 10.5, hit 90.1, exact 58.0 on the
+    150-subset, both greedy and sub_min 0.0) — no regression.
+  - **Noisy 747: sub_min 0.0 (aggressive floor) SER 16.6 -> 14.8, aligned-hit 84.0 -> 85.7,
+    exact 48.9 -> 52.6, twins 77.4 -> 78.3.** sub_min 0.3 was neutral (too conservative).
+  Mechanism (micro-test): soft scoring lowers the truth AND its competitors' costs, so it
+  only FLIPS a selection when the truth has more recoverable subs than the wrong
+  competitors — which happens on noisy audio (its errors are uncertain near-misses) but not
+  on clean (competitors already far). **Net posterior-aware-matching verdict: retrieval
+  (Phase 1) is saturated; SCORING (Phase 2, sub_min~0) is a real ~+1.7 aligned-hit / -1.8
+  SER win in the ~30% PER phone regime with zero clean cost.** Phase 0 is the enabler;
+  Phase 1/2 stay off by default (greedy) and switch on for the phone regime
+  (`retr_conf`, `sub_min`). Next: C++ port (route the posteriors from inference.cpp ->
+  chain.cpp) so on-device phone detection gets the win.
 
 ## Segment-level ambiguity map (matcher/find_ambiguous.py --units)
 

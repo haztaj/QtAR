@@ -110,6 +110,13 @@ def main():
                     help="Phase-1 posterior-aware retrieval: expand to top-2 phoneme "
                          "alternatives at window positions where the greedy prob < this "
                          "(0 = off/greedy; needs a cache with per-phoneme 'alts')")
+    ap.add_argument("--sub-min", type=float, default=1.0,
+                    help="Phase-2 posterior-aware scoring: substitution cost floor "
+                         "(1.0 = off/hard 0-1 distance; e.g. 0.3 softens mismatches the "
+                         "model nearly picked)")
+    ap.add_argument("--noisy", action="store_true",
+                    help="use the phone-channel-augmented caches (*_noisy.pkl) — the ~30% "
+                         "PER deployment regime (build with research/build_noisy_cache.py)")
     ap.add_argument("--rebuild-cache", action="store_true")
     args = ap.parse_args()
 
@@ -118,9 +125,13 @@ def main():
     from phoneme_matcher import PhonemeTrie  # noqa: F401  (parity with other scripts)
 
     # --- per-clip stream lookup: (reciter, ayah-key) -> stream ---
-    seg_streams = pickle.loads(SEG_CACHE.read_bytes())
-    if UNSEG_CACHE.exists() and not args.rebuild_cache:
-        unseg_streams = pickle.loads(UNSEG_CACHE.read_bytes())
+    seg_cache = SEG_CACHE.with_name("full_streams_test_noisy.pkl") if args.noisy else SEG_CACHE
+    unseg_cache = UNSEG_CACHE.with_name("unseg_streams_test_noisy.pkl") if args.noisy else UNSEG_CACHE
+    if args.noisy:
+        print("NOISY caches (phone-channel augmented, ~30% PER regime)")
+    seg_streams = pickle.loads(seg_cache.read_bytes())
+    if unseg_cache.exists() and not args.rebuild_cache:
+        unseg_streams = pickle.loads(unseg_cache.read_bytes())
     else:
         unseg_streams = build_unseg_cache()
     lookup: dict[tuple[str, str], dict] = {}
@@ -264,7 +275,7 @@ def main():
                                      vn, vj, ref_lens=ref_lens, use_twin_sub=tw,
                                      succ_fn=succ_full, confusable=conf,
                                      early_prefix=args.early_prefix or None,
-                                     retr_conf=args.retr_conf or None)
+                                     retr_conf=args.retr_conf or None, sub_min=args.sub_min)
             if asm:
                 emitted = assemble(emitted)
             truth = q["truth"]
