@@ -334,9 +334,15 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   the download build fetches + sha256-verifies end-to-end on-device (see the download-delivery
   entry above). The download build works for beta testers.
 - **Roadmap (open):**
-  - *Model / accuracy:* (1) **true streaming export** (`Emformer.infer` chunk-by-chunk — the
-    highest-leverage item: ~4× cheaper/hop + lower latency + battery, the wearable path; blocked
-    today by the Emformer's data-dependent masks, hence the fixed-window export). (2) **in-house
+  - *Model / accuracy:* (1) **true streaming export — inference DONE + validated (2026-07-10).**
+    The data-dependent-mask block is retired: static-shape streaming Emformer step exported
+    (`export/onnx/stream_{conv,encoder.int8}.onnx`) + C++ `StreamingModel` (`sdk/core/src/streaming.*`,
+    two ORT sessions, 48-tensor state + conv cache + cross-chunk CTC collapse), **5/5 EXACT phoneme
+    parity** vs the Python runtime (fp32). Premise re-verified (continuous recall 87.5% ≥ stitched
+    85.0% on the current model). **Remaining:** wire into `Detector::stepChain` (replaces the 22 s
+    per-hop re-decode — the compute/battery win) + bundle in the `.aar`; design + the center=True
+    feed invariant + Phase-2 posterior decision specced in `export/streaming-export-plan.md` (gated,
+    off by default until the on-device acceptance test passes). (2) **in-house
     learner collection for the long surahs** (the known data hole — RetaSy covers only short
     surahs; raises the learner ceiling). (3) **full-Quran corpus** (beyond the current 1,057 ayat;
     out of MVP scope but the north star).
