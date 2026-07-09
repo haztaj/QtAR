@@ -246,8 +246,15 @@ Debugged from per-hop engine logs + pulled session WAVs, each reproduced offline
   (Phase 1) is saturated; SCORING (Phase 2, sub_min~0) is a real ~+1.7 aligned-hit / -1.8
   SER win in the ~30% PER phone regime with zero clean cost.** Phase 0 is the enabler;
   Phase 1/2 stay off by default (greedy) and switch on for the phone regime
-  (`retr_conf`, `sub_min`). Next: C++ port (route the posteriors from inference.cpp ->
-  chain.cpp) so on-device phone detection gets the win.
+  (`retr_conf`, `sub_min`).
+- **Phase 2 C++ port — done (2026-07-10).** Routed posteriors inference->chain:
+  `decoder::topKAlts` (per-emitted-phoneme top-k), `PhonAlts` through `windowBest` /
+  `decodeStream` / `Detector::stepChain`, `infixNormSoft`, `Config/ChainParams::subMin`
+  wired C++ -> JNI -> Kotlin `Config.chainSubMin` (demo sets 0.0). Conformance ALL PASS
+  (new `soft_score_run` fixture pins the soft path; greedy goldens byte-identical) +
+  cross-validated EXACT over 200 real NOISY decoded streams. Caught a latent determinism
+  bug from the Phase-1 refactor: `window_counts` routed retrieval hits through a set
+  (hash-randomized) — replaced with an ordered dedup so greedy stays byte-deterministic.
 
 ## Segment-level ambiguity map (matcher/find_ambiguous.py --units)
 

@@ -49,6 +49,36 @@ double infixNorm(const std::vector<int>& ref, const std::vector<int>& win) {
     }
     return (double)*std::min_element(prev.begin(), prev.end()) / std::max(1, m);
 }
+
+// Phase-2 posterior-aware infix distance: a substitution of ref phoneme `ri` for a
+// mismatching window phoneme costs max(subMin, 1 - p(ri)/p(greedy)) when the model
+// CONSIDERED `ri` (it's in that position's top-k), else a full 1. winAlts is parallel to
+// win. (soft branch of _infix_norm in the reference.)
+double infixNormSoft(const std::vector<int>& ref, const std::vector<int>& win,
+                     const PhonAlts& winAlts, double subMin) {
+    const int m = (int)ref.size(), n = (int)win.size();
+    std::vector<double> prev(n + 1, 0.0), cur(n + 1);
+    for (int i = 1; i <= m; ++i) {
+        cur[0] = (double)i;
+        const int ri = ref[i - 1];
+        for (int j = 1; j <= n; ++j) {
+            double sc;
+            if (ri == win[j - 1]) {
+                sc = 0.0;
+            } else {
+                const auto& a = (j - 1) < (int)winAlts.size() ? winAlts[j - 1]
+                                                              : std::vector<std::pair<int, float>>{};
+                double gp = a.empty() ? 1e-9 : (a[0].second > 0 ? (double)a[0].second : 1e-9);
+                double p = 0.0;
+                for (const auto& [t, pr] : a) if (t == ri) { p = pr; break; }
+                sc = (p == 0.0) ? 1.0 : std::max(subMin, 1.0 - p / gp);
+            }
+            cur[j] = std::min({prev[j] + 1.0, cur[j - 1] + 1.0, prev[j - 1] + sc});
+        }
+        std::swap(prev, cur);
+    }
+    return *std::min_element(prev.begin(), prev.end()) / std::max(1, m);
+}
 }  // namespace
 
 UnitIndex::UnitIndex(const std::string& unitPhonemesJson, const std::string& tokensTxt) {
@@ -135,8 +165,9 @@ int UnitIndex::firstUnitOf(const std::string& parentKey) const {
 }
 
 std::pair<int, double> windowBest(const std::vector<int>& win, const UnitIndex& idx,
-                                  double fireCost) {
+                                  double fireCost, const PhonAlts& winAlts, double subMin) {
     const int n = (int)win.size();
+    const bool soft = subMin < 1.0 && !winAlts.empty();
     // Counter with Python insertion-order semantics: first-seen while scanning window
     // positions ascending, posting lists ascending — ties in the sorts below break by
     // this order, exactly like Counter.most_common / heapq.nlargest (both stable).
@@ -173,7 +204,8 @@ std::pair<int, double> windowBest(const std::vector<int>& win, const UnitIndex& 
     for (int u : shortlist) {
         const int L = idx.len(u);
         if (!(0.5 * n <= L && L <= 1.3 * n)) continue;
-        const double cost = infixNorm(idx.phonemes(u), win);
+        const double cost = soft ? infixNormSoft(idx.phonemes(u), win, winAlts, subMin)
+                                 : infixNorm(idx.phonemes(u), win);
         const double sel = cost - kCoverBonus * std::min(L, n) / (double)n;
         if (cost <= fireCost && sel < bestSel) {
             bestSel = sel; bestUnit = u; bestCost = cost; anyFire = true;
@@ -313,8 +345,10 @@ std::vector<int> ChainAssembler::flush() {
 
 std::vector<UnitEmission> decodeStream(const std::vector<int>& phonemes,
                                        const std::vector<double>& times,
-                                       const UnitIndex& idx, const ChainParams& p) {
+                                       const UnitIndex& idx, const ChainParams& p,
+                                       const PhonAlts& alts) {
     if (phonemes.empty()) return {};
+    const bool soft = p.subMin < 1.0 && !alts.empty();
     // kind 0 = prefix-check event (largest scale only, carries the window); kind 1 = fire
     struct Ev { double w1; int kind; int unit; double cost; std::vector<int> win; };
     std::vector<Ev> evs;
@@ -335,7 +369,9 @@ std::vector<UnitEmission> decodeStream(const std::vector<int>& phonemes,
             t += p.hopSec;
             if ((int)win.size() < 4) continue;
             if (p.earlyPrefix > 0 && largest) evs.push_back({w1, 0, -1, 0.0, win});
-            auto [u, cost] = windowBest(win, idx, p.costThresh);
+            PhonAlts winAlts;
+            if (soft) winAlts.assign(alts.begin() + j0, alts.begin() + j1);
+            auto [u, cost] = windowBest(win, idx, p.costThresh, winAlts, p.subMin);
             if (u >= 0 && cost <= p.costThresh) evs.push_back({w1, 1, u, cost, {}});
         }
     }

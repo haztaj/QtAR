@@ -150,11 +150,20 @@ times in seconds):
    confirms; an unexpected jump defers until a later emission supports it (junk
    tolerance 1); backward/repeat drops; end-of-stream flush of the chainable tail.
 
+**Phase-2 posterior-aware scoring (`sub_min < 1`):** when the fixture stream carries per-
+phoneme `alts` (top-k `[[token, prob], ...]`) and `params.sub_min < 1`, a substitution of
+ref phoneme `ri` for a mismatching window phoneme costs `max(sub_min, 1 - p(ri)/p(greedy))`
+if the model CONSIDERED `ri` (in that position's alts), else a full 1 — the soft branch of
+`_infix_norm`. Off (`sub_min >= 1` / no alts) == the hard 0/1 distance. The
+`soft_score_run` fixture pins it. (Note: retrieval counting must dedup per position via an
+ORDERED map, not a set — a set's hash-randomized iteration breaks the Counter tie-break
+determinism, the same failure mode as the sorted-tuple posting lists.)
+
 **Comparison:** `emitted` (unit key sequence) and `assembled` (chain) must match
 **exactly** (`golden/chain/<name>.chain.json`). Fixtures: `fixtures/chain/<name>.json`
-(`{"stream": {"phonemes": [...], "times": [...]}, "params": {...}}`). Beyond the
-committed fixtures, the port was cross-validated EXACT over 200 real decoded test
-streams (2026-07-07).
+(`{"stream": {"phonemes": [...], "times": [...], "alts"?: [...]}, "params": {...}}`). Beyond
+the committed fixtures, the port was cross-validated EXACT over 200 real decoded test streams
+(greedy 2026-07-07; Phase-2 soft path over 200 noisy streams 2026-07-10).
 
 ## Model inference (ONNX Runtime — same engine as Python)
 

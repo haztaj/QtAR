@@ -131,11 +131,19 @@ int main(int argc, char** argv) {
             p.votesNext = spec["params"]["votes_next"];
             p.votesJump = spec["params"]["votes_jump"];
             p.earlyPrefix = spec["params"].value("early_prefix", 0.0);
+            p.subMin = spec["params"].value("sub_min", 1.0);
             std::vector<int> phon;
             for (auto& t : spec["stream"]["phonemes"]) phon.push_back(uidx.tokenId(t.get<std::string>()));
             std::vector<double> times;
             for (auto& t : spec["stream"]["times"]) times.push_back(t.get<double>());
-            auto emissions = decodeStream(phon, times, uidx, p);
+            PhonAlts alts;                            // Phase-2 posteriors, if the fixture has them
+            if (spec["stream"].contains("alts") && p.subMin < 1.0)
+                for (auto& row : spec["stream"]["alts"]) {
+                    std::vector<std::pair<int, float>> a;
+                    for (auto& e : row) a.push_back({uidx.tokenId(e[0].get<std::string>()), e[1].get<float>()});
+                    alts.push_back(std::move(a));
+                }
+            auto emissions = decodeStream(phon, times, uidx, p, alts);
             ChainAssembler asmr(uidx);
             for (auto& e : emissions) asmr.push(e.unit);
             asmr.flush();

@@ -268,24 +268,29 @@ def window_counts(win, ngram_idx, win_alts=None, retr_conf=None):
     which would otherwise flood the shortlist. retr_conf None / >1 == greedy baseline."""
     from collections import Counter
     n = len(win)
-    if win_alts is None or retr_conf is None:
-        cand = [(win[i],) for i in range(n)]
-    else:
-        cand = []
-        for i in range(n):
-            a = win_alts[i] if i < len(win_alts) else None
-            if a and len(a) > 1 and a[0][1] < retr_conf:
-                cand.append(tuple(t for t, _ in a[:2]))   # top-2 where the model is unsure
-            else:
-                cand.append((win[i],))
     c = Counter()
+    if win_alts is None or retr_conf is None:
+        # greedy: iterate posting lists in canonical order (insertion order = Counter
+        # tie-break order — do NOT route through a set, which is hash-randomized).
+        for i in range(n - 2):
+            for key in ngram_idx.get((win[i], win[i + 1], win[i + 2]), ()):
+                c[key] += 1
+        return c
+    cand = []
+    for i in range(n):
+        a = win_alts[i] if i < len(win_alts) else None
+        if a and len(a) > 1 and a[0][1] < retr_conf:
+            cand.append(tuple(t for t, _ in a[:2]))    # top-2 where the model is unsure
+        else:
+            cand.append((win[i],))
     for i in range(n - 2):
-        hit = set()
+        seen = {}                                       # ordered dedup per position (not a set)
         for x in cand[i]:
             for y in cand[i + 1]:
                 for z in cand[i + 2]:
-                    hit.update(ngram_idx.get((x, y, z), ()))
-        for key in hit:
+                    for key in ngram_idx.get((x, y, z), ()):
+                        seen[key] = None
+        for key in seen:
             c[key] += 1
     return c
 

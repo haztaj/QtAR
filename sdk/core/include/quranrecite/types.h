@@ -110,6 +110,10 @@ struct Config {
     float chainEarlyPrefix = 0.5f;  // >0: fire the EXPECTED unit once this fraction of its
                                     // prefix matches the decode tail (early detection);
                                     // 0 disables (commit at unit end only)
+    float chainSubMin = 1.0f;       // Phase-2 posterior-aware scoring: substitution cost
+                                    // floor. 1.0 = hard 0/1 distance (off); ~0 softens
+                                    // mismatches the model nearly picked (a ~+1.7 aligned-hit
+                                    // win in the ~30% PER phone regime, free on clean audio)
 
     // Silero VAD (Auto mode): if vadPath is set, feed speech-END events reset the buffers +
     // matcher so paused ayah-by-ayah recitation segments cleanly. Empty -> no VAD (energy gate

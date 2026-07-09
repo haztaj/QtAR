@@ -47,7 +47,8 @@ class MainActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         enterImmersive()
-        detector = QuranReciteDetector(this, Config(mode = Mode.CHAIN))
+        // chainSubMin = 0 enables Phase-2 posterior-aware scoring (the ~30% PER phone-mic win)
+        detector = QuranReciteDetector(this, Config(mode = Mode.CHAIN, chainSubMin = 0.0f))
 
         setContent {
             MaterialTheme {

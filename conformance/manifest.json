@@ -157,6 +157,13 @@
       "chain": "golden/chain/early_prefix_run.chain.json",
       "n_phonemes": 227,
       "n_emitted": 7
+    },
+    {
+      "name": "soft_score_run",
+      "stream": "fixtures/chain/soft_score_run.json",
+      "chain": "golden/chain/soft_score_run.chain.json",
+      "n_phonemes": 227,
+      "n_emitted": 5
     }
   ],
   "mel_filterbank_shape": [

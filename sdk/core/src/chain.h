@@ -56,6 +56,11 @@ private:
     std::unordered_map<long long, std::vector<int>> grams_;  // packed 3-gram -> units
 };
 
+// Per-phoneme posterior alternatives (Phase 0): alts[i] = top-k (tokenId, prob) at the
+// frame that emitted phoneme i; alts[i][0] is the greedy phoneme + its probability. Feeds
+// Phase-2 posterior-aware scoring. Empty == greedy (hard) matching.
+using PhonAlts = std::vector<std::vector<std::pair<int, float>>>;
+
 struct ChainParams {
     double windowSec = 10.0;
     double hopSec = 1.5;
@@ -65,6 +70,10 @@ struct ChainParams {
     double earlyPrefix = 0.0;   // >0 (e.g. 0.5): context-gated early detection — fire the
                                 // EXPECTED unit once this fraction of its prefix matches
                                 // the decode tail (cuts commit-at-unit-end latency)
+    double subMin = 1.0;        // Phase-2 posterior scoring: substitution cost floor. 1.0 =
+                                // hard 0/1 distance (off); ~0 softens mismatches the model
+                                // nearly picked (a ~+1.7 aligned-hit win in the ~30% PER
+                                // phone regime, free on clean audio). Needs posteriors.
 };
 
 struct UnitEmission {
@@ -120,8 +129,11 @@ private:
 // fires <= fireCost. Returns {-1, bigCost} when nothing retrieves.
 // fireCost: 0.30 suits clean/professional decodes (research reference); phone-mic
 // decodes run ~30% PER and need ~0.45 (junk absorbed by votes + assembly).
+// winAlts (per-window-position posteriors, parallel to win) + subMin < 1 enable Phase-2
+// posterior-aware SCORING of the shortlist; empty winAlts / subMin >= 1 == greedy.
 std::pair<int, double> windowBest(const std::vector<int>& win, const UnitIndex& idx,
-                                  double fireCost = 0.30);
+                                  double fireCost = 0.30,
+                                  const PhonAlts& winAlts = {}, double subMin = 1.0);
 
 // Best PREFIX of `ref` aligned to the END of `win` (free leading window skips, 2 trailing
 // positions of slack): the early-detection score. Returns min over prefix lengths
@@ -133,6 +145,7 @@ double prefixNorm(const std::vector<int>& ref, const std::vector<int>& win, int 
 // run the vote machine. The conformance entry point.
 std::vector<UnitEmission> decodeStream(const std::vector<int>& phonemes,
                                        const std::vector<double>& times,
-                                       const UnitIndex& idx, const ChainParams& p);
+                                       const UnitIndex& idx, const ChainParams& p,
+                                       const PhonAlts& alts = {});
 
 }  // namespace quranrecite

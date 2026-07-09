@@ -127,25 +127,32 @@ def gen_chain(CONF):
 
     def synth(ayat, sub=0.0, dele=0.0, seed=0, junk_after=None, junk_len=12):
         """Ground-truth phoneme stream for consecutive ayat, seeded noise; optional junk
-        block (random phonemes) after the unit at index `junk_after`."""
+        block after unit index `junk_after`. Also emits per-phoneme posterior `alts` (Phase 0):
+        a substituted position keeps the CORRECT phoneme as a strong 2nd alternative, so the
+        Phase-2 soft-scoring path (sub_min < 1) can recover it — this is what makes the
+        soft_score_run fixture diverge from greedy."""
         rng = random.Random(seed)
-        phons, times = [], []
+        phons, times, alts = [], [], []
         t = 0.0
         for ui, u in enumerate([x for a in ayat for x in units_of(a)]):
             for p in refs[u]:
                 if dele and rng.random() < dele:
                     continue
-                phons.append(rng.choice(vocab) if sub and rng.random() < sub else p)
+                if sub and rng.random() < sub:
+                    s = rng.choice(vocab)
+                    phons.append(s); alts.append([[s, 0.55], [p, 0.44]])   # correct = strong 2nd
+                else:
+                    phons.append(p); alts.append([[p, 0.9]])
                 times.append(round(t, 4))
                 t += PH_SEC
             t += GAP_SEC
             if junk_after is not None and ui == junk_after:
                 for _ in range(junk_len):
-                    phons.append(rng.choice(vocab))
-                    times.append(round(t, 4))
+                    j = rng.choice(vocab)
+                    phons.append(j); alts.append([[j, 0.6]]); times.append(round(t, 4))
                     t += PH_SEC
                 t += GAP_SEC
-        return {"phonemes": phons, "times": times}
+        return {"phonemes": phons, "times": times, "alts": alts}
 
     params = dict(window_s=10.0, hop_s=1.5, cost=0.30, votes_next=1, votes_jump=2)
     scenarios = {
@@ -159,8 +166,12 @@ def gen_chain(CONF):
         "junk_sandwich": synth(["3:5", "3:6", "3:7"], junk_after=1, seed=11),
         # context-gated EARLY detection: expected units fire from a >=50% prefix match
         "early_prefix_run": synth(["2:6", "2:7", "2:8"], sub=0.05, seed=5),
+        # Phase-2 posterior-aware SCORING: heavy substitutions, but the correct phoneme is a
+        # strong 2nd alt at each — soft scoring (sub_min 0.0) recovers units greedy rejects.
+        "soft_score_run": synth(["2:6", "2:7", "2:8"], sub=0.25, seed=9),
     }
-    extra_params = {"early_prefix_run": {"early_prefix": 0.5}}
+    extra_params = {"early_prefix_run": {"early_prefix": 0.5},
+                    "soft_score_run": {"sub_min": 0.0}}
 
     entries = []
     for name, stream in scenarios.items():
@@ -169,7 +180,8 @@ def gen_chain(CONF):
                                  pp["hop_s"], pp["cost"], pp["votes_next"],
                                  pp["votes_jump"], ref_lens=ref_lens,
                                  use_twin_sub=True, succ_fn=succ_full,
-                                 early_prefix=pp.get("early_prefix"))
+                                 early_prefix=pp.get("early_prefix"),
+                                 sub_min=pp.get("sub_min", 1.0))
         # golden pins the emitted KEY SEQUENCE + assembled chain (exact).
         chain = assemble(emitted, succ_full)
         (CONF / "fixtures" / "chain" / f"{name}.json").write_text(

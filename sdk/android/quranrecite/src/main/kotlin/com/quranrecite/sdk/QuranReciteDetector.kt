@@ -79,6 +79,10 @@ data class Config(
     // consumer phone mics decode at ~30% PER and need ~0.45 (verified on a live session —
     // the vote + deferral-assembly layers absorb the extra junk fires).
     val chainCost: Float = 0.45f,
+    // Phase-2 posterior-aware scoring floor: 1.0 = off (hard distance); ~0 softens mismatches
+    // the model nearly picked (a ~+1.7 aligned-hit win in the ~30% PER phone regime, free on
+    // clean audio). Needs a model that emits posteriors (Mode.CHAIN decodes them per hop).
+    val chainSubMin: Float = 1.0f,
 )
 
 /**
@@ -158,7 +162,8 @@ class QuranReciteDetector(
                 nativeHandle = nativeCreate(
                     assets.modelPath, assets.lexiconPath, assets.tokensPath,
                     assets.filterbankPath, assets.hannPath, assets.ambiguousPath, assets.vadPath,
-                    config.mode.ordinal, assets.unitPhonemesPath, config.chainCost)
+                    config.mode.ordinal, assets.unitPhonemesPath, config.chainCost,
+                    config.chainSubMin)
                 nativeSetDebug(nativeHandle, debugLogging)      // carry the current flag to the engine
                 mainHandler.post { listener?.onModelReady() }
             },
@@ -226,7 +231,7 @@ class QuranReciteDetector(
     private external fun nativeCreate(
         modelPath: String, lexiconPath: String, tokensPath: String,
         filterbankPath: String, hannPath: String, ambiguousPath: String, vadPath: String,
-        mode: Int, unitPhonemesPath: String, chainCost: Float): Long
+        mode: Int, unitPhonemesPath: String, chainCost: Float, chainSubMin: Float): Long
     private external fun nativeFeed(handle: Long, pcm: ShortArray, sampleRate: Int)
     private external fun nativeReset(handle: Long)
     private external fun nativeSetDebug(handle: Long, enabled: Boolean)

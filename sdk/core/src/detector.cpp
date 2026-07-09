@@ -248,6 +248,8 @@ struct Detector::Impl {
         auto lp = model.run(lm, T, Tout, V);
         std::vector<int> ph;
         std::vector<double> tm;
+        PhonAlts alts;                                   // Phase-2 posteriors (if subMin < 1)
+        const bool soft = cfg.chainSubMin < 1.0f;
         int prev = -1;
         for (int f = 0; f < Tout; ++f) {
             const float* row = lp.data() + (std::size_t)f * V;
@@ -257,6 +259,7 @@ struct Detector::Impl {
             if (best != prev && best != 0) {
                 ph.push_back(best);
                 tm.push_back(bufStartSec + f * 0.04);
+                if (soft) alts.push_back(topKAlts(row, V));
             }
             prev = best;
         }
@@ -284,9 +287,12 @@ struct Detector::Impl {
         for (double sc : kChainScales) {
             const double w0 = timeSec - cfg.chainWindowSec * sc;
             auto lo = std::lower_bound(tm.begin(), tm.end(), w0);
-            std::vector<int> win(ph.begin() + (lo - tm.begin()), ph.end());
+            const std::size_t off = lo - tm.begin();
+            std::vector<int> win(ph.begin() + off, ph.end());
             if ((int)win.size() < 4) continue;
-            auto [u, cost] = windowBest(win, *units, cfg.chainCost);
+            PhonAlts winAlts;
+            if (soft) winAlts.assign(alts.begin() + off, alts.end());
+            auto [u, cost] = windowBest(win, *units, cfg.chainCost, winAlts, cfg.chainSubMin);
             if (u < 0 || cost > cfg.chainCost) continue;
             if (auto em = chainVoter->onFire(timeSec, u, cost)) {
                 if (debug) QR_LOG("chain EMIT %s cost=%.2f at %.1fs",

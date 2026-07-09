@@ -104,7 +104,8 @@ extern "C" JNIEXPORT jlong JNICALL
 Java_com_quranrecite_sdk_QuranReciteDetector_nativeCreate(
         JNIEnv* env, jobject thiz, jstring modelPath, jstring lexiconPath,
         jstring tokensPath, jstring filterbankPath, jstring hannPath, jstring ambiguousPath,
-        jstring vadPath, jint mode, jstring unitPhonemesPath, jfloat chainCost) {
+        jstring vadPath, jint mode, jstring unitPhonemesPath, jfloat chainCost,
+        jfloat chainSubMin) {
     auto* h = new Handle();
     env->GetJavaVM(&h->vm);
     h->self = env->NewGlobalRef(thiz);
@@ -124,6 +125,7 @@ Java_com_quranrecite_sdk_QuranReciteDetector_nativeCreate(
     cfg.mode = static_cast<Mode>(mode);             // Kotlin Mode ordinal == types.h Mode
     cfg.unitPhonemesPath = jstr(env, unitPhonemesPath);  // required for Mode::Chain
     cfg.chainCost = chainCost;                      // fire threshold (phone mic ~0.45)
+    cfg.chainSubMin = chainSubMin;                  // Phase-2 soft scoring (~0 for phones)
 
     h->det = std::make_unique<Detector>(cfg);
     h->det->setEventCallback([h](const AyahEvent& e) { postEvent(h, e); });
