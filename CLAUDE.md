@@ -330,9 +330,22 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   top-1, juz 95.3% (vs 97.4% juz-only baseline, with a doubled index). Training perf: the batch
   sampler now bounds B*T^2 (quad budget) — long-clip batches previously crossed the ~8 GB WDDM
   paging cliff and collapsed throughput ~25x. Juz-30 revert: tag `juz30-v1` + `backups/juz30/`.
-- **Next options:** (1) **true streaming export** (`Emformer.infer` chunk-by-chunk — another
-  ~4× + lower latency, the battery/wearable path); (2) in-house learner collection for the
-  long surahs (raises the learner ceiling); (3) iOS wrapper; (4) host the model artifact +
-  manifest on the GitHub `model` release so the download build works for beta testers (the
-  mechanism is built + on-device-verified; only the upload remains); (5) deeper N-back context
-  for the 2:134↔2:141 unit class.
+- **Beta hosting — done (2026-07-08).** Model + manifest uploaded to the GitHub `model` release;
+  the download build fetches + sha256-verifies end-to-end on-device (see the download-delivery
+  entry above). The download build works for beta testers.
+- **Roadmap (open):**
+  - *Model / accuracy:* (1) **true streaming export** (`Emformer.infer` chunk-by-chunk — the
+    highest-leverage item: ~4× cheaper/hop + lower latency + battery, the wearable path; blocked
+    today by the Emformer's data-dependent masks, hence the fixed-window export). (2) **in-house
+    learner collection for the long surahs** (the known data hole — RetaSy covers only short
+    surahs; raises the learner ceiling). (3) **full-Quran corpus** (beyond the current 1,057 ayat;
+    out of MVP scope but the north star).
+  - *Product / deployment:* (4) **iOS wrapper** (C++ core is portable; a Swift API + JNI-equivalent
+    bridge, not a re-implementation). (5) **release signing** (beta APK is debug-signed today; a
+    wider/Play beta needs a release keystore + signingConfig — a permanent-identity decision).
+    (6) **word-level segment highlighting** (light the active waqf segment's exact words; main work
+    is the offline segment→word map — word-exact boundaries, ~85% correct-phrase, verifiable
+    offline; see the assessment 2026-07-09).
+  - *Research:* (7) **deeper N-back context** for the 8 structural `needs_choice` cases
+    (2:134↔2:141 unit class). (8) **posterior-aware matching** for the <12-phoneme retrieval floor
+    (2.6% of units with too few 3-grams to retrieve).
