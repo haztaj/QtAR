@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
     for (int i = 0; i < T; i += 20) {           // same 20-frame chunking as the reference
         const int n = std::min(20, T - i);
         auto ids = m.feed(lm.data() + (std::size_t)i * 80, n);
-        got.insert(got.end(), ids.begin(), ids.end());
+        for (auto& e : ids) got.push_back(e.id);
     }
 
     bool ok = got == ref;

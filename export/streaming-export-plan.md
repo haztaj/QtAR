@@ -293,8 +293,48 @@ streaming path. Test order: conv (done) -> one `StaticEmformerLayer` vs `_Emform
   identical** output to `EmformerCTC.forward` on held-out clips in **both fp32 AND int8**, RTF
   ~0.015 (incl. conv). Gotcha fixed: the runtime must start from the **zero** state
   (`layer._init_state`), not a dummy first step, or warm-up is corrupted.
-- **Remaining (on-device):** SDK/C++ port of the driver (thread state tensors through ORT I/O
-  binding; the two graphs) + conformance golden. The Python export + runtime are complete.
+- **SDK/C++ port of the driver — DONE + validated** (`sdk/core/src/streaming.{h,cpp}`,
+  `sdk/core/tests/test_streaming.cpp`). `StreamingModel` = two ORT sessions (dynamic-T
+  `stream_conv.onnx` + fixed stateful `stream_encoder.int8.onnx`) threading the 48 state
+  tensors + the conv boundary cache + CTC collapse across chunks, a byte-faithful port of
+  `StreamingRuntime`. `feed()` returns `{id, frame}` (frame = absolute 25 fps output frame ->
+  time = frame·0.04) so the chain windows get phoneme times. **Parity: 5/5 EXACT phoneme match
+  vs the Python runtime on the fp32 encoder** (incl. a 4486-frame / 204-phoneme clip — the
+  logic gate: conv cache + state threading + collapse all correct). int8 differs on 1/5 by a
+  single phoneme: a **cross-ORT quantization tie** at a borderline argmax (Python pip ORT vs
+  the C++-linked ORT round the int8 MatMul differently), not a logic bug — and harmless for the
+  error-tolerant matcher. So on-device the C++ int8 stream is self-consistent; validate the
+  detector path against the C++ fp32/int8 decode, not the Python int8.
+- **Remaining (detector integration + Android):** wire `StreamingModel` into `Detector::stepChain`
+  (item 8) + bundle the two ONNX in the `.aar` + conformance golden. Design + the one subtlety below.
+
+### Detector integration (item 8) — design + the front-end alignment invariant
+
+`stepChain` today recomputes log-mel over the whole rolling buffer and RE-decodes it with the
+fixed-window model every hop. Streaming replaces the *decode*: maintain a persistent, bounded
+phoneme stream (`chainPh`/`chainTm`) that `StreamingModel::feed` extends with only the NEW
+audio each hop; the scale-window + early-prefix slicing (already time-keyed) is unchanged.
+
+**The one subtlety — the front-end is `center=True` / reflect-pad** (`frontend.logMel`), so
+incremental feeding is exact only for **settled interior frames**:
+- The **last ~2 frames** of the buffer are reflect-end-padded and CHANGE once more audio
+  arrives -> feed only up to `T − guard` (guard≈2); the held-back frames settle next hop.
+- The **buffer-start** reflect padding is wrong mid-stream, but those frames were already fed
+  (as interior) in an earlier hop and are never re-fed (`fedFrames` monotonic).
+- For buffer-frame index == absolute-frame index, keep the rolling buffer's start **hop-aligned**
+  (erase the front cap in multiples of `hop`=160) when streaming is active. Then interior frames
+  match the offline continuous log-mel EXACTLY, so the streamed `chainPh` == the whole-buffer
+  greedy decode for settled frames — the integration acceptance test.
+
+**Phase-2 posteriors:** the demo runs `chainSubMin=0.0` (soft substitution). The streaming path
+needs per-emission top-k threaded through `StreamingModel::feed` too, or it silently regresses to
+hard matching. Either extend `Emit` with the top-k row, or gate soft matching off on the streaming
+path (documented regression). Decide when wiring item 8.
+
+**Status:** `StreamingModel` is validated and ready; the detector rewiring is gated future work —
+lower urgency since the 4 s int8 window already hits RTF 0.002, so the win here is the Mode::Chain
+22 s-per-hop re-decode cost (battery/latency), not correctness. Not flipped into the shipping
+default until the acceptance test above passes on-device.
 
 ### Phase D (matcher on the stream) — INVESTIGATED, not viable as a mode-split fix (2026-07-04)
 

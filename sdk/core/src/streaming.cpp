@@ -51,6 +51,7 @@ struct StreamingModel::Impl {
     int seg = 0;                  // subsampled frames consumed by the encoder
     std::vector<State> state;     // 48 live encoder states
     int prev = -1;                // last emitted id (CTC collapse across chunks)
+    int64_t outBase = 0;          // global encoder-output frames committed so far (25 fps)
 
     explicit Impl(const std::string& convOnnx, const std::string& encOnnx) {
         opts.SetIntraOpNumThreads(1);
@@ -94,7 +95,7 @@ struct StreamingModel::Impl {
 
     void reset() {
         cache.clear(); cacheT = 0; cacheStart = 0; emitted = 0;
-        sub.clear(); subT = 0; seg = 0; prev = -1;
+        sub.clear(); subT = 0; seg = 0; prev = -1; outBase = 0;
         state = initState;
     }
 
@@ -133,14 +134,14 @@ struct StreamingModel::Impl {
         return newo;
     }
 
-    std::vector<int> feed(const float* feats, int T) {
+    std::vector<StreamingModel::Emit> feed(const float* feats, int T) {
         int nNew = 0;
         auto newo = convStream(feats, T, nNew);
         if (nNew) {
             sub.insert(sub.end(), newo.begin(), newo.end());
             subT += nNew;
         }
-        std::vector<int> emittedIds;
+        std::vector<StreamingModel::Emit> emittedIds;
         while (seg + S + R <= subT) {
             // chunk = sub[seg : seg+S+R]
             std::array<int64_t, 3> cshp{1, S + R, D};
@@ -167,9 +168,11 @@ struct StreamingModel::Impl {
                 const float* row = lp + (std::size_t)t * vocab;
                 int best = 0;
                 for (int v = 1; v < vocab; ++v) if (row[v] > row[best]) best = v;
-                if (best != prev && best != 0) emittedIds.push_back(best);
+                if (best != prev && best != 0)
+                    emittedIds.push_back({best, (int)(outBase + t)});
                 prev = best;
             }
+            outBase += S;
             // copy new states back into the live buffers (res[1..nState])
             for (int k = 0; k < nState; ++k) {
                 auto& st = state[k];
@@ -197,7 +200,7 @@ StreamingModel::StreamingModel(StreamingModel&&) noexcept = default;
 StreamingModel& StreamingModel::operator=(StreamingModel&&) noexcept = default;
 
 void StreamingModel::reset() { impl_->reset(); }
-std::vector<int> StreamingModel::feed(const float* logmel, int numFrames) {
+std::vector<StreamingModel::Emit> StreamingModel::feed(const float* logmel, int numFrames) {
     return impl_->feed(logmel, numFrames);
 }
 int StreamingModel::vocab() const { return impl_->vocab; }

@@ -21,9 +21,12 @@ public:
     // Start a fresh session (zero state, empty caches). Call before the first feed of a session.
     void reset();
 
-    // Feed new log-mel frames (row-major [T][80]); returns the phoneme token ids decoded from
-    // the newly-available audio (CTC greedy, blank/repeat collapsed across chunk boundaries).
-    std::vector<int> feed(const float* logmel, int numFrames);
+    // A decoded phoneme + its absolute encoder-output frame (25 fps; time = frame * 0.04 s).
+    struct Emit { int id; int frame; };
+
+    // Feed new log-mel frames (row-major [T][80]); returns the phonemes decoded from the
+    // newly-available audio (CTC greedy, blank/repeat collapsed across chunk boundaries).
+    std::vector<Emit> feed(const float* logmel, int numFrames);
 
     int vocab() const;   // output token dimension (for the CTC head)
 
