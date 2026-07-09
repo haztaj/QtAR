@@ -351,6 +351,7 @@ python demo/live_detect.py            # default mic; --list-devices to choose
     (2026-07-09/10).** Phase 0 (posteriors in the cache) + Phase 1 (retrieval, neutral — v10
     already saturated retrieval) + Phase 2 (soft SCORING): on a noise-augmented ~30% PER eval,
     sub_min~0 gives aligned-hit 84.0→85.7 / SER 16.6→14.8 / exact 48.9→52.6 with BYTE-neutral
-    clean audio — a real win in the phone regime, free on the benchmark. Off by default;
-    switch on for phones. **Open follow-on: C++ port** (route the posteriors inference.cpp →
-    chain.cpp) so on-device phone detection gets the win. See research/CLAUDE.md.
+    clean audio — a real win in the phone regime, free on the benchmark. **C++ port DONE
+    (2026-07-10):** `decoder::topKAlts` + `infixNormSoft` + `Config.chainSubMin` (demo sets
+    0.0), conformance-pinned (`soft_score_run`) + cross-validated EXACT over 200 real noisy
+    streams — on-device phone detection now gets the win. See research/CLAUDE.md, spec §Stage 2b.
