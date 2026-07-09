@@ -61,14 +61,7 @@ def build_unseg_cache() -> list[dict]:
     rows = rows.sort_values("duration").to_dict("records")
     print(f"unsegmented test clips to decode: {len(rows)}")
 
-    def greedy_with_times(lp, T):
-        ids = lp[:T].argmax(-1).tolist()
-        phons, times, prev = [], [], -1
-        for f, s in enumerate(ids):
-            if s != prev and s != 0:
-                phons.append(id2tok[s]); times.append(f * ENC_FRAME_SEC)
-            prev = s
-        return phons, times
+    from chain_sliding import greedy_with_alts   # Phase 0: also store posterior alternatives
 
     out = []
     i = 0
@@ -91,10 +84,10 @@ def build_unseg_cache() -> list[dict]:
                 lp, ol = model(padded.to(device), lens.to(device))
         lp = lp.float().cpu()
         for b, r in enumerate(batch):
-            phons, times = greedy_with_times(lp[b], int(ol[b]))
+            phons, times, alts = greedy_with_alts(lp[b], int(ol[b]), id2tok, ENC_FRAME_SEC)
             out.append({"recording_id": r["recording_id"], "reciter": r["reciter_id"],
                         "key": f"{r['surah_id']}:{r['ayah_id']}", "dur": r["duration"],
-                        "phonemes": phons, "times": times})
+                        "phonemes": phons, "times": times, "alts": alts})
         if len(out) % 400 < len(batch):
             print(f"  decoded {len(out)}/{len(rows)}", flush=True)
     UNSEG_CACHE.write_bytes(pickle.dumps(out))
@@ -113,6 +106,10 @@ def main():
                     help="context-gated early firing fraction (0 disables); improves BOTH "
                          "latency and accuracy (prefix matches survive decode errors that "
                          "sink whole-unit matches)")
+    ap.add_argument("--retr-conf", type=float, default=0.0,
+                    help="Phase-1 posterior-aware retrieval: expand to top-2 phoneme "
+                         "alternatives at window positions where the greedy prob < this "
+                         "(0 = off/greedy; needs a cache with per-phoneme 'alts')")
     ap.add_argument("--rebuild-cache", action="store_true")
     args = ap.parse_args()
 
@@ -181,14 +178,20 @@ def main():
                 sts = [lookup.get((reciter, k)) for k in keys]
                 if any(x is None for x in sts):
                     continue
-                phons, times, t0 = [], [], 0.0
+                phons, times, alts, t0 = [], [], [], 0.0
+                has_alts = all("alts" in st for st in sts)
                 for st in sts:
                     phons.extend(st["phonemes"])
                     times.extend(t + t0 for t in st["times"])
+                    if has_alts:
+                        alts.extend(st["alts"])
                     t0 += st["dur"]
                 truth = [u for k in keys for u in units_of(k)]
-                seqs.append({"reciter": reciter, "keys": keys, "truth": truth,
-                             "phonemes": phons, "times": times, "dur": t0})
+                seq = {"reciter": reciter, "keys": keys, "truth": truth,
+                       "phonemes": phons, "times": times, "dur": t0}
+                if has_alts:
+                    seq["alts"] = alts
+                seqs.append(seq)
     if args.limit:
         seqs = seqs[:args.limit]
     n_units = sum(len(q["truth"]) for q in seqs)
@@ -260,7 +263,8 @@ def main():
             emitted = decode_sliding(q, ngram_idx, refs, args.window, args.hop, args.cost,
                                      vn, vj, ref_lens=ref_lens, use_twin_sub=tw,
                                      succ_fn=succ_full, confusable=conf,
-                                     early_prefix=args.early_prefix or None)
+                                     early_prefix=args.early_prefix or None,
+                                     retr_conf=args.retr_conf or None)
             if asm:
                 emitted = assemble(emitted)
             truth = q["truth"]

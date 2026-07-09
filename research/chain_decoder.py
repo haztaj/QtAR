@@ -73,14 +73,7 @@ def build_cache() -> list[dict]:
     rows = rows.sort_values("duration").to_dict("records")
     print(f"full test clips of segmented ayat: {len(rows)}")
 
-    def greedy_with_times(lp, T):
-        ids = lp[:T].argmax(-1).tolist()
-        phons, times, prev = [], [], -1
-        for f, s in enumerate(ids):
-            if s != prev and s != 0:
-                phons.append(id2tok[s]); times.append(f * ENC_FRAME_SEC)
-            prev = s
-        return phons, times
+    from chain_sliding import greedy_with_alts   # Phase 0: also store posterior alternatives
 
     out: list[dict] = []
     i = 0
@@ -103,11 +96,11 @@ def build_cache() -> list[dict]:
                 lp, ol = model(padded.to(device), lens.to(device))
         lp = lp.float().cpu()
         for b, r in enumerate(batch):
-            phons, times = greedy_with_times(lp[b], int(ol[b]))
+            phons, times, alts = greedy_with_alts(lp[b], int(ol[b]), id2tok, ENC_FRAME_SEC)
             key = f"{r['surah_id']}:{r['ayah_id']}"
             out.append({"recording_id": r["recording_id"], "key": key,
                         "n_segments": n_seg[key], "dur": r["duration"],
-                        "phonemes": phons, "times": times})
+                        "phonemes": phons, "times": times, "alts": alts})
         if len(out) % 200 < len(batch):
             print(f"  decoded {len(out)}/{len(rows)}", flush=True)
     CACHE.write_bytes(pickle.dumps(out))

@@ -36,6 +36,29 @@ sys.path.insert(0, str(REPO / "matcher"))
 CACHE = REPO / "data" / "raw" / "segments" / "full_streams_test.pkl"
 
 
+def greedy_with_alts(lp, T, id2tok, frame_sec=0.04, topk=3):
+    """CTC greedy decode + per-emitted-phoneme posterior alternatives (Phase 0 of
+    posterior-aware matching). `lp` = [T, V] LOG-probs (the model's log_softmax output).
+    Returns (phons, times, alts) where alts[i] = [(token, prob), ...] top-k non-blank
+    phonemes at the frame that emitted phons[i] (alts[i][0] is the greedy phoneme + its
+    probability). Carries the model's uncertainty across the decode->match boundary."""
+    import torch
+    lp = lp[:T]
+    ids = lp.argmax(-1).tolist()
+    phons, times, alts, prev = [], [], [], -1
+    for f, s in enumerate(ids):
+        if s != prev and s != 0:
+            phons.append(id2tok[s])
+            times.append(f * frame_sec)
+            probs = lp[f].exp()
+            tv = torch.topk(probs, min(topk + 1, probs.numel()))  # +1 to survive dropping blank
+            row = [(id2tok[int(i)], round(float(p), 4))
+                   for p, i in zip(tv.values, tv.indices) if int(i) != 0][:topk]
+            alts.append(row)
+        prev = s
+    return phons, times, alts
+
+
 def successor(key: str, refs) -> str | None:
     if "#" not in key:
         return None
@@ -210,19 +233,51 @@ def _prefix_norm(ref, win, min_i, end_slack: int = 2):
     return best, best_i
 
 
-def window_best(win, ngram_idx, refs, ref_lens, fire_cost=FIRE_COST):
+def window_counts(win, ngram_idx, win_alts=None, retr_conf=None):
+    """Per-window 3-gram retrieval counts. Greedy (win_alts is None): each position's
+    greedy 3-gram contributes +1 to every ref it touches. Posterior-aware (Phase 1):
+    at LOW-CONFIDENCE positions (greedy prob < retr_conf) expand to the top-2 posterior
+    alternatives, so a ref whose greedy 3-gram was corrupted by a decode error can still
+    be retrieved via an alternative-phoneme 3-gram. Dedup per position (+1 per ref per
+    position, not per expanded gram) so expansion adds RECALL, not count multiplicity —
+    which would otherwise flood the shortlist. retr_conf None / >1 == greedy baseline."""
+    from collections import Counter
+    n = len(win)
+    if win_alts is None or retr_conf is None:
+        cand = [(win[i],) for i in range(n)]
+    else:
+        cand = []
+        for i in range(n):
+            a = win_alts[i] if i < len(win_alts) else None
+            if a and len(a) > 1 and a[0][1] < retr_conf:
+                cand.append(tuple(t for t, _ in a[:2]))   # top-2 where the model is unsure
+            else:
+                cand.append((win[i],))
+    c = Counter()
+    for i in range(n - 2):
+        hit = set()
+        for x in cand[i]:
+            for y in cand[i + 1]:
+                for z in cand[i + 2]:
+                    hit.update(ngram_idx.get((x, y, z), ()))
+        for key in hit:
+            c[key] += 1
+    return c
+
+
+def window_best(win, ngram_idx, refs, ref_lens, fire_cost=FIRE_COST,
+                win_alts=None, retr_conf=None):
     """Best (key, cost) for one window: 3-gram shortlist -> infix edit-norm.
     Length gate is TIGHT (0.5n..1.3n): with the multi-scale filter bank each window
     size only fires refs of its own length class — small windows can't be swallowed
     by long refs, big windows can't fire snippets. A loose gate (0.3..1.6) plus small
     scales regressed end-to-end: recall rose but noisy small-window fires flooded the
-    vote machine (raw unit SER 32.6% -> 41.6%)."""
+    vote machine (raw unit SER 32.6% -> 41.6%).
+
+    win_alts/retr_conf enable Phase-1 posterior-aware RETRIEVAL (the shortlist); the
+    infix SCORING below still runs on the greedy `win` (Phase 2 would soften that too)."""
     import heapq
-    from collections import Counter
-    c = Counter()
-    for i in range(len(win) - 2):
-        for key in ngram_idx.get(tuple(win[i:i + 3]), ()):
-            c[key] += 1
+    c = window_counts(win, ngram_idx, win_alts, retr_conf)
     n = len(win)
     # Shortlist: top by raw shared-3gram count UNION top by length-normalized count.
     # The normalized pass runs over the FULL counter: a 5-ph ref shares at most 3
@@ -253,7 +308,7 @@ def decode_sliding(stream, ngram_idx, refs, window_s, hop_s, cost_thresh,
                    votes_next: int, votes_jump: int, ref_lens=None,
                    scales=(0.2, 0.7, 1.0, 1.5, 2.2),
                    use_twin_sub: bool = True, succ_fn=None, confusable=None,
-                   early_prefix: float | None = None):
+                   early_prefix: float | None = None, retr_conf: float | None = None):
     """Multi-scale sliding windows; per window the production whole-window edit-norm
     (trie-shortlisted); vote state machine emits the chain.
 
@@ -267,6 +322,7 @@ def decode_sliding(stream, ngram_idx, refs, window_s, hop_s, cost_thresh,
     if succ_fn is None:
         succ_fn = lambda k: successor(k, refs)   # within-ayah only (per-clip eval)
     phons, times = stream["phonemes"], stream["times"]
+    alts = stream.get("alts") if retr_conf is not None else None   # Phase-1 posterior retrieval
     if not phons:
         return []
     # collect window fires (t, key, cost) across scales, then vote in time order;
@@ -286,12 +342,14 @@ def decode_sliding(stream, ngram_idx, refs, window_s, hop_s, cost_thresh,
             while j1 < len(times) and times[j1] < w1:
                 j1 += 1
             win = phons[j0:j1]
+            win_alts = alts[j0:j1] if alts is not None else None
             t += hop_s
             if len(win) < 4:
                 continue
             if early_prefix and largest:
                 fires.append((w1, 0, "", 0.0, win))
-            key, cost = window_best(win, ngram_idx, refs, ref_lens, fire_cost=cost_thresh)
+            key, cost = window_best(win, ngram_idx, refs, ref_lens, fire_cost=cost_thresh,
+                                    win_alts=win_alts, retr_conf=retr_conf)
             if key is not None and cost <= cost_thresh:
                 fires.append((w1, 1, key, cost, None))
     fires.sort(key=lambda f: (f[0], f[1], f[2], f[3]))

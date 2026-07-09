@@ -209,6 +209,26 @@ Debugged from per-hop engine logs + pulled session WAVs, each reproduced offline
   SER 13.2 -> 11.3, aligned-hit 87.3 -> 89.3, ayah-chain SER 13.3 -> 12.4, exact
   52.6 -> 58.8 — the gating costs nothing on clean audio and kills the live
   wrong-jump class.
+- **Posterior-aware matching Phase 0+1 (2026-07-09) — retrieval is no longer the
+  bottleneck (near-neutral result).** Phase 0: the decode caches now carry per-phoneme
+  top-k posterior alternatives (`greedy_with_alts`; both full + unseg caches rebuilt) —
+  the enabler that routes the model's uncertainty across the greedy decode->match
+  boundary (`lp.argmax` used to throw it away). Phase 1: posterior-aware RETRIEVAL
+  (`window_counts` / `decode_sliding(retr_conf=)`) expands to the top-2 alternatives at
+  low-confidence window positions (greedy prob < retr_conf), dedup per position so it
+  adds recall not multiplicity. **Finding: the plan targeted the <12-ph retrieval floor,
+  but the v10 length-normalized shortlist union had already saturated it** — a diagnostic
+  on the 15 short truth units shows greedy already surfaces 100% in the shortlist.
+  Result: clean 747 a WASH (greedy -> posterior: SER 11.3 -> 11.2, aligned-hit 89.3
+  unchanged, exact 58.8 -> 58.1, twins 76 -> 81 — a small twin gain offset by a small
+  exact dip; the 250-seq subset was byte-identical); phone-mic (~30% PER, 9 pulled
+  sessions) net +1 correct unit (2:258 recovered in one Ayat-al-Kursi session), no
+  regressions. So retrieval has little headroom; the
+  remaining decode-quality losses are in SCORING/selection (the ref is retrieved but
+  doesn't win) — **posterior-aware SCORING (Phase 2, soft substitution cost in
+  `_infix_norm`) is where the headroom is.** Phase 0 stays (it's Phase 2's enabler and
+  costs nothing); Phase 1 stays off by default (`retr_conf=None`), available for the
+  phone regime.
 
 ## Segment-level ambiguity map (matcher/find_ambiguous.py --units)
 
