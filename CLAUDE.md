@@ -356,10 +356,11 @@ python demo/live_detect.py            # default mic; --list-devices to choose
     (6/6), spec.md §Streaming model inference. **Enabled by default + manifest delivery DONE:**
     `Config.streaming` defaults true; the manifest gains optional `streamConv`/`streamEncoder`
     `{url,sha256}`, `ModelManager` downloads them into `models/stream/` (sha256, version-keyed,
-    non-fatal on failure -> windowed fallback); `:demo:modelManifest` emits the keys. **Remaining:**
-    upload the two graphs + regenerated manifest to the `model` release (gh not installed here — manual
-    upload; until then download builds run windowed, `-PbundleStreaming` builds already stream).
-    See `export/streaming-export-plan.md`. (2) **in-house
+    non-fatal on failure -> windowed fallback); `:demo:modelManifest` emits the keys. **Hosting DONE
+    + download path validated on-device (2026-07-10):** `stream_conv.onnx` + `stream_encoder.int8.onnx`
+    + the regenerated manifest uploaded to the `model` release (`gh release upload`); a fresh
+    download-build install fetched the model + both graphs, on-device sha256 byte-exact vs the hosted
+    files, detector init clean. Default download builds now stream. See `export/streaming-export-plan.md`. (2) **in-house
     learner collection for the long surahs** (the known data hole — RetaSy covers only short
     surahs; raises the learner ceiling). (3) **full-Quran corpus** (beyond the current 1,057 ayat;
     out of MVP scope but the north star).

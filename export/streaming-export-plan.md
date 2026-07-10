@@ -399,12 +399,16 @@ offline dev. `:demo:modelManifest` emits the streaming keys (sha256 of `export/o
 + `stream_encoder.int8.onnx`) when both exist. Builds: default `:demo:assembleDebug` compiles;
 generated manifest JSON validated (streamConv/streamEncoder with correct sha256/URLs).
 
-**Remaining:** host the two graphs on the `model` release (upload `stream_conv.onnx` +
-`stream_encoder.int8.onnx` + the regenerated `model_manifest.json` — `gh` isn't installed here, so
-this is a manual/`gh` upload; the gradle task prints the exact targets). Until then the live manifest
-lacks the streaming keys, so download builds run windowed (safe); `-PbundleStreaming` builds already
-stream on-device (verified, surah 111). An on-device download-path test was set up (local server +
-`adb reverse`) but the device disconnected mid-run — retry after upload.
+**Hosting DONE + download path validated on-device (2026-07-10).** `stream_conv.onnx` +
+`stream_encoder.int8.onnx` + the regenerated `model_manifest.json` uploaded to the `model` release
+(`gh release upload model ... --clobber`; `model.int8.onnx` unchanged, same sha, left in place). The
+public-URL sha256 of all three matches the exported files. On-device: a fresh **download-build**
+install (uninstall → `assembleDebug` → install, no bundle flags) fetched the model + both graphs from
+the release into `…/files/quranrecite/models{,/stream}`, on-device sha256 **byte-exact** vs the hosted
+files (conv `5d75caea…`, encoder `1a0c260c…`), detector init clean (no native error / windowed
+fallback). One transient CDN read-timeout stalled the encoder mid-download → non-fatal windowed
+fallback that session, and a relaunch re-downloaded it cleanly (the `.part` restart path works).
+Default download builds now stream end-to-end.
 
 ### Phase D (matcher on the stream) — INVESTIGATED, not viable as a mode-split fix (2026-07-04)
 
