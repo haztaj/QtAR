@@ -63,6 +63,12 @@ int main(int argc, char** argv) {
         if (std::string(argv[4]) == "--chain") {   // unit-chain decoder (waqf segments)
             cfg.mode = Mode::Chain;
             cfg.unitPhonemesPath = conf + "/assets/unit_phonemes.json";
+            cfg.chainSubMin = 0.0f;                 // Phase-2 soft scoring (as the demo runs)
+            if (argc >= 7) {                        // + true streaming acoustics: conv, encoder
+                cfg.streamConvPath = argv[5];
+                cfg.streamEncoderPath = argv[6];
+                std::printf("streaming acoustics: %s + %s\n", argv[5], argv[6]);
+            }
         } else {
             cfg.vadPath = argv[4];   // optional Silero VAD (paused-recitation reset)
         }

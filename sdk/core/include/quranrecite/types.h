@@ -101,6 +101,13 @@ struct Config {
     // The phoneme stream is decoded once per hop from the rolling buffer (largest chain
     // window), then all scale windows are sliced from that decode by time.
     std::string unitPhonemesPath;   // unit_phonemes.json (waqf segments + unsegmented ayat)
+    // True streaming acoustics (Mode::Chain only). If BOTH are set, stepChain decodes only the
+    // NEW audio each hop via StreamingModel (stream_conv.onnx + stream_encoder.int8.onnx) and
+    // maintains an incremental phoneme stream, instead of re-decoding the whole rolling window
+    // with `modelPath` — the battery/latency path (see export/streaming-export-plan.md). Empty =>
+    // windowed re-decode (default; off until the on-device acceptance test passes).
+    std::string streamConvPath;
+    std::string streamEncoderPath;
     float chainWindowSec = 10.0f;   // base window (scales 0.2/0.7/1.0/1.5/2.2 x this)
     float chainHopSec = 1.5f;
     float chainCost = 0.30f;        // window fire threshold; 0.30 = clean-decode reference,

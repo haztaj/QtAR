@@ -7,6 +7,8 @@
 
 #include <onnxruntime_cxx_api.h>
 
+#include "decoder.h"   // topKAlts — identical posterior rounding as the windowed path
+
 namespace quranrecite {
 
 namespace {
@@ -134,7 +136,7 @@ struct StreamingModel::Impl {
         return newo;
     }
 
-    std::vector<StreamingModel::Emit> feed(const float* feats, int T) {
+    std::vector<StreamingModel::Emit> feed(const float* feats, int T, bool wantAlts) {
         int nNew = 0;
         auto newo = convStream(feats, T, nNew);
         if (nNew) {
@@ -168,8 +170,11 @@ struct StreamingModel::Impl {
                 const float* row = lp + (std::size_t)t * vocab;
                 int best = 0;
                 for (int v = 1; v < vocab; ++v) if (row[v] > row[best]) best = v;
-                if (best != prev && best != 0)
-                    emittedIds.push_back({best, (int)(outBase + t)});
+                if (best != prev && best != 0) {
+                    StreamingModel::Emit e{best, (int)(outBase + t), {}};
+                    if (wantAlts) e.alts = topKAlts(row, vocab);
+                    emittedIds.push_back(std::move(e));
+                }
                 prev = best;
             }
             outBase += S;
@@ -200,8 +205,9 @@ StreamingModel::StreamingModel(StreamingModel&&) noexcept = default;
 StreamingModel& StreamingModel::operator=(StreamingModel&&) noexcept = default;
 
 void StreamingModel::reset() { impl_->reset(); }
-std::vector<StreamingModel::Emit> StreamingModel::feed(const float* logmel, int numFrames) {
-    return impl_->feed(logmel, numFrames);
+std::vector<StreamingModel::Emit> StreamingModel::feed(const float* logmel, int numFrames,
+                                                       bool wantAlts) {
+    return impl_->feed(logmel, numFrames, wantAlts);
 }
 int StreamingModel::vocab() const { return impl_->vocab; }
 

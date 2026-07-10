@@ -326,15 +326,38 @@ incremental feeding is exact only for **settled interior frames**:
   match the offline continuous log-mel EXACTLY, so the streamed `chainPh` == the whole-buffer
   greedy decode for settled frames — the integration acceptance test.
 
-**Phase-2 posteriors:** the demo runs `chainSubMin=0.0` (soft substitution). The streaming path
-needs per-emission top-k threaded through `StreamingModel::feed` too, or it silently regresses to
-hard matching. Either extend `Emit` with the top-k row, or gate soft matching off on the streaming
-path (documented regression). Decide when wiring item 8.
+**Phase-2 posteriors:** the demo runs `chainSubMin=0.0` (soft substitution). Resolved by extending
+`StreamingModel::Emit` with the per-emission top-k row (`feed(..., wantAlts=true)`, reusing
+`decoder::topKAlts` for identical rounding) — the streaming path keeps full Phase-2 soft scoring, no
+regression.
 
-**Status:** `StreamingModel` is validated and ready; the detector rewiring is gated future work —
-lower urgency since the 4 s int8 window already hits RTF 0.002, so the win here is the Mode::Chain
-22 s-per-hop re-decode cost (battery/latency), not correctness. Not flipped into the shipping
-default until the acceptance test above passes on-device.
+### Detector integration — DONE + validated (2026-07-10)
+
+Wired into `Detector` (gated on `Config.streamConvPath`+`streamEncoderPath`; empty => windowed
+re-decode, the default). `stepChain` now, when streaming is active: `streamFeed()` extends a
+persistent `chainPh`/`chainTm`/`chainAlts` stream with only the newly-settled frames (feed up to
+`T-guard`, guard=2; rolling-buffer front erased in whole hops to keep the start hop-aligned), then
+the shared `chainMatch()` (early-prefix + all scale windows + vote + assemble) runs on that stream —
+identical to the windowed path. Feeds continuously even on silence (keeps the acoustic state
+gapless); only the *matching* is energy-gated. `reset()` clears the stream + model state.
+
+**Acceptance test (the invariant above): PASS.** Same continuous audio through the C++ `Detector` in
+`--chain` windowed vs `--chain <conv> <enc>` streaming (both `model_s123_mic_clean` weights,
+`chainSubMin=0.0` Phase-2 soft), via `test_detector`:
+- 54 s continuous 78:1–8 -> BOTH: `78:1 78:2 … 78:8`, **identical events AND timestamps**
+  (12.0/18.0/25.5/27.0/39.0/43.5/48.0 s).
+- 47 s continuous Al-Fātiḥa -> BOTH: `1:4 1:5 1:6` (identical).
+
+So the streamed interior-frame decode is behavior-equivalent to the whole-buffer re-decode, and the
+front-end alignment invariant holds. (Standalone `test_streaming` fp32 parity is 5/5; note ESET
+NOD32 false-positive-deletes the freshly-linked `test_streaming.exe` as `Win64/Agent_AGen.MKX` —
+add a `sdk\build\` AV exclusion to re-run it; `test_detector.exe` is unaffected and is the
+end-to-end gate.)
+
+**Remaining:** bundle `stream_conv.onnx` + `stream_encoder.int8.onnx` in the `.aar` + wire the two
+paths through `ModelManager`/Kotlin `Config`; on-device RTF/battery measurement; conformance golden
+for the streaming decode. Off by default until the on-device measurement confirms the win (the 4 s
+int8 window already hits RTF 0.002, so this is the Mode::Chain 22 s-per-hop battery/latency path).
 
 ### Phase D (matcher on the stream) — INVESTIGATED, not viable as a mode-split fix (2026-07-04)
 

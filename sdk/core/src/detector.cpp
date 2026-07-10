@@ -14,6 +14,7 @@
 #include "inference.h"
 #include "matcher.h"
 #include "segmenter.h"
+#include "streaming.h"
 #include "vad.h"
 
 #ifdef __ANDROID__
@@ -27,6 +28,8 @@ namespace quranrecite {
 
 namespace {
 constexpr int kSr = 16000;
+constexpr int kHop = 160;    // log-mel hop (10 ms) — streaming feed uses hop-aligned bookkeeping
+constexpr int kMelDim = 80;  // log-mel feature dim
 
 std::string ayahKey(const AyahId& a) { return std::to_string(a.surah) + ":" + std::to_string(a.ayah); }
 
@@ -87,6 +90,14 @@ struct Detector::Impl {
     std::unique_ptr<ChainAssembler> chainAsm;
     std::string chainParent;          // last confirmed parent ayah ("" before the first)
 
+    // True streaming acoustics (optional, Mode::Chain): decode only the NEW audio each hop and
+    // keep a persistent, bounded phoneme stream — instead of re-decoding the whole rolling window.
+    std::unique_ptr<StreamingModel> stream;
+    std::vector<int> chainPh;         // persistent phoneme ids (absolute-time keyed)
+    std::vector<double> chainTm;      // their absolute times (frame * 0.04 s)
+    PhonAlts chainAlts;               // per-phoneme top-k posteriors (Phase-2 soft; if subMin<1)
+    long streamFedFrames = 0;         // absolute log-mel frames fed to the stream (monotonic)
+
     std::mutex mtx;
     std::vector<float> rolling;   // recent 16 kHz audio (up to ~30 s; sliding uses the last window)
     std::vector<float> vadBuf;    // 16 kHz audio pending VAD, fed in 512-sample chunks
@@ -120,6 +131,8 @@ struct Detector::Impl {
             p.votesJump = c.chainVotesJump;
             chainVoter = std::make_unique<ChainVoter>(*units, p);
             chainAsm = std::make_unique<ChainAssembler>(*units);
+            if (!c.streamConvPath.empty() && !c.streamEncoderPath.empty())
+                stream = std::make_unique<StreamingModel>(c.streamConvPath, c.streamEncoderPath);
         }
     }
 
@@ -229,15 +242,31 @@ struct Detector::Impl {
             streamStartAbs = std::max<long>(streamStartAbs, totalSamples - (long)(*st.refocusSec * kSr));
     }
 
-    // One chain step (Mode::Chain): decode the rolling buffer ONCE, slice all scale
-    // windows ending "now" from that decode by time, fire -> vote -> assemble; each
-    // newly-confirmed unit whose parent differs from the last drives an ayah event +
-    // highlight. The chain survives pauses natively (time-gated, no VAD reset needed).
+    // One chain step (Mode::Chain): obtain the phoneme stream over ~the largest window (windowed
+    // re-decode, or the incremental StreamingModel stream), slice all scale windows ending "now"
+    // by time, fire -> vote -> assemble; each newly-confirmed unit whose parent differs from the
+    // last drives an ayah event + highlight. The chain survives pauses natively (time-gated).
     void stepChain(double timeSec) {
         if ((int)rolling.size() < kSr / 2) return;
         const double r = rms(rolling.data() + rolling.size() - std::min<std::size_t>(rolling.size(), kSr),
                              std::min<std::size_t>(rolling.size(), kSr));
-        if (r < 0.005) {
+        const bool silent = r < 0.005;
+        const bool soft = cfg.chainSubMin < 1.0f;
+
+        if (stream) {
+            // Always extend the stream (keep the acoustic state continuous, even on silence);
+            // gate only the matching on energy.
+            streamFeed(soft);
+            if (silent) {
+                if (debug) QR_LOG("chain hop t=%.1fs rms=%.4f -> silent, skip match", timeSec, r);
+                return;
+            }
+            if (debug) QR_LOG("chain hop t=%.1fs rms=%.4f ph=%zu (stream)", timeSec, r, chainPh.size());
+            chainMatch(timeSec, chainPh, chainTm, chainAlts, soft);
+            return;
+        }
+
+        if (silent) {
             if (debug) QR_LOG("chain hop t=%.1fs rms=%.4f -> silent, skip", timeSec, r);
             return;
         }
@@ -249,7 +278,6 @@ struct Detector::Impl {
         std::vector<int> ph;
         std::vector<double> tm;
         PhonAlts alts;                                   // Phase-2 posteriors (if subMin < 1)
-        const bool soft = cfg.chainSubMin < 1.0f;
         int prev = -1;
         for (int f = 0; f < Tout; ++f) {
             const float* row = lp.data() + (std::size_t)f * V;
@@ -265,8 +293,53 @@ struct Detector::Impl {
         }
         if (debug) QR_LOG("chain hop t=%.1fs rms=%.4f ph=%zu (buf=%.1fs)",
                           timeSec, r, ph.size(), (double)rolling.size() / kSr);
-        // Context-gated early detection: fire the EXPECTED unit once >= earlyPrefix of
-        // its prefix matches the decode tail (before the scale fires, like the reference).
+        chainMatch(timeSec, ph, tm, alts, soft);
+    }
+
+    // Streaming acoustics: extend the persistent phoneme stream with the newly-SETTLED log-mel
+    // frames. The front-end is center=True/reflect-pad, so a frame's value is only final once
+    // its full n_fft window is real audio -> feed up to T-guard (hold back the boundary tail;
+    // it settles next hop). The rolling-buffer start is kept hop-aligned (see feed()), so buffer
+    // frame f == absolute frame bufStartFrame+f and interior frames match the offline continuous
+    // log-mel EXACTLY. streamFedFrames (absolute, monotonic) guarantees a gapless feed.
+    void streamFeed(bool soft) {
+        constexpr int guard = 2;                          // boundary frames held back per hop
+        int T;
+        auto lm = frontend.logMel(rolling.data(), rolling.size(), T);
+        const long bufStart = totalSamples - (long)rolling.size();   // hop-aligned
+        const long bufStartFrame = bufStart / kHop;
+        const long feedUntil = bufStartFrame + (long)T - guard;      // absolute frame (exclusive)
+        const long fRelStart = streamFedFrames - bufStartFrame;
+        const long nFeed = feedUntil - streamFedFrames;
+        if (fRelStart >= 0 && nFeed > 0) {
+            auto emits = stream->feed(lm.data() + (std::size_t)fRelStart * kMelDim, (int)nFeed, soft);
+            for (auto& e : emits) {
+                chainPh.push_back(e.id);
+                chainTm.push_back(e.frame * 0.04);
+                if (soft) chainAlts.push_back(std::move(e.alts));
+            }
+            streamFedFrames = feedUntil;
+        }
+        // bound to ~the largest scale window (+margin); state carries acoustic context.
+        const double keep = chainTm.empty() ? 0.0
+            : chainTm.back() - (cfg.chainWindowSec * kChainScales[4] + 2.0);
+        std::size_t drop = 0;
+        while (drop < chainTm.size() && chainTm[drop] < keep) ++drop;
+        if (drop) {
+            chainPh.erase(chainPh.begin(), chainPh.begin() + drop);
+            chainTm.erase(chainTm.begin(), chainTm.begin() + drop);
+            if (soft && chainAlts.size() >= drop)
+                chainAlts.erase(chainAlts.begin(), chainAlts.begin() + drop);
+        }
+    }
+
+    // Shared chain matching over a phoneme stream (ph/tm/alts, absolute-time keyed): context-gated
+    // early detection + all scale windows -> fire -> vote -> assemble. Used by both the windowed
+    // and the streaming decode paths.
+    void chainMatch(double timeSec, const std::vector<int>& ph, const std::vector<double>& tm,
+                    const PhonAlts& alts, bool soft) {
+        // Context-gated early detection: fire the EXPECTED unit once >= earlyPrefix of its prefix
+        // matches the decode tail (before the scale fires, like the reference).
         if (cfg.chainEarlyPrefix > 0.0f) {
             const int exp = chainVoter->expectedUnit();
             if (exp >= 0 && chainVoter->streak() >= 1 && (int)ph.size() >= 4) {
@@ -291,7 +364,7 @@ struct Detector::Impl {
             std::vector<int> win(ph.begin() + off, ph.end());
             if ((int)win.size() < 4) continue;
             PhonAlts winAlts;
-            if (soft) winAlts.assign(alts.begin() + off, alts.end());
+            if (soft && alts.size() == ph.size()) winAlts.assign(alts.begin() + off, alts.end());
             auto [u, cost] = windowBest(win, *units, cfg.chainCost, winAlts, cfg.chainSubMin);
             if (u < 0 || cost > cfg.chainCost) continue;
             if (auto em = chainVoter->onFire(timeSec, u, cost)) {
@@ -386,8 +459,20 @@ void Detector::feed(const float* pcm, std::size_t n, int sampleRate) {
         : impl_->cfg.mode == Mode::Chain
             ? (std::size_t)(impl_->cfg.chainWindowSec * kChainScales[4] * kSr)
             : (std::size_t)(2 * impl_->windowSamples());
-    if (impl_->rolling.size() > cap)
-        impl_->rolling.erase(impl_->rolling.begin(), impl_->rolling.end() - cap);
+    if (impl_->rolling.size() > cap) {
+        if (impl_->stream) {
+            // Streaming feed keys phonemes by absolute frame -> keep the buffer START hop-aligned
+            // (erase a whole number of hops) so buffer-frame f maps to absolute frame directly.
+            const long bufStart = impl_->totalSamples - (long)impl_->rolling.size();
+            long desired = impl_->totalSamples - (long)cap;
+            if (desired < 0) desired = 0;
+            const long aligned = (desired / kHop) * kHop;   // round down: keeps <= cap + kHop
+            const long e = aligned - bufStart;              // >= 0, a multiple of kHop
+            if (e > 0) impl_->rolling.erase(impl_->rolling.begin(), impl_->rolling.begin() + e);
+        } else {
+            impl_->rolling.erase(impl_->rolling.begin(), impl_->rolling.end() - cap);
+        }
+    }
 
     // Silero VAD (Auto): feed the same 16 kHz audio in fixed 512-sample chunks; a speech-END
     // event marks an ayah boundary -> drop the buffer + re-anchor so the next ayah decodes
@@ -430,6 +515,11 @@ void Detector::reset() {
     impl_->autod.reset();
     if (impl_->chainVoter) impl_->chainVoter->reset();
     if (impl_->chainAsm) impl_->chainAsm->reset();
+    if (impl_->stream) impl_->stream->reset();
+    impl_->chainPh.clear();
+    impl_->chainTm.clear();
+    impl_->chainAlts.clear();
+    impl_->streamFedFrames = 0;
     impl_->chainParent.clear();
     impl_->hl.reset();
     impl_->lastSnap = HighlightSnapshot{};
