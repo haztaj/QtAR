@@ -128,6 +128,12 @@ struct Config {
     std::string vadPath;
     float vadThreshold = 0.5f;
     float vadMinSilenceSec = 0.5f;
+    // EXPERIMENTAL (Mode::Chain): on a VAD speech-END, drop the buffered ayah's audio/phonemes so
+    // the next ayah decodes in a FOCUSED window (the 22 s rolling window otherwise crowds out short
+    // tail units after ayah-by-ayah pauses), while KEEPING the voter/assembler chain context. Off
+    // by default — Chain is normally pause-tolerant/time-gated. Needs vadPath set. See
+    // export/../research measurement (2026-07-11).
+    bool chainVadReset = false;
 };
 
 using EventCallback = std::function<void(const AyahEvent&)>;

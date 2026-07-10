@@ -64,6 +64,12 @@ int main(int argc, char** argv) {
             cfg.mode = Mode::Chain;
             cfg.unitPhonemesPath = conf + "/assets/unit_phonemes.json";
             cfg.chainSubMin = 0.0f;                 // Phase-2 soft scoring (as the demo runs)
+            if (const char* c = std::getenv("QR_COST")) cfg.chainCost = (float)atof(c);
+            if (const char* v = std::getenv("QR_VAD")) {   // EXPERIMENTAL focused-window reset
+                cfg.vadPath = v;
+                cfg.chainVadReset = true;
+                std::printf("chainVadReset ON, vad=%s\n", v);
+            }
             if (argc >= 7) {                        // + true streaming acoustics: conv, encoder
                 cfg.streamConvPath = argv[5];
                 cfg.streamEncoderPath = argv[6];

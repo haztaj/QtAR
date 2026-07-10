@@ -200,6 +200,18 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   ayah's audio ends on quiet input). Brief pauses between ayat work today (VAD segments
   each). Robust continuous segmentation (energy + matcher-guided, or streaming w/ CTC
   alignment) is the priority next step.
+- **Short-unit rolling-window CROWDING — root-caused + fix prototyped (2026-07-11).** A live
+  report (short-surah run 112->114 tracks then stalls, dropping tail ayat 114:5-6) traced NOT to
+  a decoder-logic regression and NOT to decode quality (two wrong diagnoses — see
+  research/CLAUDE.md) but to the **22 s rolling window crowding out short units**: `window_best`
+  stops surfacing a short tail unit once the window is dominated by earlier content. **The
+  continuous_eval benchmark + conformance goldens cannot see it** — both run on cached/synthetic
+  phoneme streams, never re-windowing audio (a real measurement gap). Fix prototyped —
+  **`Config.chainVadReset`** (off by default): a VAD speech-END drops the buffered ayah's
+  audio/phonemes for a focused next-ayah window while keeping the voter/assembler chain context.
+  Measured 11/15 -> **15/15 exact on both pulled phone WAVs** (paused + continuous). Not shipped:
+  n=2 short-surah only; needs on-device long-ayah (Baqarah) validation first — a false mid-ayah
+  VAD boundary would reset mid-ayah (the risk that made Chain pause-tolerant). See research/CLAUDE.md.
 - **Commit policy tuned** (`matcher/CommitTracker`): persistence K is the lever, not
   the threshold. Default T=0.15/K=5. See matcher/CLAUDE.md.
 - **ONNX export working** (`export/onnx/`): fp32 43.8 MB / int8 15.2 MB, parity 1.5e-5,

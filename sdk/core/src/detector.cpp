@@ -148,6 +148,17 @@ struct Detector::Impl {
         streamStartAbs = totalSamples;
         lastProc = totalSamples;   // buffer is empty -> skip an immediate no-op step
         autod.reset();
+        // Chain focused-window reset: drop the buffered ayah's phonemes so the next ayah decodes
+        // fresh, but KEEP chainVoter/chainAsm (expected/streak/emitted chain context survives the
+        // pause). Windowed path re-decodes the (now short) buffer each hop; streaming needs its
+        // persistent stream + feed cursor re-anchored to the new buffer start.
+        if (cfg.mode == Mode::Chain && cfg.chainVadReset) {
+            chainPh.clear();
+            chainTm.clear();
+            chainAlts.clear();
+            streamFedFrames = totalSamples / kHop;
+            if (stream) stream->reset();
+        }
     }
 
     int windowSamples() const { return (int)(cfg.windowSec * kSr); }
@@ -496,7 +507,7 @@ void Detector::feed(const float* pcm, std::size_t n, int sampleRate) {
     // Silero VAD (Auto): feed the same 16 kHz audio in fixed 512-sample chunks; a speech-END
     // event marks an ayah boundary -> drop the buffer + re-anchor so the next ayah decodes
     // fresh. Chain mode needs no VAD reset: windows are time-gated and pause-tolerant.
-    if (impl_->vad && impl_->cfg.mode != Mode::Chain) {
+    if (impl_->vad && (impl_->cfg.mode != Mode::Chain || impl_->cfg.chainVadReset)) {
         impl_->vadBuf.insert(impl_->vadBuf.end(), r.begin(), r.end());
         const int VC = SileroVAD::chunkSize();
         bool boundary = false;

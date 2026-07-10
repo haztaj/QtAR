@@ -34,6 +34,12 @@ exact match; `--only chain` regenerates just this section; additionally cross-va
 over 200 real decoded streams). Model inference is ONNX Runtime (shared engine, parity
 already established — not re-implemented).
 
+> **Coverage limit (2026-07-11):** the chain fixtures are SHORT SYNTHETIC phoneme streams — they
+> pin C++↔Python decoder fidelity, NOT decode quality or the live rolling-audio buffer. They
+> cannot exhibit the 22 s rolling-window CROWDING of short units on real phone audio (a live bug
+> found this session — see research/CLAUDE.md "Rolling-window CROWDING"). Golden pass ≠ good
+> on-device tracking; long real-audio behaviour must be validated through the full Detector.
+
 A fifth stage covers the **true-streaming acoustic path** (spec.md §Streaming model inference;
 `sdk/core/src/streaming.*` — incremental conv-cache + 48-state threading + cross-chunk CTC
 collapse, which IS re-implemented in C++, unlike plain inference). `golden/streaming/*.phonemes.txt`

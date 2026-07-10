@@ -256,6 +256,55 @@ Debugged from per-hop engine logs + pulled session WAVs, each reproduced offline
   bug from the Phase-1 refactor: `window_counts` routed retrieval hits through a set
   (hash-randomized) — replaced with an ordered dedup so greedy stays byte-deterministic.
 
+## Rolling-window CROWDING of short units — user-reported, two wrong diagnoses, then measured (2026-07-11)
+
+**User report:** reciting a run of short surahs (al-Ikhlas 112 -> al-Falaq 113 -> an-Nas 114)
+on-device, the first ayat track but tracing STALLS partway and drops the tail (114:5-6 never
+detected). Root-caused from two pulled session WAVs (one continuous, one ayah-by-ayah with
+pauses; `best_s123_mic_clean` int8, on-device `chainCost=0.45`).
+
+**Two diagnoses were WRONG before the right one — logged so the mistake isn't repeated:**
+1. **"v11/v12 logic regression"** (from a stale June-30 `test_detector.exe` getting 15/15 vs
+   current 11) — FALSE. The June-30 binary conflated a different decode (int8-vs-fp32, and its
+   own older rolling logic); toggling early-prefix (v11) and soft-scoring (Phase-2) on the SAME
+   stream changed nothing, and disabling early-prefix was *worse*. Not the voter/gating.
+2. **"decode-quality-limited / 114:6 undecodable"** (the full-utterance decode never produced
+   114:6's phonemes; window_best proposed 114:4 only at cost 0.56 > 0.45, and never proposed
+   114:5-6) — ALSO FALSE as a ceiling. It was an artifact of matching over the WIDE window: a
+   focused decode of the tail region alone (`[50-66s]`) retrieves 114:5, and the fix below
+   retrieves 114:6 too.
+
+**Actual root cause: the 22 s rolling window (largest filter-bank scale 2.2 x 10 s) CROWDS OUT
+short units.** After several commits the window is dominated by earlier/again-decoded content;
+short tail units are a small fraction of it, so `window_best` never surfaces them (retrieval,
+not scoring). Reproduces in the batch reference `decode_sliding` on the user's stream too — so
+it is the shared matching regime, not the incremental `chainMatch` path.
+
+**Why the benchmarks missed it (measurement gap — the important lesson):** `continuous_eval.py`
+runs over CACHED professional-audio phoneme streams (~10% PER) and never re-windows audio; the
+conformance `golden/chain` fixtures are short SYNTHETIC streams. Neither models the rolling
+audio buffer, so neither can exhibit window-crowding. Confirmed: the harness aligned-hit does
+NOT fall with length (run-len 4/8/12 -> 87.5 / 92.4 / 91.7%). Crowding needs BOTH poor phone
+decode AND the wide window — only reproducible on real phone WAVs through the full Detector.
+
+**Fix prototyped + measured — focused-window / VAD reset for Chain mode (`Config.chainVadReset`,
+off by default).** On a Silero speech-END the Detector drops the buffered ayah's audio+phonemes
+(so the next ayah decodes in a focused window) while KEEPING the voter/assembler chain context
+(expected/streak/emitted survive the pause). `test_detector` env hooks `QR_COST` / `QR_VAD`.
+Measured (n=2 real phone WAVs, cost 0.45):
+
+| WAV | current (no reset) | chainVadReset | truth |
+|---|---|---|---|
+| paused (ayah-by-ayah) | 11/15 (miss 113:1-2, 114:5-6) | **15/15 exact** | 15 |
+| continuous | 11/15 (stalls at 114:2) | **15/15 exact** | 15 |
+
+Both recover the exact truth chain, no junk insertions. **Caveats / not yet shipped:** (a) n=2,
+same reciter, short surahs only; (b) the harness cannot measure this (no audio/VAD), so broad
+validation needs more real recitation on-device — ESPECIALLY LONG ayat (Baqarah), where a false
+mid-ayah VAD boundary would reset mid-ayah and cost the ayah's prefix (the v1 commit-and-reset
+cascade / seg>=2 mid-ayah cold-start risk that made Chain go pause-tolerant in the first place);
+(c) off by default, not wired to JNI/demo — the on-device long-ayah A/B is the gate before it ships.
+
 ## Segment-level ambiguity map (matcher/find_ambiguous.py --units)
 
 Formalizes the twin classes for the production deferral layer:
