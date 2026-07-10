@@ -354,10 +354,22 @@ NOD32 false-positive-deletes the freshly-linked `test_streaming.exe` as `Win64/A
 add a `sdk\build\` AV exclusion to re-run it; `test_detector.exe` is unaffected and is the
 end-to-end gate.)
 
-**Remaining:** bundle `stream_conv.onnx` + `stream_encoder.int8.onnx` in the `.aar` + wire the two
-paths through `ModelManager`/Kotlin `Config`; on-device RTF/battery measurement; conformance golden
-for the streaming decode. Off by default until the on-device measurement confirms the win (the 4 s
-int8 window already hits RTF 0.002, so this is the Mode::Chain 22 s-per-hop battery/latency path).
+### Android wiring — DONE (2026-07-10); on-device measurement pending
+
+Kotlin -> JNI -> C++ plumbing complete: `Config.streaming` (default false, safe fallback to
+windowed when the graphs are absent) -> `nativeCreate(..., streamConvPath, streamEncoderPath)` ->
+`Detector` Config. `ModelManager` extracts `stream_conv.onnx` + `stream_encoder.int8.onnx` if
+bundled. Demo `-PbundleStreaming` stages the two graphs into the APK (pair with `-PbundleModel`,
+same checkpoint); unstaged otherwise so the **default download distribution stays windowed**. Demo
+`Config(streaming = true)`. Verified: `:demo:assembleDebug -PbundleModel -PbundleStreaming` BUILD
+SUCCESSFUL (streaming.cpp compiled arm64-v8a/armeabi-v7a/x86_64); the APK packages all three graphs.
+
+**Remaining:** on-device install + RTF/battery measurement (pending a connected device) — the
+go/no-go for flipping streaming on in the default distribution; a conformance golden for the
+streaming decode; and, if it ships by default, download-delivery of the two graphs alongside the
+model (extend the manifest — they are version-coupled to the model weights). Off by default until
+the on-device win is measured (the 4 s int8 window already hits RTF 0.002; this is the Mode::Chain
+22 s-per-hop battery/latency path).
 
 ### Phase D (matcher on the stream) — INVESTIGATED, not viable as a mode-split fix (2026-07-04)
 

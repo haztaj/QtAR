@@ -344,10 +344,14 @@ python demo/live_detect.py            # default mic; --list-devices to choose
     `stepChain` streams only the new audio into a persistent `chainPh`/`chainTm`/`chainAlts` (center=True
     feed invariant: settled interior frames + hop-aligned buffer), Phase-2 posteriors threaded via
     `Emit.alts`. Acceptance: windowed vs streaming give IDENTICAL detections + timestamps on 54 s
-    continuous 78:1-8 and 47 s Al-Fatiha (`test_detector`). **Remaining:** `.aar` bundling +
-    ModelManager/Kotlin wiring + on-device RTF/battery measurement (off by default until the win is
-    measured — the 4 s window already hits RTF 0.002, so this is the 22 s-per-hop battery/latency path).
-    See `export/streaming-export-plan.md`. (2) **in-house
+    continuous 78:1-8 and 47 s Al-Fatiha (`test_detector`). **Android wiring DONE (2026-07-10):**
+    `Config.streaming` -> JNI -> C++ (safe fallback to windowed when absent); `ModelManager` extracts
+    the two graphs; demo `-PbundleStreaming` stages them (default distribution stays windowed);
+    `:demo:assembleDebug -PbundleModel -PbundleStreaming` builds + packages all three graphs.
+    **Remaining:** on-device install + RTF/battery measurement (the go/no-go to enable by default) +
+    a streaming conformance golden + manifest download-delivery if it ships. Off by default until the
+    win is measured (the 4 s window already hits RTF 0.002, so this is the 22 s-per-hop battery/latency
+    path). See `export/streaming-export-plan.md`. (2) **in-house
     learner collection for the long surahs** (the known data hole — RetaSy covers only short
     surahs; raises the learner ceiling). (3) **full-Quran corpus** (beyond the current 1,057 ayat;
     out of MVP scope but the north star).
