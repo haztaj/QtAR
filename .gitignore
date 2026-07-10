@@ -48,6 +48,10 @@ sdk/android/**/build/
 sdk/android/.gradle/
 sdk/android/local.properties
 sdk/android/**/.cxx/
+# Release-signing secrets — NEVER commit (keystore + its passwords). See keystore.properties.example.
+sdk/android/keystore.properties
+*.jks
+*.keystore
 sdk/android/quranrecite/src/main/assets/quranrecite/
 sdk/android/demo/src/main/assets/quranrecite/
 # KFGQPC V2 mushaf assets (fonts + layout/words DBs) — large third-party binaries

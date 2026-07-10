@@ -1,4 +1,16 @@
 import java.security.MessageDigest
+import java.util.Properties
+
+// Release signing. Secrets live in sdk/android/keystore.properties (gitignored) so the keystore and
+// its passwords are NEVER committed — copy keystore.properties.example and fill it in, and generate
+// the keystore with keytool (see that file). When the properties file is absent (fresh clone / CI
+// without secrets), the release build falls back to the debug key so it still builds/installs — it
+// is just not a distributable release. `storeFile` may be relative to sdk/android or absolute.
+val keystorePropsFile = rootProject.file("keystore.properties")
+val hasReleaseSigning = keystorePropsFile.exists()
+val keystoreProps = Properties().apply {
+    if (hasReleaseSigning) keystorePropsFile.inputStream().use { load(it) }
+}
 
 plugins {
     id("com.android.application")
@@ -19,6 +31,27 @@ android {
         // (~34 MB of unused ONNX Runtime) and the x86 mismatch (no x86 quranrecite_jni).
         // A Play release would instead use an App Bundle for per-device ABI delivery.
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
+    }
+
+    signingConfigs {
+        // Only defined when keystore.properties is present; the release buildType falls back to the
+        // debug key otherwise (see below), so a keyless clone still builds.
+        if (hasReleaseSigning) create("release") {
+            storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
+            storePassword = keystoreProps.getProperty("storePassword")
+            keyAlias = keystoreProps.getProperty("keyAlias")
+            keyPassword = keystoreProps.getProperty("keyPassword")
+        }
+    }
+    buildTypes {
+        release {
+            // Native-heavy app with a tiny Kotlin surface (JNI + reflection into the SDK) — keep R8
+            // off so nothing gets stripped/renamed out from under the native bridge. Revisit with a
+            // keep-rules pass if size becomes a concern.
+            isMinifyEnabled = false
+            signingConfig = if (hasReleaseSigning) signingConfigs.getByName("release")
+                            else signingConfigs.getByName("debug")
+        }
     }
     buildFeatures { compose = true }
     androidResources { noCompress += "onnx" }    // store the model uncompressed (clean extract)
