@@ -22,10 +22,16 @@ data class ModelAssets(
     val streamEncoderPath: String = "", // streaming Emformer-step ONNX; "" -> windowed decode
 )
 
+/** A hosted file + its expected sha256 (a manifest sub-asset). */
+private data class RemoteAsset(val url: String, val sha256: String)
+
 /** A released model, from the remote manifest (see [ModelManager.MODEL_MANIFEST_URL]).
- *  `description` is the optional "what's new" note shown to the user on an update. */
+ *  `description` is the optional "what's new" note shown to the user on an update. `streamConv`
+ *  / `streamEncoder` are the OPTIONAL true-streaming graphs (version-coupled to this model);
+ *  present => the SDK downloads them and Mode.CHAIN decodes incrementally, null => windowed. */
 private data class ModelRelease(
     val version: String, val url: String, val sha256: String, val description: String,
+    val streamConv: RemoteAsset?, val streamEncoder: RemoteAsset?,
 )
 
 /**
@@ -36,13 +42,18 @@ private data class ModelRelease(
  * The ~13 MB ONNX model is NOT shipped in the default build — it is fetched once and cached in
  * EXTERNAL files (survives app updates), driven by a small remote MANIFEST:
  *
- *     GET MODEL_MANIFEST_URL -> {"version": "...", "url": "...", "sha256": "..."}
+ *     GET MODEL_MANIFEST_URL -> {"version","url","sha256","description",
+ *                                "streamConv":{"url","sha256"}, "streamEncoder":{"url","sha256"}}
  *
  * On each launch (with network) the app reads the manifest and compares `version` to what it has
  * cached: same -> use the cache; different (a NEW model was released) -> download + verify + cache,
  * then prune the old one. This lets a new model be pushed by uploading it and updating the manifest,
  * with no app update. Offline, the newest cached model is used; the very first launch needs a
  * connection unless the model is bundled.
+ *
+ * The optional `streamConv`/`streamEncoder` graphs (true-streaming Mode.CHAIN, version-coupled to
+ * the model) are delivered the same way — downloaded into models/stream/, sha256-verified, and used
+ * when Config.streaming is on (the default). Their download failing is non-fatal (windowed fallback).
  *
  * Dev/offline: a build with `-PbundleModel` puts the model in the APK at
  * assets/quranrecite/model.int8.onnx; [resolveModel] then uses it directly (no manifest, no network).
@@ -53,6 +64,9 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
     private val assetsDir = File(root, "assets-$ASSETS_VERSION").apply { mkdirs() }
     // Downloaded models live in EXTERNAL files so they survive app updates (like the page fonts).
     private val modelsDir = File(context.getExternalFilesDir(null), "quranrecite/models").apply { mkdirs() }
+    // Streaming graphs in a SUBDIR so the model prune / newest-model scan (top-level *.onnx) never
+    // touch them (they are version-coupled to the model but delivered as separate files).
+    private val streamDir = File(modelsDir, "stream").apply { mkdirs() }
 
     /** Resolve all assets off the main thread; callbacks fire on the worker thread.
      *  [onModelUpdate] fires with (version, description) when a NEW model replaces a previously
@@ -75,13 +89,19 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
                     extractBundled("silero_vad.onnx") else ""
                 val units = if (assetExists("quranrecite/unit_phonemes.json"))
                     extractBundled("unit_phonemes.json") else ""
-                // True streaming acoustics — bundled only by -PbundleStreaming (dev/offline); must
-                // match the resolved model's weights. Absent -> "" -> windowed re-decode.
-                val streamConv = if (assetExists("quranrecite/$STREAM_CONV"))
-                    extractBundled(STREAM_CONV, into = modelsDir) else ""
-                val streamEnc = if (assetExists("quranrecite/$STREAM_ENCODER"))
-                    extractBundled(STREAM_ENCODER, into = modelsDir) else ""
-                val model = resolveModel(onProgress, onModelUpdate)
+                // True streaming acoustics (version-coupled to the model). Bundled by
+                // -PbundleStreaming takes precedence (dev/offline); otherwise downloaded via the
+                // manifest alongside the model. Absent both -> "" -> windowed re-decode.
+                var streamConv = if (assetExists("quranrecite/$STREAM_CONV"))
+                    extractBundled(STREAM_CONV, into = streamDir) else ""
+                var streamEnc = if (assetExists("quranrecite/$STREAM_ENCODER"))
+                    extractBundled(STREAM_ENCODER, into = streamDir) else ""
+                // Fetch the manifest ONCE (skipped entirely for a fully-bundled model — no network).
+                val bundledModel = assetExists("quranrecite/$BUNDLED_MODEL")
+                val release = if (bundledModel) null else fetchManifest()
+                val model = resolveModel(bundledModel, release, onProgress, onModelUpdate)
+                if (streamConv.isEmpty() && release != null)
+                    resolveStreaming(release, onProgress)?.let { streamConv = it.first; streamEnc = it.second }
                 onReady(ModelAssets(model, lexicon, tokens, filterbank, hann, ambiguous, vad, units,
                     streamConv, streamEnc))
             } catch (t: Throwable) {
@@ -91,18 +111,19 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
     }
 
     /** Bundled dev model → else the manifest's current release (cached or downloaded) → else the
-     *  newest cached model (offline). */
+     *  newest cached model (offline). Takes the pre-fetched [release] (fetched once in ensureAsync). */
     private fun resolveModel(
+        bundled: Boolean,
+        release: ModelRelease?,
         onProgress: (Float) -> Unit,
         onModelUpdate: (version: String, description: String) -> Unit,
     ): String {
         // 1. Bundled dev/offline model (-PbundleModel): use it directly, no network.
-        if (assetExists("quranrecite/$BUNDLED_MODEL"))
-            return extractBundled(BUNDLED_MODEL, into = modelsDir)
+        if (bundled) return extractBundled(BUNDLED_MODEL, into = modelsDir)
 
         // 2. Remote manifest = the currently released model. A different version than we have
         //    cached means a new release -> download it (so updates need no app update).
-        fetchManifest()?.let { release ->
+        release?.let { release ->
             val cached = File(modelsDir, "${release.version}.onnx")
             if (cached.exists() && (release.sha256.isEmpty() || sha256(cached) == release.sha256))
                 return cached.absolutePath
@@ -124,6 +145,29 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
             "launch needs a network connection (or build the app with -PbundleModel).")
     }
 
+    /** Download (or reuse the cached) streaming graphs for [release], into [streamDir] keyed by
+     *  version + sha256-verified; prune older versions. Returns (conv, encoder) absolute paths, or
+     *  null if the manifest carries no streaming graphs OR the download fails (-> windowed fallback:
+     *  streaming is an optimization, never a hard dependency). Offline reuses the cache if present. */
+    private fun resolveStreaming(release: ModelRelease, onProgress: (Float) -> Unit): Pair<String, String>? {
+        val conv = release.streamConv ?: return null
+        val enc = release.streamEncoder ?: return null
+        return runCatching {
+            val convFile = File(streamDir, "${release.version}.stream_conv.onnx")
+            val encFile = File(streamDir, "${release.version}.stream_encoder.onnx")
+            for ((asset, dest) in listOf(conv to convFile, enc to encFile)) {
+                if (dest.exists() && (asset.sha256.isEmpty() || sha256(dest) == asset.sha256)) continue
+                download(asset.url, dest, onProgress)
+                if (asset.sha256.isNotEmpty() && sha256(dest) != asset.sha256) {
+                    dest.delete(); error("Streaming graph failed sha256 verification (${dest.name})")
+                }
+            }
+            streamDir.listFiles { f -> f.extension == "onnx" && f != convFile && f != encFile }
+                ?.forEach { it.delete() }
+            convFile.absolutePath to encFile.absolutePath
+        }.getOrNull()
+    }
+
     /** GET the manifest and parse it; null on any failure (offline / unset / malformed). */
     private fun fetchManifest(): ModelRelease? {
         if (MODEL_MANIFEST_URL.isEmpty()) return null
@@ -137,8 +181,12 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
                 conn.disconnect()
             }
             val o = JSONObject(json)
+            fun asset(key: String): RemoteAsset? = o.optJSONObject(key)?.let {
+                RemoteAsset(it.getString("url"), it.optString("sha256", ""))
+            }
             ModelRelease(o.getString("version"), o.getString("url"),
-                o.optString("sha256", ""), o.optString("description", ""))
+                o.optString("sha256", ""), o.optString("description", ""),
+                asset("streamConv"), asset("streamEncoder"))
         }.getOrNull()
     }
 

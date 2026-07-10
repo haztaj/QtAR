@@ -112,24 +112,38 @@ if (project.hasProperty("bundleStreaming")) {
 tasks.register("modelManifest") {
     doLast {
         require(devModel.exists()) { "export the model first: $devModel" }
-        val sha = MessageDigest.getInstance("SHA-256")
-            .digest(devModel.readBytes()).joinToString("") { b -> "%02x".format(b) }
+        fun sha(f: java.io.File) = MessageDigest.getInstance("SHA-256")
+            .digest(f.readBytes()).joinToString("") { b -> "%02x".format(b) }
+        val shaModel = sha(devModel)
         val version = (project.findProperty("modelVersion") as String?) ?: "best_s123_mic_clean-22s-v1"
         val desc = (project.findProperty("modelDesc") as String?)
             ?: "Mic-adapted + learner-data-cleaned recognizer (surahs 1–3 + Juz Amma). " +
                "More accurate detection on phone microphones."
         fun esc(s: String) = s.replace("\\", "\\\\").replace("\"", "\\\"")
         val hostBase = "https://github.com/haztaj/QtAR/releases/download/model"
+        // True-streaming graphs (version-coupled to the model). Included in the manifest only if
+        // BOTH exist — clients then download them and Mode.CHAIN decodes incrementally.
+        val streamConv = devModel.parentFile.resolve("stream_conv.onnx")
+        val streamEnc = devModel.parentFile.resolve("stream_encoder.int8.onnx")
+        val streamJson = if (streamConv.exists() && streamEnc.exists())
+            ""","streamConv":{"url":"$hostBase/stream_conv.onnx","sha256":"${sha(streamConv)}"}""" +
+            ""","streamEncoder":{"url":"$hostBase/stream_encoder.int8.onnx","sha256":"${sha(streamEnc)}"}"""
+        else ""
         val out = layout.buildDirectory.file("model_manifest.json").get().asFile
         out.parentFile.mkdirs()
         out.writeText(
             """{"version":"${esc(version)}","url":"$hostBase/model.int8.onnx",""" +
-                """"sha256":"$sha","description":"${esc(desc)}"}""")
+                """"sha256":"$shaModel","description":"${esc(desc)}"$streamJson}""")
         logger.lifecycle(
-            "wrote $out\n  version=$version  sha256=$sha  (${devModel.length() / 1024} KB)\n" +
+            "wrote $out\n  version=$version  sha256=$shaModel  (${devModel.length() / 1024} KB)\n" +
                 "  description=\"$desc\"\n" +
+                (if (streamJson.isEmpty()) "  streaming: NOT included (graphs missing in export/onnx)\n"
+                 else "  streaming: stream_conv.onnx + stream_encoder.int8.onnx included\n") +
                 "upload to the 'model' release:\n" +
                 "  $devModel  ->  $hostBase/model.int8.onnx\n" +
+                (if (streamJson.isEmpty()) ""
+                 else "  $streamConv  ->  $hostBase/stream_conv.onnx\n" +
+                      "  $streamEnc  ->  $hostBase/stream_encoder.int8.onnx\n") +
                 "  $out  ->  $hostBase/model_manifest.json")
     }
 }

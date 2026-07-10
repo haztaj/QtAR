@@ -48,10 +48,8 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         enterImmersive()
         // chainSubMin = 0 enables Phase-2 posterior-aware scoring (the ~30% PER phone-mic win).
-        // streaming = true prefers the incremental StreamingModel when its graphs are bundled
-        // (-PbundleStreaming); it safely falls back to the windowed re-decode otherwise.
-        detector = QuranReciteDetector(this,
-            Config(mode = Mode.CHAIN, chainSubMin = 0.0f, streaming = true))
+        // streaming defaults ON (the graphs come from the manifest); windowed fallback if absent.
+        detector = QuranReciteDetector(this, Config(mode = Mode.CHAIN, chainSubMin = 0.0f))
 
         setContent {
             MaterialTheme {

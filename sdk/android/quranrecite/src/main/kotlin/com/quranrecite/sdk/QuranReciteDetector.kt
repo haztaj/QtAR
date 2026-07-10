@@ -83,12 +83,12 @@ data class Config(
     // the model nearly picked (a ~+1.7 aligned-hit win in the ~30% PER phone regime, free on
     // clean audio). Needs a model that emits posteriors (Mode.CHAIN decodes them per hop).
     val chainSubMin: Float = 1.0f,
-    // True streaming acoustics (Mode.CHAIN): prefer the incremental StreamingModel (decode only
-    // the new audio each hop — battery/latency) IF the streaming graphs are bundled
-    // (-PbundleStreaming, same checkpoint as the model). Falls back to the windowed re-decode when
-    // they are absent, so this is safe to leave on. Off by default until the on-device win is
-    // measured; see export/streaming-export-plan.md.
-    val streaming: Boolean = false,
+    // True streaming acoustics (Mode.CHAIN): prefer the incremental StreamingModel (decode only the
+    // new audio each hop — ~11x cheaper decode, RTF 0.484->0.043). ON by default: the graphs are
+    // delivered by the manifest alongside the model (or bundled via -PbundleStreaming), and it
+    // falls back to the windowed re-decode whenever they are absent (first launch offline, or a
+    // manifest without them), so leaving it on is safe. See export/streaming-export-plan.md.
+    val streaming: Boolean = true,
 )
 
 /**
