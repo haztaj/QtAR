@@ -388,9 +388,23 @@ build re-deployed.
 `conformance/assets/`, gitignored); `test_streaming <conf> stream_conv.onnx stream_encoder.onnx`
 reproduces it EXACTLY — **ALL PASS (6/6)**. Fifth port-risk stage, spec.md §Streaming model inference.
 
-**Remaining:** only the packaging decision — if streaming ships by default, download-delivery of the
-two graphs alongside the model (extend the manifest; they are version-coupled to the model weights,
-+11.5 MB). The RTF go/no-go is green and the port is conformance-pinned.
+### Enabled by default + manifest delivery — DONE (2026-07-10)
+
+`Config.streaming` now defaults **true**. The two graphs are delivered like the model: the manifest
+gains optional `streamConv`/`streamEncoder` `{url, sha256}`, `ModelManager` downloads them into
+`models/stream/` (sha256-verified, version-keyed, pruned on version change; a subdir so the model
+prune/scan never touches them), and a download failure is non-fatal (windowed fallback). Manifest
+fetched once and shared by `resolveModel` + `resolveStreaming`. `-PbundleStreaming` still wins for
+offline dev. `:demo:modelManifest` emits the streaming keys (sha256 of `export/onnx/stream_conv.onnx`
++ `stream_encoder.int8.onnx`) when both exist. Builds: default `:demo:assembleDebug` compiles;
+generated manifest JSON validated (streamConv/streamEncoder with correct sha256/URLs).
+
+**Remaining:** host the two graphs on the `model` release (upload `stream_conv.onnx` +
+`stream_encoder.int8.onnx` + the regenerated `model_manifest.json` — `gh` isn't installed here, so
+this is a manual/`gh` upload; the gradle task prints the exact targets). Until then the live manifest
+lacks the streaming keys, so download builds run windowed (safe); `-PbundleStreaming` builds already
+stream on-device (verified, surah 111). An on-device download-path test was set up (local server +
+`adb reverse`) but the device disconnected mid-run — retry after upload.
 
 ### Phase D (matcher on the stream) — INVESTIGATED, not viable as a mode-split fix (2026-07-04)
 

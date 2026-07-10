@@ -353,8 +353,12 @@ python demo/live_detect.py            # default mic; --list-devices to choose
     computing log-mel over only the NEW suffix in `streamFeed` (the whole-buffer log-mel had masked
     it; +11.5 MB graphs). Verified live on-device (surah 111). **Conformance golden DONE:**
     `golden/streaming/` pins the C++ StreamingModel vs the Python runtime, `test_streaming` ALL PASS
-    (6/6), spec.md §Streaming model inference. **Remaining:** only the packaging decision — manifest
-    download-delivery of the two graphs if streaming ships by default (version-coupled to the model).
+    (6/6), spec.md §Streaming model inference. **Enabled by default + manifest delivery DONE:**
+    `Config.streaming` defaults true; the manifest gains optional `streamConv`/`streamEncoder`
+    `{url,sha256}`, `ModelManager` downloads them into `models/stream/` (sha256, version-keyed,
+    non-fatal on failure -> windowed fallback); `:demo:modelManifest` emits the keys. **Remaining:**
+    upload the two graphs + regenerated manifest to the `model` release (gh not installed here — manual
+    upload; until then download builds run windowed, `-PbundleStreaming` builds already stream).
     See `export/streaming-export-plan.md`. (2) **in-house
     learner collection for the long surahs** (the known data hole — RetaSy covers only short
     surahs; raises the learner ceiling). (3) **full-Quran corpus** (beyond the current 1,057 ayat;
