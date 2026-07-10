@@ -335,9 +335,29 @@ the crowding at all** (baseline already 14-15/15) — it needs real phone-mic de
 why corpus (B) is essential; (2) **streaming + chainVadReset DIVERGES from windowed** (9/15 vs 15/15
 on real_paused) — the streaming `boundaryReset` is not yet correct, so the harness runs windowed.
 
-**Next** (if the crowding fix is pursued): a targeted narrowing that only kicks in for short-unit
-tail-crowding (not a blanket per-pause reset that guts long ayat) — now measurable end-to-end via
-`audio_bench.py`. Run: `python research/audio_bench.py [--only <substr>]` (windowed, ~35 s/case).
+**Targeted gate — the fix (2026-07-11).** The blunt reset's damage is mid-LONG-ayah resets (a
+breath pause reset loses the ayah prefix). Discriminator: a short ayah COMMITS then pauses (small
+gap between last commit and the pause); a long ayah's mid-breath comes many seconds after the last
+commit. So `Config.chainResetMaxGap` — reset ONLY if `(pause_time - last_commit_time) <= gap`.
+Also suppress the reset before the FIRST commit (initial `lastConfirmSec=-1e9`) — an early bad
+reset alone took Baqarah 1:5 from 3->1. `test_detector` env `QR_RESET_GAP`. Full harness sweep:
+
+| case | baseline | blunt (1e9) | gap 3.0 | **gap 4.0** |
+|---|---|---|---|---|
+| short_112_114_cont (pro) | 15/15 | 13 | 14 | 14 |
+| short_112_114_paused (pro) | 14/15 | 12 | 14 | 14 |
+| short_105_108_paused (pro) | 18/19 | 15 | 18 | 18 |
+| long_baqarah_1_5 (pro) | 3/5 | **1** | 3 | 3 |
+| long_baqarah_253_257 (pro) | 5/5 | 4 | 5 | 5 |
+| real_112_114_paused (phone) | 11/15 | 15 | 13 | 14 (tail 1/2) |
+| real_112_114_cont (phone) | 11/15 | 15 | 13 | 15 exact (tail 2/2) |
+
+**gap=4.0 is the operating point** (the shipped default when the reset is on): recovers the
+real-phone crowding (+3 / +4, continuous fully to 15/15 exact) with ZERO long-ayah regression and
+a 1-unit clean cost — vs blunt's Baqarah 1/5 collapse. A REAL fix, not a trade. `chainVadReset`
+still defaults OFF (needs on-device validation + the streaming-boundaryReset fix before the
+download/streaming build can use it; windowed is correct today). Run: `python research/audio_bench.py
+[--only <substr>]` (windowed, ~35 s/case); set `QR_RESET_GAP` to sweep the gate.
 
 ## Segment-level ambiguity map (matcher/find_ambiguous.py --units)
 

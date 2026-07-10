@@ -112,6 +112,7 @@ struct Detector::Impl {
     std::string curActive;        // committed ayah whose completion gates the darker "up next"
     bool upNextShown = false;     // upNext already revealed for the current active ayah
     std::atomic<bool> debug{false};   // runtime debug logging (see setDebug)
+    double lastConfirmSec = -1e9;     // time of the last confirmed unit (chainResetMaxGap gate)
 
     explicit Impl(const Config& c)
         : cfg(c),
@@ -428,6 +429,7 @@ struct Detector::Impl {
     // ayah, each newly-confirmed waqf segment advances the snapshot's activeSegment. The last
     // unit of an ayah reveals the darker "up next" (successor being verified).
     void confirmUnit(int unit, double timeSec) {
+        lastConfirmSec = timeSec;                             // chainResetMaxGap gate
         const std::string& pk = units->parentKey(unit);
         const int seg = std::max(1, units->segIdxOf(unit));   // 1-based; unsegmented -> 1
         const int segCount = units->segCountOf(unit);
@@ -517,7 +519,14 @@ void Detector::feed(const float* pcm, std::size_t n, int sampleRate) {
             off += VC;
         }
         impl_->vadBuf.erase(impl_->vadBuf.begin(), impl_->vadBuf.begin() + off);
-        if (boundary) impl_->boundaryReset();
+        if (boundary) {
+            // Chain: gate the reset — suppress it when the pause is far from the last commit
+            // (mid-long-ayah breath); allow it when it closely follows a commit (short ayah just
+            // ended). Non-Chain (Auto) always resets.
+            const double gap = (double)impl_->totalSamples / kSr - impl_->lastConfirmSec;
+            const bool suppress = impl_->cfg.mode == Mode::Chain && gap > impl_->cfg.chainResetMaxGap;
+            if (!suppress) impl_->boundaryReset();
+        }
     }
 
     const long hop = (long)((impl_->cfg.mode == Mode::Chain ? impl_->cfg.chainHopSec
@@ -550,6 +559,7 @@ void Detector::reset() {
     impl_->chainTm.clear();
     impl_->chainAlts.clear();
     impl_->streamFedFrames = 0;
+    impl_->lastConfirmSec = -1e9;
     impl_->decodeSec = 0.0;
     impl_->decodeHops = 0;
     impl_->chainParent.clear();

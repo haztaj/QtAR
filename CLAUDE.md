@@ -209,14 +209,16 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   phoneme streams, never re-windowing audio (a real measurement gap). Fix prototyped —
   **`Config.chainVadReset`** (off by default): a VAD speech-END drops the buffered ayah's
   audio/phonemes for a focused next-ayah window while keeping the voter/assembler chain context.
-  **Verdict via a new offline harness (`research/audio_bench.py`, drives real audio through the full
-  Detector — the test `continuous_eval` structurally can't be): `chainVadReset` is a TRADE, not a
-  fix.** It rescues the real-phone crowding (11/15 -> 15/15 exact on both pulled WAVs) but REGRESSES
-  clean audio and DESTROYS long ayat (Baqarah 1:5 3/5 -> 1/5 — the mid-ayah VAD-boundary risk,
-  measured). NOT shipped. Also found: professional reciters don't reproduce the crowding at all
-  (needs real phone-mic decode), and streaming+reset diverges from windowed (streaming boundaryReset
-  buggy). A targeted short-unit narrowing (not a blanket per-pause reset) is the direction, now
-  measurable end-to-end. See research/CLAUDE.md "audio_bench.py".
+  Verdict via a new offline harness (`research/audio_bench.py`, drives real audio through the full
+  Detector — the test `continuous_eval` structurally can't be): the BLUNT per-pause reset is a bad
+  trade (rescues real-phone 11/15->15/15 but guts long ayat, Baqarah 1:5 3/5->1/5). **Fixed with a
+  targeted gate — `Config.chainResetMaxGap` (default 4.0): reset ONLY when the pause closely follows
+  a commit (short ayah just ended), NOT mid-long-ayah breath. Measured: real-phone +3/+4 (continuous
+  15/15 exact), ZERO long-ayah regression, 1-unit clean cost — a real fix.** Still OFF by default:
+  needs on-device validation + a streaming-`boundaryReset` fix (streaming+reset diverges from
+  windowed) before the download/streaming build can use it; windowed is correct today. Harness (two
+  corpora: composed pro streams + real pulled phone WAVs) is the durable offline test. See
+  research/CLAUDE.md "audio_bench.py".
 - **Commit policy tuned** (`matcher/CommitTracker`): persistence K is the lever, not
   the threshold. Default T=0.15/K=5. See matcher/CLAUDE.md.
 - **ONNX export working** (`export/onnx/`): fp32 43.8 MB / int8 15.2 MB, parity 1.5e-5,

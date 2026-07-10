@@ -68,7 +68,8 @@ int main(int argc, char** argv) {
             if (const char* v = std::getenv("QR_VAD")) {   // EXPERIMENTAL focused-window reset
                 cfg.vadPath = v;
                 cfg.chainVadReset = true;
-                std::printf("chainVadReset ON, vad=%s\n", v);
+                if (const char* g = std::getenv("QR_RESET_GAP")) cfg.chainResetMaxGap = (float)atof(g);
+                std::printf("chainVadReset ON, vad=%s gap=%.1f\n", v, cfg.chainResetMaxGap);
             }
             if (argc >= 7) {                        // + true streaming acoustics: conv, encoder
                 cfg.streamConvPath = argv[5];

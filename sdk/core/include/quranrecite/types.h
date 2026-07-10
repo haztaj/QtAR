@@ -134,6 +134,13 @@ struct Config {
     // by default — Chain is normally pause-tolerant/time-gated. Needs vadPath set. See
     // export/../research measurement (2026-07-11).
     bool chainVadReset = false;
+    // Targeted gate for chainVadReset: only reset if the pause follows the last unit commit within
+    // this many seconds. A short ayah commits then pauses (small gap -> reset, focused window); a
+    // long ayah's mid-breath comes many seconds after the last commit (large gap -> NO reset, so the
+    // ayah's prefix survives). Measured sweet spot 4.0 (research/audio_bench.py): recovers real-phone
+    // crowding with zero long-ayah regression (1e9 = ungated/blunt: reset on every pause, which guts
+    // long ayat — see research/CLAUDE.md).
+    float chainResetMaxGap = 4.0f;
 };
 
 using EventCallback = std::function<void(const AyahEvent&)>;
