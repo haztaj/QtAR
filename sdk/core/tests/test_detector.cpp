@@ -101,5 +101,14 @@ int main(int argc, char** argv) {
     std::printf("\ndetected sequence:");
     for (auto& s : seq) std::printf(" %s", s.c_str());
     std::printf("\n");
+
+    if (cfg.mode == Mode::Chain) {   // RTF: acoustic-decode wall-clock vs audio duration
+        double decodeSec; long hops;
+        det.decodeStats(decodeSec, hops);
+        const double audioSec = audio.size() / 16000.0;
+        std::printf("decode: %.3fs over %ld hops (%.1f ms/hop) | audio %.1fs | RTF %.4f\n",
+                    decodeSec, hops, hops ? 1000.0 * decodeSec / hops : 0.0, audioSec,
+                    decodeSec / audioSec);
+    }
     return 0;
 }

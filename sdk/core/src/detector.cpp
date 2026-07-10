@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <mutex>
 #include <vector>
@@ -97,6 +98,8 @@ struct Detector::Impl {
     std::vector<double> chainTm;      // their absolute times (frame * 0.04 s)
     PhonAlts chainAlts;               // per-phoneme top-k posteriors (Phase-2 soft; if subMin<1)
     long streamFedFrames = 0;         // absolute log-mel frames fed to the stream (monotonic)
+    double decodeSec = 0.0;           // cumulative acoustic-decode wall-clock (RTF instrumentation)
+    long decodeHops = 0;              // hops that ran a decode
 
     std::mutex mtx;
     std::vector<float> rolling;   // recent 16 kHz audio (up to ~30 s; sliding uses the last window)
@@ -256,7 +259,10 @@ struct Detector::Impl {
         if (stream) {
             // Always extend the stream (keep the acoustic state continuous, even on silence);
             // gate only the matching on energy.
+            auto t0 = std::chrono::steady_clock::now();
             streamFeed(soft);
+            decodeSec += std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+            ++decodeHops;
             if (silent) {
                 if (debug) QR_LOG("chain hop t=%.1fs rms=%.4f -> silent, skip match", timeSec, r);
                 return;
@@ -271,6 +277,7 @@ struct Detector::Impl {
             return;
         }
         const double bufStartSec = (double)(totalSamples - (long)rolling.size()) / kSr;
+        auto t0 = std::chrono::steady_clock::now();
         int T;
         auto lm = frontend.logMel(rolling.data(), rolling.size(), T);
         int Tout, V;
@@ -291,6 +298,8 @@ struct Detector::Impl {
             }
             prev = best;
         }
+        decodeSec += std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+        ++decodeHops;
         if (debug) QR_LOG("chain hop t=%.1fs rms=%.4f ph=%zu (buf=%.1fs)",
                           timeSec, r, ph.size(), (double)rolling.size() / kSr);
         chainMatch(timeSec, ph, tm, alts, soft);
@@ -303,22 +312,32 @@ struct Detector::Impl {
     // frame f == absolute frame bufStartFrame+f and interior frames match the offline continuous
     // log-mel EXACTLY. streamFedFrames (absolute, monotonic) guarantees a gapless feed.
     void streamFeed(bool soft) {
-        constexpr int guard = 2;                          // boundary frames held back per hop
-        int T;
-        auto lm = frontend.logMel(rolling.data(), rolling.size(), T);
-        const long bufStart = totalSamples - (long)rolling.size();   // hop-aligned
+        constexpr int guard = 2;      // end frames held back per hop (settle next hop)
+        constexpr int margin = 3;     // suffix-start frames discarded (center-reflect boundary)
+        const long bufStart = totalSamples - (long)rolling.size();     // hop-aligned
         const long bufStartFrame = bufStart / kHop;
-        const long feedUntil = bufStartFrame + (long)T - guard;      // absolute frame (exclusive)
-        const long fRelStart = streamFedFrames - bufStartFrame;
-        const long nFeed = feedUntil - streamFedFrames;
-        if (fRelStart >= 0 && nFeed > 0) {
-            auto emits = stream->feed(lm.data() + (std::size_t)fRelStart * kMelDim, (int)nFeed, soft);
-            for (auto& e : emits) {
-                chainPh.push_back(e.id);
-                chainTm.push_back(e.frame * 0.04);
-                if (soft) chainAlts.push_back(std::move(e.alts));
+        const long totalFrames = 1 + (long)rolling.size() / kHop;      // center=True whole-buffer count
+        const long feedUntil = bufStartFrame + totalFrames - guard;    // absolute frame (exclusive)
+        if (feedUntil > streamFedFrames) {
+            // Log-mel over only the NEW suffix (a few frames of margin so the fed frames clear the
+            // suffix's own reflect-padded start) — not the whole 22 s buffer. Interior frames are
+            // identical to the whole-buffer log-mel; this is the compute win (the encoder already
+            // only sees new audio via the conv cache).
+            const long suffixStartFrame = std::max(bufStartFrame, streamFedFrames - margin);
+            const std::size_t off = (std::size_t)(suffixStartFrame - bufStartFrame) * kHop;
+            int Tsuf;
+            auto lm = frontend.logMel(rolling.data() + off, rolling.size() - off, Tsuf);
+            const long fRelStart = streamFedFrames - suffixStartFrame;   // >= 0 (interior)
+            const long nFeed = feedUntil - streamFedFrames;
+            if (fRelStart >= 0 && nFeed > 0 && fRelStart + nFeed <= Tsuf) {
+                auto emits = stream->feed(lm.data() + (std::size_t)fRelStart * kMelDim, (int)nFeed, soft);
+                for (auto& e : emits) {
+                    chainPh.push_back(e.id);
+                    chainTm.push_back(e.frame * 0.04);
+                    if (soft) chainAlts.push_back(std::move(e.alts));
+                }
+                streamFedFrames = feedUntil;
             }
-            streamFedFrames = feedUntil;
         }
         // bound to ~the largest scale window (+margin); state carries acoustic context.
         const double keep = chainTm.empty() ? 0.0
@@ -520,6 +539,8 @@ void Detector::reset() {
     impl_->chainTm.clear();
     impl_->chainAlts.clear();
     impl_->streamFedFrames = 0;
+    impl_->decodeSec = 0.0;
+    impl_->decodeHops = 0;
     impl_->chainParent.clear();
     impl_->hl.reset();
     impl_->lastSnap = HighlightSnapshot{};
@@ -529,6 +550,11 @@ void Detector::reset() {
 }
 
 void Detector::setDebug(bool enabled) { impl_->debug.store(enabled); }
+
+void Detector::decodeStats(double& decodeSec, long& hops) const {
+    decodeSec = impl_->decodeSec;
+    hops = impl_->decodeHops;
+}
 
 const char* Detector::version() { return "0.1.0"; }
 

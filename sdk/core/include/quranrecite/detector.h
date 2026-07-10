@@ -43,6 +43,11 @@ public:
     // resets, commits. Off by default (zero overhead); toggle live from the host. No-op elsewhere.
     void setDebug(bool enabled);
 
+    // Cumulative acoustic-decode wall-clock since construction (Mode::Chain): `decodeSec` is the
+    // total time spent decoding phonemes (windowed re-decode, or the streaming feed) over `hops`
+    // non-silent hops. For RTF/battery comparison of the streaming vs windowed path.
+    void decodeStats(double& decodeSec, long& hops) const;
+
     static const char* version();
 
 private:
