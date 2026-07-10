@@ -196,6 +196,33 @@ Notes:
 - **MinGW:** ORT's header defines the calling convention as `_stdcall` (single underscore),
   which g++ rejects; build with `-D_stdcall=__stdcall` (harmless on x64).
 
+## Streaming model inference (incremental Emformer — `StreamingModel`)  [optional, Mode::Chain]
+
+The true-streaming acoustic path (`sdk/core/src/streaming.{h,cpp}`) decodes only the NEW audio
+each hop instead of re-decoding the whole window (see `export/streaming-export-plan.md`). It runs
+**two** ONNX graphs — `stream_conv.onnx` (dynamic-T Conv2dSubsampling) + `stream_encoder.onnx`
+(one fixed-shape STATEFUL Emformer step: chunk + 48 state tensors → log_probs + 48 states) — with
+the C++ threading the conv boundary cache + the 48 states across `feed()` calls and collapsing CTC
+greedy across chunk boundaries. This must reproduce the Python `StreamingRuntime` **exactly**.
+
+Validated by `tests/test_streaming.cpp`: feed each fixture's golden log-mel in **20-frame chunks**
+through the C++ `StreamingModel` and compare the phoneme-id sequence to
+`golden/streaming/<name>.phonemes.txt` (produced by the Python runtime over the same graphs).
+
+```bash
+./test_streaming ../conformance assets/stream_conv.onnx assets/stream_encoder.onnx   # -> ALL PASS
+```
+
+Notes:
+- **Golden + test use the fp32 encoder** (`assets/stream_encoder.onnx`), for the same reason as
+  Model inference above — int8 argmax can flip on a **cross-ORT quantization tie** (Python pip ORT
+  vs the C++-linked ORT round the MatMulInteger differently), so exactness requires the same fp32
+  graph on both sides. On-device the C++ int8 stream is self-consistent; validated end-to-end by
+  `test_detector --chain <conv> <enc>` (streaming detections == the windowed re-decode, exact).
+- **Graphs are exported per-checkpoint into `assets/`** by `generate.py` (gitignored, like
+  `silero_vad.onnx`) so the golden is self-contained and regenerates anywhere the checkpoint is
+  present. The `feed` chunking (20 frames) is part of the contract — the golden is generated with it.
+
 ---
 
 ## File formats

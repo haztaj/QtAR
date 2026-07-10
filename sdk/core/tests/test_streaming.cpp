@@ -1,46 +1,59 @@
-// Parity: the C++ StreamingModel must reproduce the Python StreamingRuntime phoneme ids on the
-// same log-mel, fed in the same chunks.
-//   test_streaming <stream_conv.onnx> <stream_encoder.int8.onnx> <lm.bin> <T> <ref.txt>
+// Streaming conformance: feed each fixture's golden log-mel through the C++ StreamingModel
+// (incremental Conv2dSubsampling cache + stateful Emformer step + CTC collapse) in 20-frame
+// chunks, and compare the phoneme-id sequence to the golden produced by the Python
+// StreamingRuntime (fp32). Exact match (same graphs => identical decode). Pass the SAME fp32
+// graphs that generate.py exported into conformance/assets/ (int8 argmax can flip on a cross-ORT
+// tie — on-device int8 is validated on the target ORT, like test_inference).
+//
+//   test_streaming <conf_dir> <stream_conv.onnx> <stream_encoder.onnx>
+#include <algorithm>
 #include <cstdio>
-#include <fstream>
+#include <filesystem>
 #include <sstream>
 #include <string>
 #include <vector>
 
+#include "assets.h"
 #include "streaming.h"
 
 using namespace quranrecite;
+namespace fs = std::filesystem;
 
 int main(int argc, char** argv) {
-    if (argc < 6) {
-        std::fprintf(stderr, "usage: test_streaming <conv.onnx> <enc.onnx> <lm.bin> <T> <ref.txt>\n");
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: test_streaming <conf_dir> <stream_conv.onnx> <stream_encoder.onnx>\n");
         return 2;
     }
-    const int T = std::stoi(argv[4]);
-    std::vector<float> lm((std::size_t)T * 80);
-    std::ifstream(argv[3], std::ios::binary).read(reinterpret_cast<char*>(lm.data()),
-                                                  lm.size() * sizeof(float));
-    std::vector<int> ref;
-    { std::ifstream f(argv[5]); int x; while (f >> x) ref.push_back(x); }
+    std::string conf = argv[1], conv = argv[2], enc = argv[3];
+    StreamingModel model(conv, enc);
 
-    StreamingModel m(argv[1], argv[2]);
-    m.reset();
-    std::vector<int> got;
-    for (int i = 0; i < T; i += 20) {           // same 20-frame chunking as the reference
-        const int n = std::min(20, T - i);
-        auto ids = m.feed(lm.data() + (std::size_t)i * 80, n);
-        for (auto& e : ids) got.push_back(e.id);
-    }
+    bool ok = true;
+    for (auto& e : fs::directory_iterator(conf + "/golden/streaming")) {
+        if (e.path().extension() != ".txt") continue;
+        std::string name = e.path().stem().string();          // <name>.phonemes
+        std::string fxName = name.substr(0, name.rfind(".phonemes"));
 
-    bool ok = got == ref;
-    std::printf("ref %zu phonemes, C++ %zu phonemes -> %s\n", ref.size(), got.size(),
-                ok ? "MATCH" : "MISMATCH");
-    if (!ok) {
-        std::printf("ref:");
-        for (int x : ref) std::printf(" %d", x);
-        std::printf("\ncpp:");
-        for (int x : got) std::printf(" %d", x);
-        std::printf("\n");
+        auto lm = loadF32Bin(conf + "/golden/frontend/" + fxName + ".logmel.bin");
+        const int T = static_cast<int>(lm.size() / 80);
+        model.reset();
+        std::vector<int> ids;
+        for (int i = 0; i < T; i += 20) {                     // same 20-frame chunking as the golden
+            const int n = std::min(20, T - i);
+            for (auto& em : model.feed(lm.data() + (std::size_t)i * 80, n)) ids.push_back(em.id);
+        }
+
+        std::vector<int> want;
+        std::istringstream ss(readFile(e.path().string()));
+        for (int x; ss >> x;) want.push_back(x);
+
+        bool good = ids == want;
+        ok &= good;
+        std::printf("%-24s phonemes=%-3zu  %s\n", fxName.c_str(), ids.size(), good ? "PASS" : "FAIL");
+        if (!good) {
+            std::printf("   got :"); for (int x : ids) std::printf(" %d", x); std::printf("\n");
+            std::printf("   want:"); for (int x : want) std::printf(" %d", x); std::printf("\n");
+        }
     }
+    std::printf("\n%s\n", ok ? "ALL PASS" : "FAILURES");
     return ok ? 0 : 1;
 }

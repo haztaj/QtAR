@@ -34,6 +34,13 @@ exact match; `--only chain` regenerates just this section; additionally cross-va
 over 200 real decoded streams). Model inference is ONNX Runtime (shared engine, parity
 already established — not re-implemented).
 
+A fifth stage covers the **true-streaming acoustic path** (spec.md §Streaming model inference;
+`sdk/core/src/streaming.*` — incremental conv-cache + 48-state threading + cross-chunk CTC
+collapse, which IS re-implemented in C++, unlike plain inference). `golden/streaming/*.phonemes.txt`
+pins the Python `StreamingRuntime` output over each frontend log-mel fixture (fp32 graphs exported
+per-checkpoint into `assets/stream_{conv,encoder}.onnx`, gitignored); `test_streaming <conf>
+assets/stream_conv.onnx assets/stream_encoder.onnx` reproduces it EXACTLY (ALL PASS).
+
 `gen_highlight()` in `generate.py` is self-contained (needs only `data/lang/ambiguous_ayat.json`
 + the controller), so the highlight golden can be regenerated without the model/audio.
 

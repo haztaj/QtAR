@@ -42,15 +42,16 @@ class ConvOnly(torch.nn.Module):
         return self.sub.out(x.transpose(1, 2).contiguous().view(b, t, c * f))
 
 
-def export_artifacts(model):
-    OUT.mkdir(parents=True, exist_ok=True)
+def export_artifacts(model, out_dir=None):
+    OUT_ = Path(out_dir) if out_dir is not None else OUT   # override lets callers avoid clobbering
+    OUT_.mkdir(parents=True, exist_ok=True)
     enc = model.encoder
     S, R, D = enc.segment_length, enc.right_context_length, enc.emformer_layers[0].input_dim
     nL = len(enc.emformer_layers)
 
     # --- conv: dynamic T, plain export ---
     conv = ConvOnly(model.subsampling).eval()
-    conv_path = OUT / "stream_conv.onnx"
+    conv_path = OUT_ / "stream_conv.onnx"
     torch.onnx.export(conv, (torch.randn(1, 40, 80),), str(conv_path), input_names=["feats"],
                       output_names=["sub"], dynamic_axes={"feats": {1: "T"}, "sub": {1: "Tp"}},
                       opset_version=17, do_constant_folding=True, dynamo=False)
@@ -61,14 +62,14 @@ def export_artifacts(model):
     for layer in enc.emformer_layers:
         init.extend(layer._init_state(1, torch.device("cpu")))
     step = EncoderStep(model).eval()
-    enc_path = OUT / "stream_encoder.onnx"
+    enc_path = OUT_ / "stream_encoder.onnx"
     names_in = ["chunk"] + [f"s{i}" for i in range(4 * nL)]
     names_out = ["log_probs"] + [f"ns{i}" for i in range(4 * nL)]
     torch.onnx.export(step, (torch.randn(1, S + R, D), *init), str(enc_path), input_names=names_in,
                       output_names=names_out, opset_version=17, do_constant_folding=True, dynamo=False)
 
     from onnxruntime.quantization import quantize_dynamic, QuantType
-    int8_path = OUT / "stream_encoder.int8.onnx"
+    int8_path = OUT_ / "stream_encoder.int8.onnx"
     quantize_dynamic(str(enc_path), str(int8_path), weight_type=QuantType.QInt8,
                      op_types_to_quantize=["MatMul"])
     return conv_path, enc_path, int8_path, dict(S=S, R=R, D=D, nL=nL, init=[t.numpy() for t in init])

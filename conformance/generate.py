@@ -383,6 +383,32 @@ def main():
                                  "note": "ids per golden/inference/<name>.phonemes.txt; run test_inference"}
         print(f"  inference golden: {len(manifest['frontend'])} clips (from fp32 ONNX)")
 
+    # --- 2d) streaming golden: log-mel -> streaming Emformer (cached conv + stateful step) ->
+    # greedy phoneme ids (for test_streaming). fp32 (int8 argmax can flip on a cross-ORT tie, like
+    # 2c). Validates the C++ StreamingModel's conv boundary cache + 48-state threading + cross-chunk
+    # CTC collapse vs the Python StreamingRuntime, EXACTLY, on identical graphs. Graphs are exported
+    # from THIS checkpoint into assets/ (gitignored, like silero_vad.onnx) so it stays self-contained.
+    sys.path.insert(0, str(REPO / "export"))
+    from streaming_runtime import export_artifacts, StreamingRuntime
+    conv_p, enc_p, _int8, meta = export_artifacts(model.cpu().eval(), out_dir=CONF / "assets")
+    (CONF / "golden" / "streaming").mkdir(parents=True, exist_ok=True)
+    stream_clips = []
+    for fx in manifest["frontend"]:
+        lm = np.fromfile(CONF / fx["logmel"], dtype="<f4").reshape(fx["logmel_shape"])
+        rt = StreamingRuntime(conv_p, enc_p, meta); rt.reset()
+        ids = []
+        for i in range(0, len(lm), 20):        # 20-frame chunks == the C++ test's feed schedule
+            ids += rt.feed(lm[i:i + 20])
+        (CONF / "golden" / "streaming" / f"{fx['name']}.phonemes.txt").write_text(
+            " ".join(map(str, ids)), encoding="utf-8")
+        stream_clips.append({"name": fx["name"], "n_phonemes": len(ids)})
+    manifest["streaming"] = {
+        "conv": "assets/stream_conv.onnx", "encoder": "assets/stream_encoder.onnx (fp32)",
+        "clips": stream_clips,
+        "note": "ids per golden/streaming/<name>.phonemes.txt; run `test_streaming <conf> "
+                "assets/stream_conv.onnx assets/stream_encoder.onnx`"}
+    print(f"  streaming golden: {len(stream_clips)} clips (from fp32 streaming graphs)")
+
     # --- 3) edit-distance unit cases ---
     edit_cases = []
     pairs = [(ap["114:2"], ap["114:2"]), (ap["114:2"], ap["88:10"]),
