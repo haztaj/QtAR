@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Play listing + launcher name. Permanent product identity (see applicationId com.quranrecite). -->
+    <string name="app_name">Quran Recite</string>
+</resources>

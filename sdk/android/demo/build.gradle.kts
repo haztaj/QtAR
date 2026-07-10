@@ -20,11 +20,13 @@ plugins {
 
 android {
     namespace = "com.quranrecite.demo"
-    compileSdk = 34
+    compileSdk = 35
     defaultConfig {
-        applicationId = "com.quranrecite.demo"
+        // Permanent Play identity — locked on first publish (the code namespace stays
+        // com.quranrecite.demo; only the installed/published app id is com.quranrecite).
+        applicationId = "com.quranrecite"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
         // Ship only real-phone (arm64) + emulator (x86_64) ABIs. Drops x86/armeabi-v7a

@@ -18,7 +18,7 @@ dependencies { ortExtract("com.microsoft.onnxruntime:onnxruntime-android:$ortVer
 
 android {
     namespace = "com.quranrecite.sdk"
-    compileSdk = 34
+    compileSdk = 35
 
     ndkVersion = "27.2.12479018"          // r27: ships 16 KB-aligned libc++_shared.so
 
