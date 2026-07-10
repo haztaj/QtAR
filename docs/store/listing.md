@@ -61,8 +61,10 @@ Please report any missed or wrong detections, and the surah/ayah you were reciti
   Qur'an, Quran, recitation, tilawah, hifz, memorization, mushaf, ayah, tajwid, Hafs
 - **Privacy policy URL:** https://haztaj.github.io/QtAR/privacy-policy.html
 - **App icon (512×512):** docs/store/playstore-icon-512.png
-- **Feature graphic (1024×500):** TODO — not yet produced
-- **Phone screenshots (min 2, 16:9 or 9:16):** TODO — capture from the device
+- **Feature graphic (1024×500):** docs/store/feature-graphic.png
+- **Phone screenshots (1260×2520, 2:1, RGB):** docs/store/screenshots/ — 01 home (al-Fatiha),
+  02 controls, 03 live detection (Ayat al-Kursi), 04 live detection (al-Ikhlas). Captured on-device;
+  padded to 2:1 (Play rejects the raw 2.33:1) and flattened to RGB (no alpha).
 - **Data safety:** no data collected, no data shared; audio processed on-device only
 - **Contains ads:** No
 - **Content rating:** complete questionnaire (no objectionable content)
