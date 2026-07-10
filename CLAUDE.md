@@ -209,9 +209,14 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   phoneme streams, never re-windowing audio (a real measurement gap). Fix prototyped —
   **`Config.chainVadReset`** (off by default): a VAD speech-END drops the buffered ayah's
   audio/phonemes for a focused next-ayah window while keeping the voter/assembler chain context.
-  Measured 11/15 -> **15/15 exact on both pulled phone WAVs** (paused + continuous). Not shipped:
-  n=2 short-surah only; needs on-device long-ayah (Baqarah) validation first — a false mid-ayah
-  VAD boundary would reset mid-ayah (the risk that made Chain pause-tolerant). See research/CLAUDE.md.
+  **Verdict via a new offline harness (`research/audio_bench.py`, drives real audio through the full
+  Detector — the test `continuous_eval` structurally can't be): `chainVadReset` is a TRADE, not a
+  fix.** It rescues the real-phone crowding (11/15 -> 15/15 exact on both pulled WAVs) but REGRESSES
+  clean audio and DESTROYS long ayat (Baqarah 1:5 3/5 -> 1/5 — the mid-ayah VAD-boundary risk,
+  measured). NOT shipped. Also found: professional reciters don't reproduce the crowding at all
+  (needs real phone-mic decode), and streaming+reset diverges from windowed (streaming boundaryReset
+  buggy). A targeted short-unit narrowing (not a blanket per-pause reset) is the direction, now
+  measurable end-to-end. See research/CLAUDE.md "audio_bench.py".
 - **Commit policy tuned** (`matcher/CommitTracker`): persistence K is the lever, not
   the threshold. Default T=0.15/K=5. See matcher/CLAUDE.md.
 - **ONNX export working** (`export/onnx/`): fp32 43.8 MB / int8 15.2 MB, parity 1.5e-5,

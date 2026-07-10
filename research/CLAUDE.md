@@ -305,6 +305,40 @@ mid-ayah VAD boundary would reset mid-ayah and cost the ayah's prefix (the v1 co
 cascade / seg>=2 mid-ayah cold-start risk that made Chain go pause-tolerant in the first place);
 (c) off by default, not wired to JNI/demo — the on-device long-ayah A/B is the gate before it ships.
 
+### audio_bench.py — audio-level regression harness; VAD-reset verdict = TRADE, not a fix (2026-07-11)
+
+The n=2 result above was **too optimistic** — corrected by an offline harness built to replace
+"validate live through the user." `continuous_eval.py` runs on cached PHONEME streams so it cannot
+see rolling-buffer/VAD/decode-quality effects; **`research/audio_bench.py` drives real audio through
+the full C++ Detector (`test_detector.exe`) and scores emitted vs truth.** Two corpora, both offline:
+(A) COMPOSED held-out test-reciter streams (concatenated ayah clips, ± inter-ayah gap ± phone-channel
+augmentation) — the always-available REGRESSION net; (B) REAL pulled phone sessions with hand-labeled
+truth (`data/raw/audio_bench/real/`, gitignored) — the FAILURE-REGIME net (add each new pulled WAV).
+
+Full run (windowed, cost 0.45), baseline vs `chainVadReset`:
+
+| case | truth | baseline | +chainVadReset |
+|---|---|---|---|
+| short_112_114_cont (pro-aug) | 15 | 15/15 exact | 13/15 |
+| short_112_114_paused (pro-aug) | 15 | 14/15 | 12/15 |
+| short_105_108_paused (pro-aug) | 19 | 18/19 | 15/19 |
+| long_baqarah_1_5 (pro-aug) | 5 | 3/5 | **1/5** |
+| long_baqarah_253_257 (pro-aug) | 5 | 5/5 | 4/5 |
+| real_112_114_paused (phone) | 15 | 11/15 (tail 0/2) | **15/15 exact** |
+| real_112_114_cont (phone) | 15 | 11/15 (tail 0/2) | **15/15 exact** |
+
+**Verdict: `chainVadReset` is a TRADE, not a fix.** It rescues the real-phone short-surah crowding
+(+4 units, tail recovered on both) but REGRESSES every clean case and DESTROYS long ayat (Baqarah
+1:5 3/5 -> 1/5 — the mid-ayah VAD-boundary risk, now measured not just feared). Do NOT ship as a
+blanket setting. Two further facts the harness surfaced: (1) **professional reciters don't reproduce
+the crowding at all** (baseline already 14-15/15) — it needs real phone-mic decode quality, which is
+why corpus (B) is essential; (2) **streaming + chainVadReset DIVERGES from windowed** (9/15 vs 15/15
+on real_paused) — the streaming `boundaryReset` is not yet correct, so the harness runs windowed.
+
+**Next** (if the crowding fix is pursued): a targeted narrowing that only kicks in for short-unit
+tail-crowding (not a blanket per-pause reset that guts long ayat) — now measurable end-to-end via
+`audio_bench.py`. Run: `python research/audio_bench.py [--only <substr>]` (windowed, ~35 s/case).
+
 ## Segment-level ambiguity map (matcher/find_ambiguous.py --units)
 
 Formalizes the twin classes for the production deferral layer:
