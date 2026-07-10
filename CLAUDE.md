@@ -339,10 +339,15 @@ python demo/live_detect.py            # default mic; --list-devices to choose
     (`export/onnx/stream_{conv,encoder.int8}.onnx`) + C++ `StreamingModel` (`sdk/core/src/streaming.*`,
     two ORT sessions, 48-tensor state + conv cache + cross-chunk CTC collapse), **5/5 EXACT phoneme
     parity** vs the Python runtime (fp32). Premise re-verified (continuous recall 87.5% ≥ stitched
-    85.0% on the current model). **Remaining:** wire into `Detector::stepChain` (replaces the 22 s
-    per-hop re-decode — the compute/battery win) + bundle in the `.aar`; design + the center=True
-    feed invariant + Phase-2 posterior decision specced in `export/streaming-export-plan.md` (gated,
-    off by default until the on-device acceptance test passes). (2) **in-house
+    85.0% on the current model). **Detector integration DONE + validated (2026-07-10):** gated on
+    `Config.streamConvPath`+`streamEncoderPath` (empty => windowed re-decode, the default),
+    `stepChain` streams only the new audio into a persistent `chainPh`/`chainTm`/`chainAlts` (center=True
+    feed invariant: settled interior frames + hop-aligned buffer), Phase-2 posteriors threaded via
+    `Emit.alts`. Acceptance: windowed vs streaming give IDENTICAL detections + timestamps on 54 s
+    continuous 78:1-8 and 47 s Al-Fatiha (`test_detector`). **Remaining:** `.aar` bundling +
+    ModelManager/Kotlin wiring + on-device RTF/battery measurement (off by default until the win is
+    measured — the 4 s window already hits RTF 0.002, so this is the 22 s-per-hop battery/latency path).
+    See `export/streaming-export-plan.md`. (2) **in-house
     learner collection for the long surahs** (the known data hole — RetaSy covers only short
     surahs; raises the learner ceiling). (3) **full-Quran corpus** (beyond the current 1,057 ayat;
     out of MVP scope but the north star).
