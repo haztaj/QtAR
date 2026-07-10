@@ -351,9 +351,11 @@ python demo/live_detect.py            # default mic; --list-devices to choose
     **RTF win MEASURED (2026-07-10):** decode-only ~730 ms/hop (windowed) -> ~65 ms/hop (streaming),
     **RTF 0.484 -> 0.043 = ~11x cheaper per hop, byte-identical detections**. The win came from
     computing log-mel over only the NEW suffix in `streamFeed` (the whole-buffer log-mel had masked
-    it; +11.5 MB graphs). Verified live on-device (surah 111). **Remaining:** streaming conformance
-    golden + manifest download-delivery if it ships by default (the graphs are version-coupled to the
-    model). See `export/streaming-export-plan.md`. (2) **in-house
+    it; +11.5 MB graphs). Verified live on-device (surah 111). **Conformance golden DONE:**
+    `golden/streaming/` pins the C++ StreamingModel vs the Python runtime, `test_streaming` ALL PASS
+    (6/6), spec.md §Streaming model inference. **Remaining:** only the packaging decision — manifest
+    download-delivery of the two graphs if streaming ships by default (version-coupled to the model).
+    See `export/streaming-export-plan.md`. (2) **in-house
     learner collection for the long surahs** (the known data hole — RetaSy covers only short
     surahs; raises the learner ceiling). (3) **full-Quran corpus** (beyond the current 1,057 ayat;
     out of MVP scope but the north star).

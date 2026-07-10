@@ -383,10 +383,14 @@ window); Emformer attention is O(U^2) in length), so it carries to ARM on-device
 the phone (surah 111): `(stream)` hops, incremental phoneme stream, correct tracking; optimized
 build re-deployed.
 
-**Remaining:** a conformance golden for the streaming decode; and, if it ships by default,
-download-delivery of the two graphs alongside the model (extend the manifest — they are
-version-coupled to the model weights). The RTF go/no-go is now green; enabling streaming in the
-default distribution is a packaging decision (manifest delivery of the +11.5 MB graphs).
+**Conformance golden — DONE (2026-07-10).** `golden/streaming/*.phonemes.txt` pins the Python
+`StreamingRuntime` over each frontend log-mel fixture (fp32 graphs exported per-checkpoint into
+`conformance/assets/`, gitignored); `test_streaming <conf> stream_conv.onnx stream_encoder.onnx`
+reproduces it EXACTLY — **ALL PASS (6/6)**. Fifth port-risk stage, spec.md §Streaming model inference.
+
+**Remaining:** only the packaging decision — if streaming ships by default, download-delivery of the
+two graphs alongside the model (extend the manifest; they are version-coupled to the model weights,
++11.5 MB). The RTF go/no-go is green and the port is conformance-pinned.
 
 ### Phase D (matcher on the stream) — INVESTIGATED, not viable as a mode-split fix (2026-07-04)
 
