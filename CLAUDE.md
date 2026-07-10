@@ -365,9 +365,17 @@ python demo/live_detect.py            # default mic; --list-devices to choose
     surahs; raises the learner ceiling). (3) **full-Quran corpus** (beyond the current 1,057 ayat;
     out of MVP scope but the north star).
   - *Product / deployment:* (4) **iOS wrapper** (C++ core is portable; a Swift API + JNI-equivalent
-    bridge, not a re-implementation). (5) **release signing** (beta APK is debug-signed today; a
-    wider/Play beta needs a release keystore + signingConfig — a permanent-identity decision).
-    (6) **word-level segment highlighting** (light the active waqf segment's exact words; main work
+    bridge, not a re-implementation). (5) **release signing / Play Store — IN PROGRESS (2026-07-10).**
+    Release `signingConfig` wired (gitignored `keystore.properties` -> release key, debug-key fallback
+    when absent; `keystore.properties.example` documents keytool + `assembleRelease`/`bundleRelease`).
+    Permanent identity locked: `applicationId com.quranrecite` + name "Quran Recite"; `targetSdk`/
+    `compileSdk` 35 (AGP 8.6) for Play's API-35 requirement (app already immersive edge-to-edge, so the
+    bump is a UI no-op). Privacy policy hosted (GitHub Pages, `docs/privacy-policy.html` ->
+    https://haztaj.github.io/QtAR/privacy-policy.html). **Remaining (mostly user/Play-Console):** user
+    generates the upload keystore (passwords theirs) -> I build the signed `.aab`; launcher icon
+    (512x512 + adaptive; app currently ships the default robot); Play Developer account ($25), create
+    app + Play App Signing enrollment, Data Safety form, store listing (screenshots + feature graphic +
+    descriptions), upload to a testing track. (6) **word-level segment highlighting** (light the active waqf segment's exact words; main work
     is the offline segment→word map — word-exact boundaries, ~85% correct-phrase, verifiable
     offline; see the assessment 2026-07-09).
   - *Research:* (7) **deeper N-back context** for the 8 structural `needs_choice` cases
