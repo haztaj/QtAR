@@ -74,6 +74,35 @@ if (project.hasProperty("bundleModel")) {
     tasks.named("preBuild") { dependsOn(unstageDevModel) }
 }
 
+// True-streaming acoustics (Mode.CHAIN battery/latency path). OFF the default distribution; staged
+// only by `-PbundleStreaming` (pair with `-PbundleModel` — the two graphs MUST be exported from the
+// same checkpoint as the bundled model). Config(streaming=true) then decodes incrementally; absent,
+// the SDK falls back to the windowed re-decode. Staged copies are gitignored.
+val streamGraphs = rootProject.projectDir.parentFile.parentFile   // repo root
+    .let { root -> listOf(
+        root.resolve("export/onnx/stream_conv.onnx"),
+        root.resolve("export/onnx/stream_encoder.int8.onnx")) }
+val stagedStream = streamGraphs.map {
+    layout.projectDirectory.file("src/main/assets/quranrecite/${it.name}").asFile }
+if (project.hasProperty("bundleStreaming")) {
+    val bundleStreamGraphs by tasks.registering(Copy::class) {
+        onlyIf { streamGraphs.all { it.exists() } }
+        from(streamGraphs)
+        into(layout.projectDirectory.dir("src/main/assets/quranrecite"))
+        doFirst {
+            require(streamGraphs.all { it.exists() }) {
+                "-PbundleStreaming but missing ${streamGraphs.filterNot { it.exists() }} — export " +
+                    "them first (python export/streaming_runtime.py <ckpt>); they must match the " +
+                    "bundled model's checkpoint."
+            }
+        }
+    }
+    tasks.named("preBuild") { dependsOn(bundleStreamGraphs) }
+} else {
+    val unstageStreamGraphs by tasks.registering(Delete::class) { delete(stagedStream) }
+    tasks.named("preBuild") { dependsOn(unstageStreamGraphs) }
+}
+
 // Generate the remote model manifest (version + hosted URL + sha256) for the download build.
 // Upload BOTH the model.int8.onnx and model_manifest.json to the hosting URL (a GitHub release
 // on the 'model' tag), then bump ModelManager.MODEL_MANIFEST_URL if the location changes.

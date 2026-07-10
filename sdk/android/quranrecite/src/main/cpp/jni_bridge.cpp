@@ -105,7 +105,7 @@ Java_com_quranrecite_sdk_QuranReciteDetector_nativeCreate(
         JNIEnv* env, jobject thiz, jstring modelPath, jstring lexiconPath,
         jstring tokensPath, jstring filterbankPath, jstring hannPath, jstring ambiguousPath,
         jstring vadPath, jint mode, jstring unitPhonemesPath, jfloat chainCost,
-        jfloat chainSubMin) {
+        jfloat chainSubMin, jstring streamConvPath, jstring streamEncoderPath) {
     auto* h = new Handle();
     env->GetJavaVM(&h->vm);
     h->self = env->NewGlobalRef(thiz);
@@ -126,6 +126,11 @@ Java_com_quranrecite_sdk_QuranReciteDetector_nativeCreate(
     cfg.unitPhonemesPath = jstr(env, unitPhonemesPath);  // required for Mode::Chain
     cfg.chainCost = chainCost;                      // fire threshold (phone mic ~0.45)
     cfg.chainSubMin = chainSubMin;                  // Phase-2 soft scoring (~0 for phones)
+    // True streaming acoustics (both empty -> windowed re-decode, the default). When set,
+    // Mode::Chain decodes only the new audio each hop (battery/latency) — must be the SAME
+    // weights as modelPath.
+    cfg.streamConvPath = jstr(env, streamConvPath);
+    cfg.streamEncoderPath = jstr(env, streamEncoderPath);
 
     h->det = std::make_unique<Detector>(cfg);
     h->det->setEventCallback([h](const AyahEvent& e) { postEvent(h, e); });

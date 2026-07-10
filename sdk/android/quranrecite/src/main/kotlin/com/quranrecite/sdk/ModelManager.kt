@@ -18,6 +18,8 @@ data class ModelAssets(
     val ambiguousPath: String,   // Stage-3 confusable map; "" if not bundled (deferral off)
     val vadPath: String,         // Silero VAD; "" if not bundled (no paused-recitation reset)
     val unitPhonemesPath: String,// waqf-segment unit lexicon; "" if not bundled (Chain mode off)
+    val streamConvPath: String = "",    // streaming Conv2dSubsampling ONNX; "" -> windowed decode
+    val streamEncoderPath: String = "", // streaming Emformer-step ONNX; "" -> windowed decode
 )
 
 /** A released model, from the remote manifest (see [ModelManager.MODEL_MANIFEST_URL]).
@@ -73,8 +75,15 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
                     extractBundled("silero_vad.onnx") else ""
                 val units = if (assetExists("quranrecite/unit_phonemes.json"))
                     extractBundled("unit_phonemes.json") else ""
+                // True streaming acoustics — bundled only by -PbundleStreaming (dev/offline); must
+                // match the resolved model's weights. Absent -> "" -> windowed re-decode.
+                val streamConv = if (assetExists("quranrecite/$STREAM_CONV"))
+                    extractBundled(STREAM_CONV, into = modelsDir) else ""
+                val streamEnc = if (assetExists("quranrecite/$STREAM_ENCODER"))
+                    extractBundled(STREAM_ENCODER, into = modelsDir) else ""
                 val model = resolveModel(onProgress, onModelUpdate)
-                onReady(ModelAssets(model, lexicon, tokens, filterbank, hann, ambiguous, vad, units))
+                onReady(ModelAssets(model, lexicon, tokens, filterbank, hann, ambiguous, vad, units,
+                    streamConv, streamEnc))
             } catch (t: Throwable) {
                 onError(t)
             }
@@ -196,5 +205,9 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
             "https://github.com/haztaj/QtAR/releases/download/model/model_manifest.json"
         // Name of the model when bundled in the APK (-PbundleModel) — takes precedence, no network.
         const val BUNDLED_MODEL = "model.int8.onnx"
+        // True streaming graphs, bundled only by -PbundleStreaming (paired with -PbundleModel; the
+        // same checkpoint). Present -> Mode.CHAIN can decode incrementally (Config.streaming).
+        const val STREAM_CONV = "stream_conv.onnx"
+        const val STREAM_ENCODER = "stream_encoder.int8.onnx"
     }
 }

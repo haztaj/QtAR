@@ -83,6 +83,12 @@ data class Config(
     // the model nearly picked (a ~+1.7 aligned-hit win in the ~30% PER phone regime, free on
     // clean audio). Needs a model that emits posteriors (Mode.CHAIN decodes them per hop).
     val chainSubMin: Float = 1.0f,
+    // True streaming acoustics (Mode.CHAIN): prefer the incremental StreamingModel (decode only
+    // the new audio each hop — battery/latency) IF the streaming graphs are bundled
+    // (-PbundleStreaming, same checkpoint as the model). Falls back to the windowed re-decode when
+    // they are absent, so this is safe to leave on. Off by default until the on-device win is
+    // measured; see export/streaming-export-plan.md.
+    val streaming: Boolean = false,
 )
 
 /**
@@ -159,11 +165,17 @@ class QuranReciteDetector(
                     "engine assets: model=${assets.modelPath.substringAfterLast('/')} " +
                         "vad=${if (assets.vadPath.isEmpty()) "<none>" else assets.vadPath.substringAfterLast('/')} " +
                         "ambiguous=${assets.ambiguousPath.isNotEmpty()}")
+                // Streaming graphs only if requested AND bundled (else "" -> windowed re-decode).
+                val streamConv = if (config.streaming) assets.streamConvPath else ""
+                val streamEnc = if (config.streaming) assets.streamEncoderPath else ""
+                if (debugLogging && config.streaming) android.util.Log.i("QuranRecite",
+                    "streaming acoustics: ${if (streamEnc.isEmpty()) "<not bundled -> windowed>"
+                        else "on"}")
                 nativeHandle = nativeCreate(
                     assets.modelPath, assets.lexiconPath, assets.tokensPath,
                     assets.filterbankPath, assets.hannPath, assets.ambiguousPath, assets.vadPath,
                     config.mode.ordinal, assets.unitPhonemesPath, config.chainCost,
-                    config.chainSubMin)
+                    config.chainSubMin, streamConv, streamEnc)
                 nativeSetDebug(nativeHandle, debugLogging)      // carry the current flag to the engine
                 mainHandler.post { listener?.onModelReady() }
             },
@@ -231,7 +243,8 @@ class QuranReciteDetector(
     private external fun nativeCreate(
         modelPath: String, lexiconPath: String, tokensPath: String,
         filterbankPath: String, hannPath: String, ambiguousPath: String, vadPath: String,
-        mode: Int, unitPhonemesPath: String, chainCost: Float, chainSubMin: Float): Long
+        mode: Int, unitPhonemesPath: String, chainCost: Float, chainSubMin: Float,
+        streamConvPath: String, streamEncoderPath: String): Long
     private external fun nativeFeed(handle: Long, pcm: ShortArray, sampleRate: Int)
     private external fun nativeReset(handle: Long)
     private external fun nativeSetDebug(handle: Long, enabled: Boolean)
