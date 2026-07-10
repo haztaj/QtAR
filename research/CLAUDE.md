@@ -332,8 +332,11 @@ Full run (windowed, cost 0.45), baseline vs `chainVadReset`:
 1:5 3/5 -> 1/5 — the mid-ayah VAD-boundary risk, now measured not just feared). Do NOT ship as a
 blanket setting. Two further facts the harness surfaced: (1) **professional reciters don't reproduce
 the crowding at all** (baseline already 14-15/15) — it needs real phone-mic decode quality, which is
-why corpus (B) is essential; (2) **streaming + chainVadReset DIVERGES from windowed** (9/15 vs 15/15
-on real_paused) — the streaming `boundaryReset` is not yet correct, so the harness runs windowed.
+why corpus (B) is essential; (2) **the de-crowding is WINDOWED-ONLY** — streaming decodes
+incrementally, so a boundary reset can't recover crowded tail phonemes: it clears the accumulated
+phoneme stream leaving too few to match the tail (measured no gain + slight clean harm; the earlier
+9/15 divergence was a broken outBase time axis, since fixed). `chainVadReset` is now a safe NO-OP in
+streaming (VAD gated to windowed chain); the harness runs windowed.
 
 **Targeted gate — the fix (2026-07-11).** The blunt reset's damage is mid-LONG-ayah resets (a
 breath pause reset loses the ayah prefix). Discriminator: a short ayah COMMITS then pauses (small
@@ -354,10 +357,11 @@ reset alone took Baqarah 1:5 from 3->1. `test_detector` env `QR_RESET_GAP`. Full
 
 **gap=4.0 is the operating point** (the shipped default when the reset is on): recovers the
 real-phone crowding (+3 / +4, continuous fully to 15/15 exact) with ZERO long-ayah regression and
-a 1-unit clean cost — vs blunt's Baqarah 1/5 collapse. A REAL fix, not a trade. `chainVadReset`
-still defaults OFF (needs on-device validation + the streaming-boundaryReset fix before the
-download/streaming build can use it; windowed is correct today). Run: `python research/audio_bench.py
-[--only <substr>]` (windowed, ~35 s/case); set `QR_RESET_GAP` to sweep the gate.
+a 1-unit clean cost — vs blunt's Baqarah 1/5 collapse. A REAL fix, not a trade. WINDOWED-ONLY
+(streaming can't benefit — see above; `chainVadReset` is a safe no-op there). Still defaults OFF
+(needs on-device validation); the download build gets the fix only when run windowed (trades the
+~11x streaming RTF for accuracy). Run: `python research/audio_bench.py [--only <substr>]` (windowed,
+~35 s/case); set `QR_RESET_GAP` to sweep the gate.
 
 ## Segment-level ambiguity map (matcher/find_ambiguous.py --units)
 

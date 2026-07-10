@@ -214,11 +214,14 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   trade (rescues real-phone 11/15->15/15 but guts long ayat, Baqarah 1:5 3/5->1/5). **Fixed with a
   targeted gate — `Config.chainResetMaxGap` (default 4.0): reset ONLY when the pause closely follows
   a commit (short ayah just ended), NOT mid-long-ayah breath. Measured: real-phone +3/+4 (continuous
-  15/15 exact), ZERO long-ayah regression, 1-unit clean cost — a real fix.** Still OFF by default:
-  needs on-device validation + a streaming-`boundaryReset` fix (streaming+reset diverges from
-  windowed) before the download/streaming build can use it; windowed is correct today. Harness (two
-  corpora: composed pro streams + real pulled phone WAVs) is the durable offline test. See
-  research/CLAUDE.md "audio_bench.py".
+  15/15 exact), ZERO long-ayah regression, 1-unit clean cost — a real fix.** **Windowed-only
+  (2026-07-11):** de-crowding is a re-decode technique — streaming decodes incrementally, so a
+  boundary can't recover crowded tail phonemes (measured: no gain + slight harm; the earlier
+  streaming divergence was a broken outBase time axis). `chainVadReset` is now a safe NO-OP in
+  streaming (VAD gated to windowed chain); the download build gets the fix only when run windowed
+  (trading the ~11x streaming RTF for the accuracy fix). Still OFF by default (needs on-device
+  validation). Harness (two corpora: composed pro streams + real pulled phone WAVs) is the durable
+  offline test. See research/CLAUDE.md "audio_bench.py".
 - **Commit policy tuned** (`matcher/CommitTracker`): persistence K is the lever, not
   the threshold. Default T=0.15/K=5. See matcher/CLAUDE.md.
 - **ONNX export working** (`export/onnx/`): fp32 43.8 MB / int8 15.2 MB, parity 1.5e-5,
