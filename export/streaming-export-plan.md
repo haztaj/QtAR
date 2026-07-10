@@ -364,12 +364,29 @@ same checkpoint); unstaged otherwise so the **default download distribution stay
 `Config(streaming = true)`. Verified: `:demo:assembleDebug -PbundleModel -PbundleStreaming` BUILD
 SUCCESSFUL (streaming.cpp compiled arm64-v8a/armeabi-v7a/x86_64); the APK packages all three graphs.
 
-**Remaining:** on-device install + RTF/battery measurement (pending a connected device) — the
-go/no-go for flipping streaming on in the default distribution; a conformance golden for the
-streaming decode; and, if it ships by default, download-delivery of the two graphs alongside the
-model (extend the manifest — they are version-coupled to the model weights). Off by default until
-the on-device win is measured (the 4 s int8 window already hits RTF 0.002; this is the Mode::Chain
-22 s-per-hop battery/latency path).
+### RTF win — MEASURED (2026-07-10): ~11x cheaper decode, identical detections
+
+Instrumented decode-only wall-clock (`Detector::decodeStats`; `test_detector` prints RTF). On the
+54 s continuous 78:1-8 stream (desktop, model_s123_mic_clean weights, Phase-2 soft):
+
+| path | ms/hop | RTF (decode/audio) |
+|---|---|---|
+| windowed (22 s re-decode) | ~730 | 0.484 |
+| **streaming** | **~65** | **0.043** |
+
+**~11x cheaper per hop, byte-identical detections** (78:1-8 + Al-Fatiha unchanged). Key fix:
+`streamFeed` first recomputed log-mel over the WHOLE 22 s buffer each hop, so the naive-DFT
+front-end dominated both paths and streaming was only ~13% faster — computing log-mel over just the
+NEW suffix (3-frame reflect margin; interior frames identical) unmasks the win (the encoder already
+only sees new audio via the conv cache). The reduction is algorithmic (O(new audio) vs O(22 s
+window); Emformer attention is O(U^2) in length), so it carries to ARM on-device. Verified live on
+the phone (surah 111): `(stream)` hops, incremental phoneme stream, correct tracking; optimized
+build re-deployed.
+
+**Remaining:** a conformance golden for the streaming decode; and, if it ships by default,
+download-delivery of the two graphs alongside the model (extend the manifest — they are
+version-coupled to the model weights). The RTF go/no-go is now green; enabling streaming in the
+default distribution is a packaging decision (manifest delivery of the +11.5 MB graphs).
 
 ### Phase D (matcher on the stream) — INVESTIGATED, not viable as a mode-split fix (2026-07-04)
 
