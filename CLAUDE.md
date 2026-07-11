@@ -222,6 +222,26 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   (trading the ~11x streaming RTF for the accuracy fix). Still OFF by default (needs on-device
   validation). Harness (two corpora: composed pro streams + real pulled phone WAVs) is the durable
   offline test. See research/CLAUDE.md "audio_bench.py".
+- **Reassessment / taint audit (2026-07-11).** Audit of which findings rest on cached-phoneme-
+  stream evidence (the blind spot the crowding episode exposed). Corpus B grown 2 → 16+ real WAVs
+  (7 labeled `demo/test_fixtures` user recordings + 25 rescued pulled sessions, semi-auto labeled —
+  `research/label_sessions.py`); `audio_bench.py` gained named ablation ARMS + parallel jobs;
+  harness scoring now counts the trailing cold-start PROVISIONAL (what the user actually sees).
+  Final verdicts (21 cases / 138 truth units; anchor = deployed config, 118/138 86%):
+  (a) **model choice OVERTURNED — `best_s123_mic` beats deployed `best_s123_mic_clean` end-to-end
+  (125 vs 118; better/equal on every hard case).** The clean retrain was selected on the cleaned
+  learner test (+1.9) and never checked in the deployment regime — model swaps must now be gated
+  by audio_bench. (b) **chainVadReset confirmed stronger than first measured** (126/138) and the
+  **winning combo is `best_s123_mic` + cost 0.45 + vadReset = 129/138 (93%)**; cost 0.50 helps
+  alone (+4) but ANTI-stacks with the reset. (c) chainCost 0.45 + early-prefix SURVIVE the audit;
+  **chainSubMin 0.0 is NEUTRAL end-to-end** (the noisy-cache +1.7 didn't transfer). (d)
+  **streaming ≠ windowed on hard audio** — "identical detections" held only on clean clips;
+  streaming wins long quiet-mic cases, loses slightly on short runs. (e) **cold-start crowding
+  class found** (fix_98_1_3: nothing commits → commit-gated reset never fires; focused-window
+  truth costs prove 2/3 detectable) — candidate fix: matcher-state-aware pre-commit reset.
+  Deployment decisions pending (user): model revert (needs streaming-graph re-export from
+  best_s123_mic + re-hosting), enabling vadReset windowed (trades the ~11x streaming RTF).
+  See research/CLAUDE.md "Reassessment / taint audit".
 - **Commit policy tuned** (`matcher/CommitTracker`): persistence K is the lever, not
   the threshold. Default T=0.15/K=5. See matcher/CLAUDE.md.
 - **ONNX export working** (`export/onnx/`): fp32 43.8 MB / int8 15.2 MB, parity 1.5e-5,
@@ -371,7 +391,9 @@ python demo/live_detect.py            # default mic; --list-devices to choose
     the two graphs; demo `-PbundleStreaming` stages them (default distribution stays windowed);
     `:demo:assembleDebug -PbundleModel -PbundleStreaming` builds + packages all three graphs.
     **RTF win MEASURED (2026-07-10):** decode-only ~730 ms/hop (windowed) -> ~65 ms/hop (streaming),
-    **RTF 0.484 -> 0.043 = ~11x cheaper per hop, byte-identical detections**. The win came from
+    **RTF 0.484 -> 0.043 = ~11x cheaper per hop, byte-identical detections on the clean acceptance
+    clips** (⚠️ 2026-07-11: on hard/quiet real audio streaming and windowed DIVERGE case-by-case —
+    neither dominates; see the taint-audit status entry). The win came from
     computing log-mel over only the NEW suffix in `streamFeed` (the whole-buffer log-mel had masked
     it; +11.5 MB graphs). Verified live on-device (surah 111). **Conformance golden DONE:**
     `golden/streaming/` pins the C++ StreamingModel vs the Python runtime, `test_streaming` ALL PASS

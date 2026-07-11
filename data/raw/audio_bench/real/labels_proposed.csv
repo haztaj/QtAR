@@ -1,0 +1,26 @@
+file,truth,wav_s,ref_s,flag,detections
+session_1783236540647.wav,105:1-5,29.7,32.3,OK,105:1 105:2 105:3 105:4 105:5
+session_1783237684908.wav,99:1-6,36.0,33.5,CHECK_TAIL (surah has 8),99:1 99:2 99:4 99:5 99:6
+session_1783238828177.wav,86:1-2,12.0,10.3,CHECK_TAIL (surah has 17),86:1 86:2
+session_1783238889877.wav,,2.9,0.0,TOO_SHORT,
+session_1783238894042.wav,,0.5,0.0,TOO_SHORT,
+session_1783238906022.wav,105:1-2,10.2,0.0,EAR_CONFIRM (decode reads 105:1 'alam tara kayfa...; ~10s => 1-2?),
+session_1783243974721.wav,113:1-2,10.9,0.0,EAR_CONFIRM (decode reads 113:1 qul a3uudhu bi rabbil-falaq...),
+session_1783243987060.wav,113:3-5,6.9,0.0,EAR_CONFIRM (decode tail reads sharri Haasidin idhaa Hasad = 113:5),
+session_1783244199349.wav,112:1-2,9.7,6.0,CHECK_TAIL (surah has 4),112:1 112:2
+session_1783244214402.wav,98:1,7.2,0.0,EAR_CONFIRM PARTIAL (7.2s of the ~20s ayah),
+session_1783454984067.wav,114:1-4,19.6,19.9,CHECK_TAIL (surah has 6),114:1 114:2 114:3 114:4
+session_1783455236131.fixed.wav,,129.3,0.0,"JUNK? near-silent (rms 0.005), decode sparse garbage",
+session_1783455424796.wav,2:6-9,52.6,59.4,OK,2:6 2:7 2:8 2:9
+session_1783456643116.wav,2:6-9,51.1,59.4,OK,2:6 2:7 2:8 2:9
+session_1783456698417.wav,2:255-257,108.3,115.1,OK,2:255 2:256 2:257
+session_1783456983417.wav,111:1-5,33.5,29.3,OK,111:1 111:2 111:4 111:5 111:3
+session_1783457025115.wav,2:255,62.5,54.6,"CHECK_TAIL (62.5s => 255 alone plausible, or 255-256)",2:255
+session_1783457380904.wav,114:1-2,33.1,9.4,CHECK_TAIL under-covered (33s! likely full 114:1-6),114:1 114:2
+session_1783457421247.wav,111:1-5,39.1,29.3,OK,111:1 111:2 111:3 111:4 111:5
+session_1783458878242.wav,2:255,8.4,0.0,EAR_CONFIRM PARTIAL (Ayat al-Kursi opening only),
+session_1783458897200.wav,2:255,13.5,0.0,EAR_CONFIRM PARTIAL (Ayat al-Kursi opening only),
+session_1783458914531.wav,2:285,16.0,0.0,EAR_CONFIRM (aamana r-rasuulu...),
+session_1783459326454.wav,,49.1,0.0,UNCLEAR decode; ear needed,
+session_1783459420705.wav,,1.9,0.0,TOO_SHORT,
+session_1783511790347.wav,2:255-257,108.1,115.1,OK,2:255 2:256 2:257

@@ -9,13 +9,16 @@ ayah sequence against known truth. Two corpora:
   (B) REAL pulled phone-session WAVs with hand-labeled truth — the FAILURE-REGIME net that
       professional reciters can't reproduce. Add each new pulled session to REAL_CASES.
 
-Runs offline, here, repeatably. Composed WAVs are cached (gitignored). Compares detector configs
-via env (QR_VAD toggles the experimental chainVadReset focused-window reset).
+Runs offline, here, repeatably. Composed WAVs are cached (gitignored). Detector configs are
+compared as named ARMS (env hooks in test_detector: QR_COST / QR_VAD / QR_RESET_GAP / QR_SUBMIN /
+QR_EARLY; streaming acoustics as extra argv).
 
-  python research/audio_bench.py                 # baseline vs +chainVadReset, all cases
-  python research/audio_bench.py --only short     # filter by case-name substring
+  python research/audio_bench.py                          # base vs +chainVadReset, all cases
+  python research/audio_bench.py --arms base,stream,hardsub --only real
+  python research/audio_bench.py --only fix_78             # filter by case-name substring
 """
 import argparse, os, subprocess, sys, random, wave
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import numpy as np, pandas as pd
 
@@ -49,11 +52,72 @@ REAL_CASES = [
     ("real_112_114_cont",   REALDIR / "scratch_session.wav",
      run_seq(112,1,4)+run_seq(113,1,5)+run_seq(114,1,6)),
 ]
-# WINDOWED decode (empty STREAM). Streaming baseline == windowed, but streaming + chainVadReset
-# DIVERGES (the experimental streaming boundaryReset is not yet correct — 9/15 vs windowed 15/15
-# on real_112_114_paused), so the harness uses windowed to measure the reset faithfully. Slower
-# (~35 s/case; use --only to iterate). Fix streaming-reset before shipping chainVadReset.
-STREAM: list = []
+# (B2) REAL user recordings from demo/test_fixtures (quiet-mic phone, truth from *_events.jsonl):
+#      long ayat + medium + short runs — the coverage the crowding fix was NOT validated on.
+FIXDIR = REPO / "demo/test_fixtures"
+REAL_CASES += [
+    ("fix_114_quiet",     FIXDIR / "user_114_quietmic.wav",              [(114, 1)]),
+    ("fix_78_38_40_cont", FIXDIR / "user_78_38to40_naba_continuous.wav",   run_seq(78, 38, 40)),
+    ("fix_78_38_40_contb", FIXDIR / "user_78_38to40_naba_continuous_b.wav", run_seq(78, 38, 40)),
+    ("fix_78_40_long",    FIXDIR / "user_78_40_naba_long.wav",           [(78, 40)]),
+    ("fix_85_12_16_cont", FIXDIR / "user_85_12to16_buruj.wav",             run_seq(85, 12, 16)),
+    ("fix_98_1_3_paused", FIXDIR / "user_98_1to3_bayyinah_paused.wav",     run_seq(98, 1, 3)),
+    ("fix_98_1_4_mixed",  FIXDIR / "user_98_1to4_bayyinah_mixed.wav",      run_seq(98, 1, 4)),
+]
+# (B3) Rescued pulled sessions (real/sessions/) with confirmed truths in real/labels.csv:
+#      columns file,truth — truth is space-separated s:a tokens, ranges allowed (112:1-4).
+def parse_truth(s):
+    out = []
+    for tok in s.split():
+        sur, a = tok.split(":")
+        a0, _, a1 = a.partition("-")
+        out += [(int(sur), x) for x in range(int(a0), int(a1 or a0) + 1)]
+    return out
+
+LABELS = REALDIR / "labels.csv"
+if LABELS.exists():
+    for _, r in pd.read_csv(LABELS).iterrows():
+        REAL_CASES.append((f"sess_{Path(r.file).stem.replace('session_', '')}",
+                           REALDIR / "sessions" / r.file, parse_truth(r.truth)))
+
+# Streaming acoustics (the default-build path). chainVadReset is a designed NO-OP in streaming
+# (de-crowding is a re-decode technique; see research/CLAUDE.md 2026-07-11), so the "stream" arm
+# measures the deployment default and the windowed arms measure the reset faithfully.
+STREAM = [REPO / "export/onnx/stream_conv.onnx", REPO / "export/onnx/stream_encoder.int8.onnx"]
+
+# Named detector-config arms (the taint-audit matrix). Every arm inherits QR_COST=0.45 +
+# subMin=0.0 (the shipped phone config) unless overridden.
+ARMS = {
+    "base":    dict(),                                    # windowed, shipped phone config
+    "vad":     dict(vad=True),                            # + chainVadReset (gap 4.0 default)
+    "vad_g3":  dict(vad=True, env={"QR_RESET_GAP": "3.0"}),
+    "stream":  dict(stream=True),                         # deployment default (streaming)
+    "streamvad": dict(stream=True, vad=True),             # must equal "stream" (no-op check)
+    "cost035": dict(env={"QR_COST": "0.35"}),
+    "cost040": dict(env={"QR_COST": "0.40"}),
+    "cost050": dict(env={"QR_COST": "0.50"}),
+    "hardsub": dict(env={"QR_SUBMIN": "1.0"}),            # Phase-2 soft scoring OFF
+    "noearly": dict(env={"QR_EARLY": "0"}),               # v11 early-prefix OFF
+    # previous model generation (pre-RetaSy-cleanup retrain) — quiet-mic regime check
+    "mic":     dict(model=REPO / "export/onnx/model_s123_mic_22s.int8.onnx"),
+    # candidate-config combos (taint-audit winners stacked)
+    "mic050":  dict(model=REPO / "export/onnx/model_s123_mic_22s.int8.onnx",
+                    env={"QR_COST": "0.50"}),
+    "micvad":  dict(model=REPO / "export/onnx/model_s123_mic_22s.int8.onnx", vad=True),
+    "mic050vad": dict(model=REPO / "export/onnx/model_s123_mic_22s.int8.onnx",
+                      env={"QR_COST": "0.50"}, vad=True),
+    "cost050vad": dict(env={"QR_COST": "0.50"}, vad=True),
+    # checkpoint-selection probe: final-epoch checkpoints (selection-by-val-PER is itself
+    # part of the audited taint) — compare vs the val-selected "best" exports, with vadReset
+    "lastmicvad":   dict(model=REPO / "export/onnx/model_last_mic_22s.int8.onnx", vad=True),
+    "lastcleanvad": dict(model=REPO / "export/onnx/model_last_clean_22s.int8.onnx", vad=True),
+    # best-of-both retrain (cleaned labels + junk-noise augmentation, 2026-07-11)
+    "bob":    dict(model=REPO / "export/onnx/model_s123_bob_22s.int8.onnx"),
+    "bobvad": dict(model=REPO / "export/onnx/model_s123_bob_22s.int8.onnx", vad=True),
+    # mic model + mic streaming graphs (the post-revert default-SDK streaming config;
+    # requires export/onnx/stream_* re-exported from best_s123_mic)
+    "micstream": dict(model=REPO / "export/onnx/model_s123_mic_22s.int8.onnx", stream=True),
+}
 
 def truth_str(seq): return [f"{s}:{a}" for s, a in seq]
 
@@ -79,16 +143,24 @@ def compose(name, seq, gap_s, augment):
     f.writeframes((x * 32767).astype(np.int16).tobytes()); f.close()
     return out
 
-def detect(wav, vad):
+def detect(wav, arm):
+    spec = ARMS[arm]
     env = dict(os.environ, QR_COST="0.45")
-    if vad: env["QR_VAD"] = str(VAD)
-    cmd = [str(BIN), str(MODEL), str(CONF), str(wav), "--chain"]
-    if STREAM and all(p.exists() for p in STREAM): cmd += [str(STREAM[0]), str(STREAM[1])]
+    env.update(spec.get("env", {}))
+    if spec.get("vad"): env["QR_VAD"] = str(VAD)
+    cmd = [str(BIN), str(spec.get("model", MODEL)), str(CONF), str(wav), "--chain"]
+    if spec.get("stream"):
+        assert all(p.exists() for p in STREAM), "streaming graphs missing"
+        cmd += [str(STREAM[0]), str(STREAM[1])]
     r = subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=600)
+    seq, prov = [], None
     for line in r.stdout.splitlines():
         if line.startswith("detected sequence:"):
-            return [u.split("#")[0] for u in line.split(":", 1)[1].split()]
-    return []
+            seq = [u.split("#")[0] for u in line.split(":", 1)[1].split()]
+        elif line.startswith("provisional:"):        # trailing cold-start ACTIVE the user saw
+            prov = line.split(":", 1)[1].strip()
+    if prov and (not seq or seq[-1] != prov): seq.append(prov)
+    return seq
 
 def lcs(a, b):
     m, n = len(a), len(b); dp = [[0]*(n+1) for _ in range(m+1)]
@@ -104,20 +176,32 @@ def score(emitted, truth):
     return hit, len(truth), (ded == truth), tail
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("--only", default="")
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--only", default="")
+    ap.add_argument("--arms", default="base,vad", help=f"comma list of {','.join(ARMS)}")
+    ap.add_argument("--jobs", type=int, default=4, help="parallel detector processes")
     args = ap.parse_args()
+    arms = [a for a in args.arms.split(",") if a]
+    for a in arms: assert a in ARMS, f"unknown arm {a}"
     cases = []
     for (name, seq, gap, aug) in COMPOSED:
         if args.only in name: cases.append((name, compose(name, seq, gap, aug), truth_str(seq)))
     for (name, wav, seq) in REAL_CASES:
         if args.only in name and Path(wav).exists(): cases.append((name, wav, truth_str(seq)))
-    print(f"{'case':24} {'truth':>5} {'baseline':>18} {'+chainVadReset':>18}")
-    for name, wav, truth in cases:
-        line = f"{name:24} {len(truth):>5}"
-        for vad in (False, True):
-            hit, n, exact, tail = score(detect(wav, vad), truth)
-            line += f"   {hit}/{n} t{tail}/2 {'EXACT' if exact else '     '}"
-        print(line)
+    print(f"{'case':26} {'truth':>5}" + "".join(f" {a:>18}" for a in arms))
+    tot = {a: [0, 0] for a in arms}
+    with ThreadPoolExecutor(max_workers=args.jobs) as ex:   # detector runs are subprocesses
+        futs = {(name, a): ex.submit(detect, wav, a)
+                for name, wav, truth in cases for a in arms}
+        for name, wav, truth in cases:
+            line = f"{name:26} {len(truth):>5}"
+            for a in arms:
+                hit, n, exact, tail = score(futs[(name, a)].result(), truth)
+                tot[a][0] += hit; tot[a][1] += n
+                line += f"   {hit}/{n} t{tail}/2 {'EXACT' if exact else '     '}"
+            print(line, flush=True)
+    print(f"{'TOTAL':26} {'':>5}" + "".join(
+        f"   {tot[a][0]}/{tot[a][1]} ({100.0*tot[a][0]/max(1,tot[a][1]):.0f}%)".ljust(19) for a in arms))
 
 if __name__ == "__main__":
     main()

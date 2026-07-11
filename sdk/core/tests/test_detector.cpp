@@ -65,6 +65,9 @@ int main(int argc, char** argv) {
             cfg.unitPhonemesPath = conf + "/assets/unit_phonemes.json";
             cfg.chainSubMin = 0.0f;                 // Phase-2 soft scoring (as the demo runs)
             if (const char* c = std::getenv("QR_COST")) cfg.chainCost = (float)atof(c);
+            // Ablation hooks (research/audio_bench.py taint audit):
+            if (const char* s = std::getenv("QR_SUBMIN")) cfg.chainSubMin = (float)atof(s);
+            if (const char* e = std::getenv("QR_EARLY")) cfg.chainEarlyPrefix = (float)atof(e);
             if (const char* v = std::getenv("QR_VAD")) {   // EXPERIMENTAL focused-window reset
                 cfg.vadPath = v;
                 cfg.chainVadReset = true;
@@ -89,10 +92,14 @@ int main(int argc, char** argv) {
         std::printf("  %-8s %s  (conf %.2f, t %.1fs)\n", k, a.c_str(), e.confidence, e.timeSec);
         seq.push_back(a);
     });
-    // waqf-segment progress within the active ayah (Mode::Chain)
-    std::string lastSegLine;
+    // waqf-segment progress within the active ayah (Mode::Chain) + provisional tracking:
+    // the cold-start ACTIVE highlight the user sees before the assembler confirms anything
+    // (a short clip can end with a correct detection still pending — harness must see it).
+    std::string lastSegLine, lastActive;
     det.setHighlightCallback([&](const HighlightSnapshot& s) {
-        if (!s.hasActive || s.activeSegmentCount == 0) return;
+        if (!s.hasActive) return;
+        lastActive = std::to_string(s.active.surah) + ":" + std::to_string(s.active.ayah);
+        if (s.activeSegmentCount == 0) return;
         char buf[64];
         std::snprintf(buf, sizeof(buf), "    segment %d:%d  %d/%d",
                       s.active.surah, s.active.ayah, s.activeSegment, s.activeSegmentCount);
@@ -108,6 +115,9 @@ int main(int argc, char** argv) {
     std::printf("\ndetected sequence:");
     for (auto& s : seq) std::printf(" %s", s.c_str());
     std::printf("\n");
+    // A trailing provisional the user saw but the assembler never confirmed (cold-start clips):
+    if (!lastActive.empty() && (seq.empty() || seq.back() != lastActive))
+        std::printf("provisional: %s\n", lastActive.c_str());
 
     if (cfg.mode == Mode::Chain) {   // RTF: acoustic-decode wall-clock vs audio duration
         double decodeSec; long hops;

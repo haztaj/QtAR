@@ -363,6 +363,85 @@ a 1-unit clean cost — vs blunt's Baqarah 1/5 collapse. A REAL fix, not a trade
 ~11x streaming RTF for accuracy). Run: `python research/audio_bench.py [--only <substr>]` (windowed,
 ~35 s/case); set `QR_RESET_GAP` to sweep the gate.
 
+## Reassessment / taint audit (2026-07-11) — what rests on cached-stream evidence
+
+The crowding episode proved `continuous_eval.py`'s cached phoneme streams are blind to
+rolling-buffer / decode-quality / VAD effects. Auditing every tuned knob for that taint:
+
+| finding | evidence base | status |
+|---|---|---|
+| waqf unit, twins, context, assembly | clean caches, held up on-device | sound |
+| streaming parity + ~11x RTF | byte-validated, conformance-pinned | sound |
+| gap=4.0 gated VAD reset | audio_bench end-to-end | sound method, thin corpus (was n=2) |
+| `chainCost=0.45` | ONE pulled session, Python layer, pre-harness | **TAINTED — resweep end-to-end** |
+| `chainSubMin=0.0` (+1.7 claim) | noise-AUGMENTED caches — augmentation shown NOT to reproduce the real regime; always-on in the harness, never ablated on real audio | **TAINTED — ablate end-to-end** |
+| v12 headline (89.3 hit / 58.8 exact) | clean caches; real-WAV baseline is ~73% | **overstates deployment** — audio_bench real corpus is the honest number |
+| `build_waveform_augment` realism | pro-aug composed streams do NOT crowd; real phone WAVs do | **training-side taint** — the mic retrain may also be under-served |
+
+**Ranked directions (added to roadmap):**
+- **A. Real-corpus revalidation (in progress)** — corpus B grown from 2 → 34 real WAVs
+  (7 labeled `demo/test_fixtures` user recordings + 25 rescued pulled sessions, semi-auto
+  labeled via `research/label_sessions.py` → `real/labels_proposed.csv` → user-confirmed
+  `labels.csv`); `audio_bench.py` now takes named ARMS (`--arms base,vad,stream,streamvad,
+  cost035..cost050,hardsub,noearly,vad_g3`; env hooks `QR_SUBMIN`/`QR_EARLY` added to
+  test_detector). Re-validate every tainted knob end-to-end on real audio.
+- **B. Augmentation-realism gap** — diagnose WHY real phone audio decodes at ~30% PER when
+  augmented professional audio doesn't reproduce the failure (phone DSP: AGC / noise
+  suppression / spectral tilt?). Payoff is double: a faithful synthetic failure-regime corpus
+  (unlimited harness data) + a retrain lever (42% of noisy errors are deletions only a better
+  decode fixes).
+- **C. Streaming-side de-crowding** — the deployment default streams and gets no crowding fix;
+  design work gated on A's data (how big is the streaming↔windowed gap across the corpus?).
+
+**A first results (2026-07-11, corpus = 5 composed + 2 real + 7 fixtures, 109 truth units):**
+
+| arm | total | notes |
+|---|---|---|
+| base (windowed) | 88/109 (81%) | |
+| **+chainVadReset gap=4.0** | **94/109 (86%)** | best arm; all gains real-phone, 1-unit composed cost |
+| stream (deployment default) | 89/109 (82%) | streamvad == stream everywhere (no-op gate verified) |
+
+- **Streaming ≠ windowed on hard audio.** The old "identical detections" held only on the two
+  clean validation clips. Streaming WINS long quiet-mic cases (fix_78_38_40_cont 2/3 vs 0/3,
+  baqarah_1_5 4/5 vs 3/5) and LOSES slightly on short runs (105-108 17/19 vs 18/19,
+  253-257 4/5 vs 5/5). Different decode regimes, different failure modes — neither dominates.
+- **fix_98_1_3_paused 0/3 in EVERY arm — cold-start crowding, a class the gated reset cannot
+  touch.** Focused-window truth costs (current model): 98:1 0.56 / 98:2 0.33 / 98:3 0.16 — two
+  of three are comfortably under the 0.45 threshold IF the window were focused. But the long
+  quiet 98:1 never fires -> nothing commits -> the commit-gated VAD reset never activates ->
+  the window never focuses. A matcher-state-aware reset (allow a pre-first-commit reset when
+  no pending unit is mid-match) is the candidate mechanism — direction C2.
+- **Model-generation regression found (quiet-mic regime):** `best_s123_mic_clean` (deployed) is
+  consistently WORSE than `best_s123_mic` on the quiet-mic fixture's focused decodes
+  (98:1/2/3 truth costs 0.56/0.33/0.16 vs 0.50/0.26/0.11). The clean retrain was selected on
+  the cleaned learner test (+1.9) with no quiet-phone check — the `mic` bench arm now measures
+  this end-to-end.
+- **Harness scoring now includes the trailing PROVISIONAL** (the cold-start active highlight the
+  user sees; test_detector prints `provisional:`) — confirmed-only scoring under-reported what
+  the on-device experience shows on short clips.
+- **Corpus B grown 2 -> 9 labeled real WAVs + 7 confident session labels** (labels.csv; 8 more
+  sessions await user ear — labels_proposed.csv carries decode-screen identifications: 105:1-2,
+  113:1-2, 113:3-5, 98:1, 2:255 x2, 2:285 all MISSED entirely by the detector at cost 0.50,
+  mostly short single-ayah clips = cold-start deferral, visible only as provisional).
+
+**A final verdicts (2026-07-11, full sweep + combos, 21 cases / 138 truth units, provisional-
+inclusive scoring; anchor = deployed config `mic_clean` + cost 0.45 + subMin 0 + early-prefix,
+windowed = 118/138 86%):**
+
+| knob | verdict | evidence |
+|---|---|---|
+| `chainCost 0.45` | **SURVIVES** | 0.50 alone +4 (122) but ANTI-stacks with vadReset (mic050vad 124 < micvad 129); 0.40 neutral; 0.35 collapses (106) |
+| `chainSubMin 0.0` (Phase-2 soft) | **NEUTRAL end-to-end** | hardsub 119 ≈ base 118 — the noisy-cache +1.7 did NOT transfer to real audio; keep off-by-default posture, no end-to-end case for it |
+| early-prefix (v11) | **SURVIVES** | noearly 115 < base 118 |
+| model `best_s123_mic_clean` | **OVERTURNED** | `best_s123_mic` arm 125 (91%) vs 118 (86%), better or equal on every hard case (fix_98_1_4 2/4->4/4, real_cont 11->13, Kursi session 2/3->3/3) — the clean retrain was selected on the cleaned learner test (+1.9) and never checked end-to-end |
+| `chainVadReset` gap 4.0 | **CONFIRMED, stronger than first measured** | vad 126 (91%) over base 118; windowed-only as before |
+| **winning combo** | **`best_s123_mic` + 0.45 + vadReset = 129/138 (93%)** | +11 units over deployed; cost 0.50 must NOT ride along |
+
+Caveats: corpus B is one user's voice/devices (that IS the beta deployment target, but the
+diverse-learner slice is the cleaned RetaSy test where mic_clean is +1.9 — model choice is a
+regime trade the user must arbitrate); streaming graphs are exported from mic_clean, so a model
+revert also means re-exporting `stream_{conv,encoder}` for the streaming path.
+
 ## Segment-level ambiguity map (matcher/find_ambiguous.py --units)
 
 Formalizes the twin classes for the production deferral layer:
