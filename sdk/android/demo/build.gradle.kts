@@ -86,10 +86,11 @@ dependencies {
 // updates). `-PbundleModel` instead stages the exported 22 s int8 model into the APK for a fully
 // offline build (the "debug/deploy with model" variant, mirroring -PbundleFonts); ModelManager
 // then uses the bundled model directly with no network. The staged copy is gitignored.
-// best_s123_mic: reinstated over the mic_clean retrain by the 2026-07-11 taint audit —
-// end-to-end audio_bench 125/138 vs 118 (see research/CLAUDE.md "Reassessment / taint audit").
+// best_s123_p31: phase-3 continuous-corpus model (repetition-suppression root fix + phase-2
+// restore). Gated: bench 145/151 (= anchor), learner 85.3% + clean 96.2% (both best-ever),
+// suppression ratio 0.43 -> 0.88. See research/CLAUDE.md "Phase-3 concatenation training".
 val devModel = rootProject.projectDir.parentFile.parentFile   // sdk/android -> repo root
-    .resolve("export/onnx/model_s123_mic_22s.int8.onnx")
+    .resolve("export/onnx/model_s123_p31_22s.int8.onnx")
 val stagedModel = layout.projectDirectory.file("src/main/assets/quranrecite/model.int8.onnx").asFile
 if (project.hasProperty("bundleModel")) {
     val bundleDevModel by tasks.registering(Copy::class) {
@@ -124,7 +125,7 @@ val stagedStream = streamGraphs.map {
 // v13 fresh-context suffix graph (5 s export of the SAME checkpoint as devModel). Staged by
 // -PbundleSuffix (dev/offline); the download build gets it via the manifest's "suffixModel" key.
 val suffixGraph = rootProject.projectDir.parentFile.parentFile
-    .resolve("export/onnx/model_s123_mic_5s.int8.onnx")
+    .resolve("export/onnx/model_s123_p31_5s.int8.onnx")
 val stagedSuffix = layout.projectDirectory
     .file("src/main/assets/quranrecite/model_suffix.int8.onnx").asFile
 if (project.hasProperty("bundleSuffix")) {
@@ -177,10 +178,11 @@ tasks.register("modelManifest") {
         fun sha(f: java.io.File) = MessageDigest.getInstance("SHA-256")
             .digest(f.readBytes()).joinToString("") { b -> "%02x".format(b) }
         val shaModel = sha(devModel)
-        val version = (project.findProperty("modelVersion") as String?) ?: "best_s123_mic-22s-v2"
+        val version = (project.findProperty("modelVersion") as String?) ?: "best_s123_p31-22s-v3"
         val desc = (project.findProperty("modelDesc") as String?)
-            ?: "Recognizer update (surahs 1–3 + Juz Amma): more reliable tracking on real " +
-               "phone microphones, validated end-to-end on live recitation sessions."
+            ?: "Major recognizer update: trained on continuous multi-ayah recitation — much " +
+               "more reliable tracking when reciting straight through without pauses, and " +
+               "better accuracy for learners."
         fun esc(s: String) = s.replace("\\", "\\\\").replace("\"", "\\\"")
         val hostBase = "https://github.com/haztaj/QtAR/releases/download/model"
         // True-streaming graphs (version-coupled to the model). Included in the manifest only if

@@ -91,18 +91,20 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
                     extractBundled("silero_vad.onnx") else ""
                 val units = if (assetExists("quranrecite/unit_phonemes.json"))
                     extractBundled("unit_phonemes.json") else ""
-                // True streaming acoustics (version-coupled to the model). Bundled by
-                // -PbundleStreaming takes precedence (dev/offline); otherwise downloaded via the
-                // manifest alongside the model. Absent both -> "" -> windowed re-decode.
-                var streamConv = if (assetExists("quranrecite/$STREAM_CONV"))
-                    extractBundled(STREAM_CONV, into = streamDir) else ""
-                var streamEnc = if (assetExists("quranrecite/$STREAM_ENCODER"))
-                    extractBundled(STREAM_ENCODER, into = streamDir) else ""
-                var suffix = if (assetExists("quranrecite/$SUFFIX_MODEL"))
-                    extractBundled(SUFFIX_MODEL, into = streamDir) else ""
                 // Fetch the manifest ONCE (skipped entirely for a fully-bundled model — no network).
                 val bundledModel = assetExists("quranrecite/$BUNDLED_MODEL")
                 val release = if (bundledModel) null else fetchManifest()
+                // Companion graphs (streaming, v13 suffix) are VERSION-COUPLED to the model
+                // weights. Bundled copies are trusted only when the model itself is bundled
+                // (a -PbundleModel dev build ships a matched set); a download build must take
+                // them from the manifest, or a bundled graph would pair a stale export with a
+                // newer downloaded model (mismatched weights).
+                var streamConv = if (bundledModel && assetExists("quranrecite/$STREAM_CONV"))
+                    extractBundled(STREAM_CONV, into = streamDir) else ""
+                var streamEnc = if (bundledModel && assetExists("quranrecite/$STREAM_ENCODER"))
+                    extractBundled(STREAM_ENCODER, into = streamDir) else ""
+                var suffix = if (bundledModel && assetExists("quranrecite/$SUFFIX_MODEL"))
+                    extractBundled(SUFFIX_MODEL, into = streamDir) else ""
                 val model = resolveModel(bundledModel, release, onProgress, onModelUpdate)
                 if (streamConv.isEmpty() && release != null)
                     resolveStreaming(release, onProgress)?.let { streamConv = it.first; streamEnc = it.second }
