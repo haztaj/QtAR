@@ -121,6 +121,31 @@ val streamGraphs = rootProject.projectDir.parentFile.parentFile   // repo root
         root.resolve("export/onnx/stream_encoder.int8.onnx")) }
 val stagedStream = streamGraphs.map {
     layout.projectDirectory.file("src/main/assets/quranrecite/${it.name}").asFile }
+// v13 fresh-context suffix graph (5 s export of the SAME checkpoint as devModel). Staged by
+// -PbundleSuffix (dev/offline); the download build gets it via the manifest's "suffixModel" key.
+val suffixGraph = rootProject.projectDir.parentFile.parentFile
+    .resolve("export/onnx/model_s123_mic_5s.int8.onnx")
+val stagedSuffix = layout.projectDirectory
+    .file("src/main/assets/quranrecite/model_suffix.int8.onnx").asFile
+if (project.hasProperty("bundleSuffix")) {
+    val bundleSuffixGraph by tasks.registering(Copy::class) {
+        onlyIf { suffixGraph.exists() }
+        from(suffixGraph) { rename { "model_suffix.int8.onnx" } }   // ModelManager.SUFFIX_MODEL
+        into(layout.projectDirectory.dir("src/main/assets/quranrecite"))
+        doFirst {
+            require(suffixGraph.exists()) {
+                "-PbundleSuffix but no graph at $suffixGraph — export it first " +
+                    "(python export/export_onnx.py --checkpoint <ckpt> --fixed-frames 516 " +
+                    "--tag _s123_mic_5s); must match the delivered model's checkpoint."
+            }
+        }
+    }
+    tasks.named("preBuild") { dependsOn(bundleSuffixGraph) }
+} else {
+    val unstageSuffixGraph by tasks.registering(Delete::class) { delete(stagedSuffix) }
+    tasks.named("preBuild") { dependsOn(unstageSuffixGraph) }
+}
+
 if (project.hasProperty("bundleStreaming")) {
     val bundleStreamGraphs by tasks.registering(Copy::class) {
         onlyIf { streamGraphs.all { it.exists() } }
@@ -162,10 +187,14 @@ tasks.register("modelManifest") {
         // BOTH exist — clients then download them and Mode.CHAIN decodes incrementally.
         val streamConv = devModel.parentFile.resolve("stream_conv.onnx")
         val streamEnc = devModel.parentFile.resolve("stream_encoder.int8.onnx")
-        val streamJson = if (streamConv.exists() && streamEnc.exists())
+        var streamJson = if (streamConv.exists() && streamEnc.exists())
             ""","streamConv":{"url":"$hostBase/stream_conv.onnx","sha256":"${sha(streamConv)}"}""" +
             ""","streamEncoder":{"url":"$hostBase/stream_encoder.int8.onnx","sha256":"${sha(streamEnc)}"}"""
         else ""
+        // v13 fresh-context suffix graph (optional; version-coupled to the model like streaming)
+        if (suffixGraph.exists())
+            streamJson +=
+                ""","suffixModel":{"url":"$hostBase/model_suffix.int8.onnx","sha256":"${sha(suffixGraph)}"}"""
         val out = layout.buildDirectory.file("model_manifest.json").get().asFile
         out.parentFile.mkdirs()
         out.writeText(

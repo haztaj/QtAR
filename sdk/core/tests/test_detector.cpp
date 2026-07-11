@@ -69,6 +69,12 @@ int main(int argc, char** argv) {
             if (const char* s = std::getenv("QR_SUBMIN")) cfg.chainSubMin = (float)atof(s);
             if (const char* e = std::getenv("QR_EARLY")) cfg.chainEarlyPrefix = (float)atof(e);
             if (const char* t = std::getenv("QR_TRIM")) cfg.chainEmitTrimKeep = (float)atof(t);
+            if (const char* x = std::getenv("QR_SUFFIX")) {   // v13 fresh-context suffix decode
+                cfg.chainSuffixModelPath = x;
+                cfg.chainSuffixSec = 5.0f;
+                if (const char* s = std::getenv("QR_SUFFIX_SEC")) cfg.chainSuffixSec = (float)atof(s);
+                std::printf("suffix decode ON: %s (%.1fs)\n", x, cfg.chainSuffixSec);
+            }
             if (const char* v = std::getenv("QR_VAD")) {   // EXPERIMENTAL focused-window reset
                 cfg.vadPath = v;
                 cfg.chainVadReset = true;

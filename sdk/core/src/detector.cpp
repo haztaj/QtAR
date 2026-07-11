@@ -96,6 +96,9 @@ struct Detector::Impl {
     // True streaming acoustics (optional, Mode::Chain): decode only the NEW audio each hop and
     // keep a persistent, bounded phoneme stream — instead of re-decoding the whole rolling window.
     std::unique_ptr<StreamingModel> stream;
+    // v13 fresh-context suffix decode (optional, windowed Chain): right-sized second graph,
+    // same weights as `model`. See Config::chainSuffixSec.
+    std::unique_ptr<AcousticModel> suffixModel;
     std::vector<int> chainPh;         // persistent phoneme ids (absolute-time keyed)
     std::vector<double> chainTm;      // their absolute times (frame * 0.04 s)
     PhonAlts chainAlts;               // per-phoneme top-k posteriors (Phase-2 soft; if subMin<1)
@@ -142,6 +145,8 @@ struct Detector::Impl {
             chainAsm = std::make_unique<ChainAssembler>(*units);
             if (!c.streamConvPath.empty() && !c.streamEncoderPath.empty())
                 stream = std::make_unique<StreamingModel>(c.streamConvPath, c.streamEncoderPath);
+            if (c.chainSuffixSec > 0.0f && !c.chainSuffixModelPath.empty())
+                suffixModel = std::make_unique<AcousticModel>(c.chainSuffixModelPath);
         }
     }
 
@@ -328,6 +333,81 @@ struct Detector::Impl {
         if (debug) QR_LOG("chain hop t=%.1fs rms=%.4f ph=%zu (buf=%.1fs)",
                           timeSec, r, ph.size(), (double)rolling.size() / kSr);
         chainMatch(timeSec, ph, tm, alts, soft);
+
+        // v13 fresh-context suffix pass: decode the buffer's last chainSuffixSec seconds as a
+        // STANDALONE input (fresh Emformer memory — sidesteps repeated-phrase suppression) and
+        // match over it with a restricted two-window bank. Only when the buffer exceeds the
+        // suffix (otherwise the main decode already has fresh context).
+        // Skip while confidently tracking a LONG expected unit: a fresh 5 s window over a long
+        // ayah's MIDDLE can only fire spurious short units (its true unit fails the length
+        // gate), and those disrupt the chain (measured -2 on long Baqarah). Short-unit crowding
+        // — the class this pass exists for — always has a short or no expectation.
+        // "Long" = cannot fit the suffix window's length gate (~5 phonemes/s of speech, 1.3x
+        // upper band) — such a unit can never fire from this pass, only be disrupted by it:
+        // near-threshold junk fires during the long wait flood the assembler's 2-deep pending
+        // buffer and evict the true pending unit (measured on Baqarah). Any emission sets the
+        // expectation, so no streak requirement — a lone jump emission counts.
+        const int sufExp = chainVoter->expectedUnit();
+        const bool trackingLong = sufExp >= 0 &&
+                                  units->len(sufExp) > (int)(6.5 * cfg.chainSuffixSec);
+        if (suffixModel && !trackingLong &&
+            rolling.size() > (std::size_t)(cfg.chainSuffixSec * kSr)) {
+            const std::size_t sn = (std::size_t)(cfg.chainSuffixSec * kSr);
+            const double sufStartSec = (double)(totalSamples - (long)sn) / kSr;
+            auto ts0 = std::chrono::steady_clock::now();
+            int Ts;
+            auto slm = frontend.logMel(rolling.data() + (rolling.size() - sn), sn, Ts);
+            int TsOut, Vs;
+            auto slp = suffixModel->run(slm, Ts, TsOut, Vs);
+            std::vector<int> sph;
+            std::vector<double> stm;
+            PhonAlts salts;
+            int sprev = -1;
+            for (int f = 0; f < TsOut; ++f) {
+                const float* row = slp.data() + (std::size_t)f * Vs;
+                int best = 0;
+                for (int v = 1; v < Vs; ++v)
+                    if (row[v] > row[best]) best = v;
+                if (best != sprev && best != 0) {
+                    sph.push_back(best);
+                    stm.push_back(sufStartSec + f * 0.04);
+                    if (soft) salts.push_back(topKAlts(row, Vs));
+                }
+                sprev = best;
+            }
+            decodeSec += std::chrono::duration<double>(
+                std::chrono::steady_clock::now() - ts0).count();
+            if (debug) QR_LOG("chain suffix t=%.1fs ph=%zu (%.1fs fresh)",
+                              timeSec, sph.size(), cfg.chainSuffixSec);
+            suffixMatch(timeSec, sph, stm, salts, soft);
+        }
+    }
+
+    // Restricted matched-filter pass over the fresh-context suffix decode: two windows only —
+    // the full suffix and its last 2 s (the small-unit scale) — so the extra pass adds bounded
+    // vote opportunities instead of duplicating the whole scale bank on identical content.
+    void suffixMatch(double timeSec, const std::vector<int>& ph, const std::vector<double>& tm,
+                     const PhonAlts& alts, bool soft) {
+        const double spans[2] = {(double)cfg.chainSuffixSec, 0.2 * cfg.chainWindowSec};
+        for (double span : spans) {
+            const double w0 = timeSec - span;
+            auto lo = std::lower_bound(tm.begin(), tm.end(), w0);
+            const std::size_t off = lo - tm.begin();
+            std::vector<int> win(ph.begin() + off, ph.end());
+            if ((int)win.size() < 4) continue;
+            PhonAlts winAlts;
+            if (soft && alts.size() == ph.size()) winAlts.assign(alts.begin() + off, alts.end());
+            auto [u, cost] = windowBest(win, *units, cfg.chainCost, winAlts, cfg.chainSubMin);
+            if (u < 0 || cost > cfg.chainCost) continue;
+            if (auto em = chainVoter->onFire(timeSec, u, cost)) {
+                if (debug) QR_LOG("chain EMIT %s cost=%.2f at %.1fs (suffix)",
+                                  units->key(em->unit).c_str(), cost, timeSec);
+                if (cost <= 0.5f * cfg.chainCost) lastEmitSec = timeSec;
+                auto confirms = chainAsm->push(em->unit);
+                for (int cu : confirms) confirmUnit(cu, timeSec);
+                maybeProvisional(em->unit, confirms.empty(), timeSec);
+            }
+        }
     }
 
     // Streaming acoustics: extend the persistent phoneme stream with the newly-SETTLED log-mel

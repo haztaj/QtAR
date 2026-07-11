@@ -102,6 +102,13 @@ data class Config(
     // seconds (a short ayah commits then pauses; a long ayah's mid-breath comes later — no
     // reset, its prefix survives). Measured sweet spot 4.0.
     val chainResetMaxGap: Float = 4.0f,
+    // v13 fresh-context suffix decode (Mode.CHAIN, windowed): each hop also decodes the last
+    // N seconds standalone through a right-sized graph, sidestepping the Emformer's
+    // repeated-phrase suppression on continuous recitation (audio_bench 145/151 vs 138 for
+    // the vadReset config — and it SUBSUMES the vadReset). Requires the suffix graph in the
+    // asset bundle (manifest "suffixModel" or -PbundleSuffix); silently off when absent.
+    // 0 = off; 5.0 = the measured operating point (7 s regressed — see research/CLAUDE.md).
+    val chainSuffixSec: Float = 0.0f,
 )
 
 /**
@@ -184,12 +191,16 @@ class QuranReciteDetector(
                 if (debugLogging && config.streaming) android.util.Log.i("QuranRecite",
                     "streaming acoustics: ${if (streamEnc.isEmpty()) "<not bundled -> windowed>"
                         else "on"}")
+                val suffix = if (config.chainSuffixSec > 0f) assets.suffixModelPath else ""
+                if (debugLogging && config.chainSuffixSec > 0f) android.util.Log.i("QuranRecite",
+                    "suffix decode: ${if (suffix.isEmpty()) "<graph absent -> off>" else "on"}")
                 nativeHandle = nativeCreate(
                     assets.modelPath, assets.lexiconPath, assets.tokensPath,
                     assets.filterbankPath, assets.hannPath, assets.ambiguousPath, assets.vadPath,
                     config.mode.ordinal, assets.unitPhonemesPath, config.chainCost,
                     config.chainSubMin, streamConv, streamEnc,
-                    config.chainVadReset, config.chainResetMaxGap)
+                    config.chainVadReset, config.chainResetMaxGap,
+                    suffix, config.chainSuffixSec)
                 nativeSetDebug(nativeHandle, debugLogging)      // carry the current flag to the engine
                 mainHandler.post { listener?.onModelReady() }
             },
@@ -259,7 +270,8 @@ class QuranReciteDetector(
         filterbankPath: String, hannPath: String, ambiguousPath: String, vadPath: String,
         mode: Int, unitPhonemesPath: String, chainCost: Float, chainSubMin: Float,
         streamConvPath: String, streamEncoderPath: String,
-        chainVadReset: Boolean, chainResetMaxGap: Float): Long
+        chainVadReset: Boolean, chainResetMaxGap: Float,
+        suffixModelPath: String, chainSuffixSec: Float): Long
     private external fun nativeFeed(handle: Long, pcm: ShortArray, sampleRate: Int)
     private external fun nativeReset(handle: Long)
     private external fun nativeSetDebug(handle: Long, enabled: Boolean)

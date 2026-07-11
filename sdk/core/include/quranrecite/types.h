@@ -149,6 +149,17 @@ struct Config {
     // commit-and-reset cascade guard); votes/streak gating make junk-emission trims rare.
     // 0 = off. Streaming ignores it (incremental decode never re-windows).
     float chainEmitTrimKeep = 0.0f;
+    // EXPERIMENTAL v13 (Mode::Chain, WINDOWED only): fresh-context suffix decode. Each hop,
+    // ALSO decode the rolling buffer's last chainSuffixSec seconds as a STANDALONE input
+    // through a right-sized graph (chainSuffixModelPath — must be the SAME weights as
+    // modelPath, e.g. a --fixed-frames 516 export) and match over it. The Emformer's
+    // left-context memory DELETES repeated phrases in continuous audio (repetitive short
+    // surahs recited without pauses decode to a fraction of their phonemes — see
+    // research/CLAUDE.md "Repetition suppression", 2026-07-11); a fresh-context decode
+    // sidesteps the suppression unconditionally, where the VAD reset needs a pause and the
+    // commit/emission gates need prior progress. 0 / empty = off.
+    float chainSuffixSec = 0.0f;
+    std::string chainSuffixModelPath;
 };
 
 using EventCallback = std::function<void(const AyahEvent&)>;

@@ -48,11 +48,12 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         enterImmersive()
         // chainSubMin = 0 enables Phase-2 posterior-aware scoring (the ~30% PER phone-mic win).
-        // Accuracy config (taint audit 2026-07-11): WINDOWED + chainVadReset — the measured best
-        // on the real-phone audio_bench corpus (93% vs streaming's 82%); the ~11x streaming RTF
-        // is traded for accuracy. Flip streaming=true to return to the battery config.
+        // Accuracy config (v13, 2026-07-11): WINDOWED + fresh-context suffix decode — sidesteps
+        // the model's repeated-phrase suppression on continuous recitation (audio_bench 145/151
+        // = 96% vs 138 for the earlier vadReset config, which the suffix pass SUBSUMES — reset
+        // stays off). Flip streaming=true to return to the battery config (no suffix there yet).
         detector = QuranReciteDetector(this, Config(
-            mode = Mode.CHAIN, chainSubMin = 0.0f, streaming = false, chainVadReset = true))
+            mode = Mode.CHAIN, chainSubMin = 0.0f, streaming = false, chainSuffixSec = 5.0f))
 
         setContent {
             MaterialTheme {

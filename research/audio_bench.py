@@ -117,6 +117,14 @@ ARMS = {
     # mic model + mic streaming graphs (the post-revert default-SDK streaming config;
     # requires export/onnx/stream_* re-exported from best_s123_mic)
     "micstream": dict(model=REPO / "export/onnx/model_s123_mic_22s.int8.onnx", stream=True),
+    # v13 fresh-context suffix decode (repetition suppression fix; 5s standalone decode/hop)
+    "micsufvad": dict(model=REPO / "export/onnx/model_s123_mic_22s.int8.onnx", vad=True,
+                      env={"QR_SUFFIX": str(REPO / "export/onnx/model_s123_mic_5s.int8.onnx")}),
+    "micsuf":    dict(model=REPO / "export/onnx/model_s123_mic_22s.int8.onnx",
+                      env={"QR_SUFFIX": str(REPO / "export/onnx/model_s123_mic_5s.int8.onnx")}),
+    "micsuf7":   dict(model=REPO / "export/onnx/model_s123_mic_22s.int8.onnx",
+                      env={"QR_SUFFIX": str(REPO / "export/onnx/model_s123_mic_7s.int8.onnx"),
+                           "QR_SUFFIX_SEC": "7"}),
 }
 
 def truth_str(seq): return [f"{s}:{a}" for s, a in seq]

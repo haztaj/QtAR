@@ -241,7 +241,29 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   truth costs prove 2/3 detectable) — candidate fix: matcher-state-aware pre-commit reset.
   Deployment decisions pending (user): model revert (needs streaming-graph re-export from
   best_s123_mic + re-hosting), enabling vadReset windowed (trades the ~11x streaming RTF).
-  See research/CLAUDE.md "Reassessment / taint audit".
+  See research/CLAUDE.md "Reassessment / taint audit". **RESOLVED same day:** model reverted +
+  re-hosted (best_s123_mic-22s-v2, streaming graphs re-exported); the windowed accuracy config
+  shipped, then superseded by v13 (next entry).
+- **Repetition suppression + v13 fresh-context suffix decode — found, fixed, shipped
+  (2026-07-11 pm).** A post-rollout live report ("tracking is very bad") root-caused to a MODEL
+  pathology, not a regression: the Emformer's left-context memory DELETES repeated phrases in
+  continuous audio (proved by a context-replacement probe: «maliki n-naas» decodes 16 ph
+  standalone, 5 ph with the true preceding audio — ending in the same phrase — in memory).
+  Repetitive short surahs (112/114) recited continuously are the worst case; the model only ever
+  trained on single-ayah clips. RETRO-EXPLAINS the crowding episode (focused windows work by
+  flushing the repeated phrase from the model memory). Two shipped fixes: (a) interim
+  confident-emission-armed reset gate (`max(lastConfirmSec, lastEmitSec)` anchor, bar
+  0.5x chainCost); (b) **v13 — per-hop standalone decode of the buffer's last 5 s through a
+  right-sized graph (`Config.chainSuffixSec`/`chainSuffixModelPath`, model_suffix.int8.onnx),
+  fed to a restricted two-window matched-filter pass. audio_bench 145/151 (96%) vs 138 (91%);
+  SUBSUMES chainVadReset (off in the demo); skips while expecting a unit too long for its length
+  gate (Baqarah junk-flood guard); 7 s variant rejected (140). ~+15% hop decode cost. Wired
+  C++ -> JNI -> Kotlin; delivered via manifest `suffixModel` + `-PbundleSuffix`; hosted;
+  user-validated live ("live testing was great").** Root fix queued: phase-3 concatenation
+  training (continuous multi-ayah training clips synthesized from the existing corpus — no new
+  data needed; acceptance = the context-replacement probe). Streaming-side v13 variant
+  (parallel reset-every-5s stream) designed, unbuilt. See research/CLAUDE.md "Repetition
+  suppression".
 - **Commit policy tuned** (`matcher/CommitTracker`): persistence K is the lever, not
   the threshold. Default T=0.15/K=5. See matcher/CLAUDE.md.
 - **ONNX export working** (`export/onnx/`): fp32 43.8 MB / int8 15.2 MB, parity 1.5e-5,

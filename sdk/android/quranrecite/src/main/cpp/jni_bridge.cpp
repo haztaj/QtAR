@@ -106,7 +106,8 @@ Java_com_quranrecite_sdk_QuranReciteDetector_nativeCreate(
         jstring tokensPath, jstring filterbankPath, jstring hannPath, jstring ambiguousPath,
         jstring vadPath, jint mode, jstring unitPhonemesPath, jfloat chainCost,
         jfloat chainSubMin, jstring streamConvPath, jstring streamEncoderPath,
-        jboolean chainVadReset, jfloat chainResetMaxGap) {
+        jboolean chainVadReset, jfloat chainResetMaxGap,
+        jstring suffixModelPath, jfloat chainSuffixSec) {
     auto* h = new Handle();
     env->GetJavaVM(&h->vm);
     h->self = env->NewGlobalRef(thiz);
@@ -136,6 +137,9 @@ Java_com_quranrecite_sdk_QuranReciteDetector_nativeCreate(
     // only when the pause closely follows a commit (see types.h chainResetMaxGap).
     cfg.chainVadReset = chainVadReset == JNI_TRUE;
     cfg.chainResetMaxGap = chainResetMaxGap;
+    // v13 fresh-context suffix decode (windowed Chain; empty path or 0 sec -> off).
+    cfg.chainSuffixModelPath = jstr(env, suffixModelPath);
+    cfg.chainSuffixSec = chainSuffixSec;
 
     h->det = std::make_unique<Detector>(cfg);
     h->det->setEventCallback([h](const AyahEvent& e) { postEvent(h, e); });

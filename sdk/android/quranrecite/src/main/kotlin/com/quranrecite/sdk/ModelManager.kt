@@ -20,6 +20,7 @@ data class ModelAssets(
     val unitPhonemesPath: String,// waqf-segment unit lexicon; "" if not bundled (Chain mode off)
     val streamConvPath: String = "",    // streaming Conv2dSubsampling ONNX; "" -> windowed decode
     val streamEncoderPath: String = "", // streaming Emformer-step ONNX; "" -> windowed decode
+    val suffixModelPath: String = "",   // v13 fresh-context 5s graph; "" -> suffix pass off
 )
 
 /** A hosted file + its expected sha256 (a manifest sub-asset). */
@@ -32,6 +33,7 @@ private data class RemoteAsset(val url: String, val sha256: String)
 private data class ModelRelease(
     val version: String, val url: String, val sha256: String, val description: String,
     val streamConv: RemoteAsset?, val streamEncoder: RemoteAsset?,
+    val suffixModel: RemoteAsset?,   // v13 fresh-context graph (version-coupled, optional)
 )
 
 /**
@@ -96,14 +98,18 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
                     extractBundled(STREAM_CONV, into = streamDir) else ""
                 var streamEnc = if (assetExists("quranrecite/$STREAM_ENCODER"))
                     extractBundled(STREAM_ENCODER, into = streamDir) else ""
+                var suffix = if (assetExists("quranrecite/$SUFFIX_MODEL"))
+                    extractBundled(SUFFIX_MODEL, into = streamDir) else ""
                 // Fetch the manifest ONCE (skipped entirely for a fully-bundled model — no network).
                 val bundledModel = assetExists("quranrecite/$BUNDLED_MODEL")
                 val release = if (bundledModel) null else fetchManifest()
                 val model = resolveModel(bundledModel, release, onProgress, onModelUpdate)
                 if (streamConv.isEmpty() && release != null)
                     resolveStreaming(release, onProgress)?.let { streamConv = it.first; streamEnc = it.second }
+                if (suffix.isEmpty() && release != null)
+                    suffix = resolveSuffix(release, onProgress) ?: ""
                 onReady(ModelAssets(model, lexicon, tokens, filterbank, hann, ambiguous, vad, units,
-                    streamConv, streamEnc))
+                    streamConv, streamEnc, suffix))
             } catch (t: Throwable) {
                 onError(t)
             }
@@ -162,9 +168,29 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
                     dest.delete(); error("Streaming graph failed sha256 verification (${dest.name})")
                 }
             }
-            streamDir.listFiles { f -> f.extension == "onnx" && f != convFile && f != encFile }
+            // Prune older stream graphs only (the suffix graph shares this dir — see resolveSuffix).
+            streamDir.listFiles { f -> f.name.contains(".stream_") && f != convFile && f != encFile }
                 ?.forEach { it.delete() }
             convFile.absolutePath to encFile.absolutePath
+        }.getOrNull()
+    }
+
+    /** Download (or reuse the cached) v13 fresh-context suffix graph for [release], version-keyed +
+     *  sha256-verified. Null when absent from the manifest or on failure (non-fatal — the suffix
+     *  pass is an accuracy optimization, never a hard dependency). */
+    private fun resolveSuffix(release: ModelRelease, onProgress: (Float) -> Unit): String? {
+        val asset = release.suffixModel ?: return null
+        return runCatching {
+            val dest = File(streamDir, "${release.version}.suffix.onnx")
+            if (!dest.exists() || (asset.sha256.isNotEmpty() && sha256(dest) != asset.sha256)) {
+                download(asset.url, dest, onProgress)
+                if (asset.sha256.isNotEmpty() && sha256(dest) != asset.sha256) {
+                    dest.delete(); error("Suffix graph failed sha256 verification (${dest.name})")
+                }
+            }
+            streamDir.listFiles { f -> f.name.endsWith(".suffix.onnx") && f != dest }
+                ?.forEach { it.delete() }
+            dest.absolutePath
         }.getOrNull()
     }
 
@@ -186,7 +212,7 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
             }
             ModelRelease(o.getString("version"), o.getString("url"),
                 o.optString("sha256", ""), o.optString("description", ""),
-                asset("streamConv"), asset("streamEncoder"))
+                asset("streamConv"), asset("streamEncoder"), asset("suffixModel"))
         }.getOrNull()
     }
 
@@ -257,5 +283,8 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
         // same checkpoint). Present -> Mode.CHAIN can decode incrementally (Config.streaming).
         const val STREAM_CONV = "stream_conv.onnx"
         const val STREAM_ENCODER = "stream_encoder.int8.onnx"
+        // v13 fresh-context suffix graph (right-sized 5 s export of the SAME checkpoint) —
+        // bundled by -PbundleSuffix or delivered via the manifest's "suffixModel" key.
+        const val SUFFIX_MODEL = "model_suffix.int8.onnx"
     }
 }

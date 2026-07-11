@@ -482,10 +482,24 @@ Mitigations, in order of depth:
 - **`chainEmitTrimKeep` (experimental, off):** trim the rolling buffer on every emission. Fixed
   112 alone but NOT the continuous 114 take — the suppressor phrase survives any trim that keeps
   the successor's prefix. Kept for ablation.
-- **Fresh-context suffix window (v13 candidate, next):** per hop, ALSO decode the last ~5 s
-  standalone (fresh memory — the exact condition the slice probe shows works) and feed it to the
-  matched-filter bank as an extra window. Sidesteps suppression at runtime for windowed AND
-  conceptually maps to a periodic-state-reset variant for streaming.
+- **Fresh-context suffix window — v13, MEASURED + WINNING (2026-07-11 pm).** Per hop, ALSO
+  decode the rolling buffer's last 5 s STANDALONE through a right-sized graph
+  (`model_s123_mic_5s.int8.onnx`, --fixed-frames 516, RTF 0.002) and match over it with a
+  restricted two-window bank (full suffix + last 2 s). Fresh Emformer memory sidesteps the
+  suppression unconditionally — no pause, no commit, no VAD needed. `Config.chainSuffixSec` +
+  `chainSuffixModelPath` (0/empty = off); `QR_SUFFIX`/`QR_SUFFIX_SEC` in test_detector.
+  **Bench 145/151 (96%) vs the shipped micvad config 138 (91%):** continuous-114 take 1/4 ->
+  4/4 EXACT, both real_112_114 takes EXACT, fix_98 1/3 -> 2/3 at 5 s... iteration lessons:
+  (1) **the suffix pass SUBSUMES chainVadReset** (suffix-without-reset 144 > with-reset 143 —
+  the reset is net-negative alongside it; v13 ships with vadReset OFF); (2) mid-LONG-ayah
+  suffix junk (0.42-0.43 fires) floods the assembler's 2-deep pending buffer and evicts true
+  pendings (Baqarah -2) -> **skip the pass while the voter EXPECTS a unit too long to fit the
+  suffix's length gate** (len > 6.5 x suffixSec ~ 32 ph; no streak requirement — a lone jump
+  emission counts); (3) **7 s suffix REGRESSES overall (140)** — wider window re-admits
+  mid-band junk on quiet takes + carries more suppressing context; it did lift fix_98 to its
+  2/3 decode ceiling, but 5 s is the operating point (fix_98's medium-unit ceiling = phase-3's
+  job). Cost: ~+15% hop decode desktop (405 ms/hop incl. suffix). Streaming variant (parallel
+  reset-every-5s stream, possibly staggered x2) is designed but unbuilt — windowed first.
 - **Concatenation training, phase 3 (the root fix):** synthesize continuous multi-ayah training
   clips from the existing corpus (consecutive ayat, same reciter, short gaps). Teaches the
   encoder to emit repeats; no new data collection. Validate with the context-replacement probe +
