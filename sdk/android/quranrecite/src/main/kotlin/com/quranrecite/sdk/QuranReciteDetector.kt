@@ -88,7 +88,20 @@ data class Config(
     // delivered by the manifest alongside the model (or bundled via -PbundleStreaming), and it
     // falls back to the windowed re-decode whenever they are absent (first launch offline, or a
     // manifest without them), so leaving it on is safe. See export/streaming-export-plan.md.
+    // NOTE (taint audit 2026-07-11): on hard/quiet real audio streaming and windowed DIVERGE;
+    // windowed + chainVadReset is the measured accuracy config (audio_bench 93% vs 82%) at the
+    // cost of the ~11x decode RTF.
     val streaming: Boolean = true,
+    // Focused-window VAD reset (Mode.CHAIN, WINDOWED only — a designed no-op when streaming):
+    // on a Silero speech-END shortly after a unit commit, drop the buffered audio/phonemes so
+    // the next ayah decodes in a focused window (fixes the 22 s rolling window crowding out
+    // short units on phone-mic decodes; measured +8..11 units on the audio_bench real corpus).
+    // Requires the VAD asset. See research/CLAUDE.md "Rolling-window CROWDING".
+    val chainVadReset: Boolean = false,
+    // Gate for chainVadReset: reset only if the pause follows the last commit within this many
+    // seconds (a short ayah commits then pauses; a long ayah's mid-breath comes later — no
+    // reset, its prefix survives). Measured sweet spot 4.0.
+    val chainResetMaxGap: Float = 4.0f,
 )
 
 /**
@@ -175,7 +188,8 @@ class QuranReciteDetector(
                     assets.modelPath, assets.lexiconPath, assets.tokensPath,
                     assets.filterbankPath, assets.hannPath, assets.ambiguousPath, assets.vadPath,
                     config.mode.ordinal, assets.unitPhonemesPath, config.chainCost,
-                    config.chainSubMin, streamConv, streamEnc)
+                    config.chainSubMin, streamConv, streamEnc,
+                    config.chainVadReset, config.chainResetMaxGap)
                 nativeSetDebug(nativeHandle, debugLogging)      // carry the current flag to the engine
                 mainHandler.post { listener?.onModelReady() }
             },
@@ -244,7 +258,8 @@ class QuranReciteDetector(
         modelPath: String, lexiconPath: String, tokensPath: String,
         filterbankPath: String, hannPath: String, ambiguousPath: String, vadPath: String,
         mode: Int, unitPhonemesPath: String, chainCost: Float, chainSubMin: Float,
-        streamConvPath: String, streamEncoderPath: String): Long
+        streamConvPath: String, streamEncoderPath: String,
+        chainVadReset: Boolean, chainResetMaxGap: Float): Long
     private external fun nativeFeed(handle: Long, pcm: ShortArray, sampleRate: Int)
     private external fun nativeReset(handle: Long)
     private external fun nativeSetDebug(handle: Long, enabled: Boolean)

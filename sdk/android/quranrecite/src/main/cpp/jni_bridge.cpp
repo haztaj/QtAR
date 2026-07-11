@@ -105,7 +105,8 @@ Java_com_quranrecite_sdk_QuranReciteDetector_nativeCreate(
         JNIEnv* env, jobject thiz, jstring modelPath, jstring lexiconPath,
         jstring tokensPath, jstring filterbankPath, jstring hannPath, jstring ambiguousPath,
         jstring vadPath, jint mode, jstring unitPhonemesPath, jfloat chainCost,
-        jfloat chainSubMin, jstring streamConvPath, jstring streamEncoderPath) {
+        jfloat chainSubMin, jstring streamConvPath, jstring streamEncoderPath,
+        jboolean chainVadReset, jfloat chainResetMaxGap) {
     auto* h = new Handle();
     env->GetJavaVM(&h->vm);
     h->self = env->NewGlobalRef(thiz);
@@ -131,6 +132,10 @@ Java_com_quranrecite_sdk_QuranReciteDetector_nativeCreate(
     // weights as modelPath.
     cfg.streamConvPath = jstr(env, streamConvPath);
     cfg.streamEncoderPath = jstr(env, streamEncoderPath);
+    // Focused-window VAD reset (windowed Chain only — safe no-op in streaming). Gated: reset
+    // only when the pause closely follows a commit (see types.h chainResetMaxGap).
+    cfg.chainVadReset = chainVadReset == JNI_TRUE;
+    cfg.chainResetMaxGap = chainResetMaxGap;
 
     h->det = std::make_unique<Detector>(cfg);
     h->det->setEventCallback([h](const AyahEvent& e) { postEvent(h, e); });
