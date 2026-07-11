@@ -201,13 +201,25 @@ class AyahDataset(Dataset):
         self.tok2id = load_tokens()
         self.ayah_ph = load_ayah_phonemes()
 
-        # Drop rows whose ayah has no phoneme transcript (shouldn't happen).
-        keys = df.apply(lambda r: f"{r['surah_id']}:{r['ayah_id']}", axis=1)
-        mask = keys.isin(self.ayah_ph.keys())
+        # Phase-3 WINDOW rows (continuous-corpus multi-ayah windows — see
+        # data/make_phase3_windows.py) carry their OWN label in a `phonemes` column and
+        # reference a raw .pcm file + second offsets (sliced via np.memmap in __getitem__).
+        # Per-ayah rows derive the label from surah_id:ayah_id as before; one manifest may
+        # mix both row kinds (data/make_phase3_manifest.py).
+        if "phonemes" not in df.columns:
+            df["phonemes"] = None
+        windowed = df["phonemes"].apply(lambda p: isinstance(p, str) and len(p) > 0)
+        keys = df.apply(lambda r: f"{r.get('surah_id', 0)}:{r.get('ayah_id', 0)}", axis=1)
+        mask = windowed | keys.isin(self.ayah_ph.keys())
         if (~mask).any():
             print(f"[{tag}] dropping {(~mask).sum()} rows without phonemes")
         self.df = df[mask.values].reset_index(drop=True)
-        self.keys = [f"{r.surah_id}:{r.ayah_id}" for r in self.df.itertuples()]
+        self.windowed = windowed[mask.values].reset_index(drop=True)
+        self.keys = ["" if w else f"{r.surah_id}:{r.ayah_id}"
+                     for w, r in zip(self.windowed, self.df.itertuples())]
+        if int(self.windowed.sum()):
+            print(f"[{tag}] rows: {int(self.windowed.sum())} continuous-window (phase-3) "
+                  f"+ {int((~self.windowed).sum())} per-ayah")
 
         # Augmentation (train only). Built lazily to stay import-light.
         self.augment = augment
@@ -232,7 +244,15 @@ class AyahDataset(Dataset):
 
     def __getitem__(self, i: int):
         row = self.df.iloc[i]
-        wav = load_wav_16k(row["path"])           # 16 kHz mono
+        if self.windowed.iloc[i]:
+            # continuous-corpus window: slice the raw PCM cache (int16 mono 16 kHz)
+            a = int(float(row["start_s"]) * SAMPLE_RATE)
+            b = int(float(row["end_s"]) * SAMPLE_RATE)
+            pcm = np.memmap(row["path"], dtype=np.int16, mode="r")
+            wav = torch.from_numpy(
+                np.asarray(pcm[a:min(b, pcm.shape[0])], dtype=np.float32) / 32768.0)
+        else:
+            wav = load_wav_16k(row["path"])       # 16 kHz mono
         if self.augment:
             try:                                   # never let augmentation crash training
                 with _suppress_c_stderr():        # codec round-trip is chatty
@@ -243,13 +263,16 @@ class AyahDataset(Dataset):
         feats = logmel_16k(wav)
         if self.augment:
             feats = self._spec_aug(feats)
-        phonemes = self.ayah_ph[self.keys[i]]
+        phonemes = (row["phonemes"].split() if self.windowed.iloc[i]
+                    else self.ayah_ph[self.keys[i]])
         target = torch.tensor([self.tok2id[p] for p in phonemes], dtype=torch.long)
         return {
             "features": feats,                    # [T, N_MELS]
             "target": target,                     # [U]
-            "surah_id": int(row["surah_id"]),
-            "ayah_id": int(row["ayah_id"]),
+            # window rows from a raw windows CSV use surah/ayah_from; the mixed manifest
+            # (make_phase3_manifest.py) normalizes to surah_id/ayah_id
+            "surah_id": int(row.get("surah_id", row.get("surah", 0))),
+            "ayah_id": int(row.get("ayah_id", row.get("ayah_from", 0))),
         }
 
 

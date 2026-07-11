@@ -264,6 +264,19 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   data needed; acceptance = the context-replacement probe). Streaming-side v13 variant
   (parallel reset-every-5s stream) designed, unbuilt. See research/CLAUDE.md "Repetition
   suppression".
+- **Phase-3 continuous-corpus training — DONE, ship candidate `best_s123_p31` (2026-07-11 pm).**
+  User-sourced real continuous per-surah recitations (45.2 h / 7 voices; held-out test reciter
+  quarantined eval-only) replaced synthetic concatenation. Full pipeline built + validated in
+  one evening: spec-driven downloader, hierarchical alignment (99.9% of ~9,700 ayat, incl.
+  4.4 h Baqarah files), <=28 s multi-ayah training windows over a PCM memmap cache, mixed
+  manifest, mechanistic suppression probe (`research/probe_suppression.py`). **Result: the
+  repetition-suppression pathology is FIXED at the source** (in-context/alone ratio 0.43 ->
+  0.88-0.94, including on the held-out voice). p3 alone failed the bench gate (141 < 145 —
+  clean windows diluted quiet-mic robustness); a 5-epoch phase-2 RESTORE (p3.1) recovered it:
+  **bench 145/151 (= anchor), learner 85.3% (best ever), clean test 96.2% (best ever), val PER
+  0.069.** v13 suffix remains necessary (+7 even on the fixed model); streaming remains behind
+  on hard audio (125) — its deficit is not only suppression. Deployment (v3 hosting) pending
+  user go. See research/CLAUDE.md "Phase-3 concatenation training".
 - **Commit policy tuned** (`matcher/CommitTracker`): persistence K is the lever, not
   the threshold. Default T=0.15/K=5. See matcher/CLAUDE.md.
 - **ONNX export working** (`export/onnx/`): fp32 43.8 MB / int8 15.2 MB, parity 1.5e-5,

@@ -117,6 +117,19 @@ ARMS = {
     # mic model + mic streaming graphs (the post-revert default-SDK streaming config;
     # requires export/onnx/stream_* re-exported from best_s123_mic)
     "micstream": dict(model=REPO / "export/onnx/model_s123_mic_22s.int8.onnx", stream=True),
+    # phase-3 concatenation-trained model (continuous-corpus fine-tune of best_s123_mic)
+    "p31suf":   dict(model=REPO / "export/onnx/model_s123_p31_22s.int8.onnx",
+                     env={"QR_SUFFIX": str(REPO / "export/onnx/model_s123_p31_5s.int8.onnx")}),
+    "p3":       dict(model=REPO / "export/onnx/model_s123_p3_22s.int8.onnx"),
+    "p3suf":    dict(model=REPO / "export/onnx/model_s123_p3_22s.int8.onnx",
+                     env={"QR_SUFFIX": str(REPO / "export/onnx/model_s123_p3_5s.int8.onnx")}),
+    "p3stream": dict(model=REPO / "export/onnx/model_s123_p3_22s.int8.onnx",
+                     stream=(REPO / "export/onnx/p3_stream/stream_conv.onnx",
+                             REPO / "export/onnx/p3_stream/stream_encoder.int8.onnx")),
+    "p3lastsuf": dict(model=REPO / "export/onnx/model_s123_p3last_22s.int8.onnx",
+                      env={"QR_SUFFIX": str(REPO / "export/onnx/model_s123_p3_5s.int8.onnx")}),
+    "p3sufvad": dict(model=REPO / "export/onnx/model_s123_p3_22s.int8.onnx", vad=True,
+                     env={"QR_SUFFIX": str(REPO / "export/onnx/model_s123_p3_5s.int8.onnx")}),
     # v13 fresh-context suffix decode (repetition suppression fix; 5s standalone decode/hop)
     "micsufvad": dict(model=REPO / "export/onnx/model_s123_mic_22s.int8.onnx", vad=True,
                       env={"QR_SUFFIX": str(REPO / "export/onnx/model_s123_mic_5s.int8.onnx")}),
@@ -158,8 +171,10 @@ def detect(wav, arm):
     if spec.get("vad"): env["QR_VAD"] = str(VAD)
     cmd = [str(BIN), str(spec.get("model", MODEL)), str(CONF), str(wav), "--chain"]
     if spec.get("stream"):
-        assert all(p.exists() for p in STREAM), "streaming graphs missing"
-        cmd += [str(STREAM[0]), str(STREAM[1])]
+        # True -> the global (deployed-model) graphs; a tuple -> arm-specific graphs
+        graphs = STREAM if spec["stream"] is True else list(spec["stream"])
+        assert all(p.exists() for p in graphs), f"streaming graphs missing: {graphs}"
+        cmd += [str(graphs[0]), str(graphs[1])]
     r = subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=600)
     seq, prov = [], None
     for line in r.stdout.splitlines():

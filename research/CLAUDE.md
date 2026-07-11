@@ -505,6 +505,41 @@ Mitigations, in order of depth:
   encoder to emit repeats; no new data collection. Validate with the context-replacement probe +
   audio_bench gate.
 
+## Phase-3 concatenation training — the repetition-suppression ROOT FIX (2026-07-11 pm)
+
+Real continuous per-surah recitations (user-sourced, licensing cleared) replaced the synthetic
+concatenation plan. **Corpus:** 45.2 h / 360 files / 9 sources / 7 voices
+(`data/raw/continuous/`, spec-driven `data/download_continuous.py`); `yasser_ad_dussary` is a
+held-out TEST reciter -> quarantined EVAL-ONLY (`_meta.eval_only`). **Labeling:** hierarchical
+alignment (`data/align_continuous.py`): chunked whole-file log-probs (28 s windows, settled-
+interior stitching — contiguous-by-construction after a seam-hole bug) -> banded edit DP with
+free leading/trailing skip (absorbs isti'adha/basmala) -> per-ayah forced-align refinement.
+Full sweep: **~9,700 ayah alignments, 8 flagged (99.9%)**, incl. three 2-4.4 h Baqarah files at
+100% span. **Windows:** `make_phase3_windows.py` -> 5,344 train (34.6 h) + 697 eval windows
+(<=28 s multi-ayah, midpoint-reconciled bounds, flag-excluded); PCM memmap cache
+(`extract_continuous_pcm.py`) so the Dataset slices instantly; `AyahDataset` handles mixed
+per-ayah + window rows (`make_phase3_manifest.py`).
+
+**Gates + iteration (selection by gates, NEVER val PER — the taint-audit rule):**
+- `research/probe_suppression.py` — the mechanistic gate: in-context/alone phoneme ratio on
+  regions following repeated phrases (user takes + held-out yasser continuous).
+  **baseline best_s123_mic 0.434; p3 0.94 — suppression GONE, including on the held-out voice.**
+- **p3** (15 ep fine-tune of best_s123_mic on the mixed manifest, lr 1e-4): probe PASS, learner
+  84.0 (best), clean 96.0, val PER 0.072 — but **bench p3suf 141 < anchor 145: GATE FAIL.**
+  Losses concentrated in the quiet-mic long-ayah family — 35 h of clean pro windows diluted
+  poor-mic robustness. Also: **suffix still +7 on p3 (v13 NOT retired)** and **p3stream 125 —
+  streaming's deficit is more than suppression; the battery config did not come back.**
+- **p3.1 RESTORE** (5 ep on the pure phase-2 manifest from best_s123_p3, lr 5e-5): suppression
+  mostly STICKY (0.876), quiet-mic edge restored. **Bench p31suf 145/151 = anchor tie; learner
+  85.3 (best ever); clean 96.2 (best ever); val PER 0.069.** Strictly better than the deployed
+  model on every axis except a bench tie -> the ship candidate (`best_s123_p31.pt`).
+
+Lessons: (1) the root fix works exactly as diagnosed — the model deletes repeats only because
+single-ayah training never showed it continuous audio; (2) capability mixing needs a restore
+pass — new-regime data dilutes old-regime robustness, and a short low-LR polish on the old mix
+recovers it while the new capability sticks; (3) v13 remains necessary (decoder-level windows
+still pay even with a healthy decode); (4) streaming's hard-audio deficit persists post-fix.
+
 ## Segment-level ambiguity map (matcher/find_ambiguous.py --units)
 
 Formalizes the twin classes for the production deferral layer:
