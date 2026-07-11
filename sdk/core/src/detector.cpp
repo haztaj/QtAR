@@ -468,10 +468,34 @@ struct Detector::Impl {
             const int exp = chainVoter->expectedUnit();
             if (exp >= 0 && chainVoter->streak() >= 1 && (int)ph.size() >= 4) {
                 const int L = units->len(exp);
-                const int minI = std::max(6, (int)std::ceil(cfg.chainEarlyPrefix * L - 1e-9));
+                int minI = std::max(6, (int)std::ceil(cfg.chainEarlyPrefix * L - 1e-9));
+                // Near-twin discrimination guard: consecutive ayat that are near-copies
+                // (surah 113's «wa min sharri...» family) let the EXPECTED unit's prefix
+                // match while the PREVIOUS unit is still being recited — early fires then
+                // run several ayat ahead of the reciter (live report + trace, 2026-07-11 pm;
+                // unmasked by the phase-3 decode, which no longer deletes the repeats).
+                // Thresholds can't fix it — the prefix carries no discriminative information.
+                // Gate: the early evidence must fit `expected` decisively BETTER than
+                // `expected` resembles the unit that set the expectation:
+                //     prefixCost <= dist(expected, lastEmitted) - margin
+                // Distinct successors (dist ~0.8+) fire as before; near-twins wait for the
+                // whole-unit window match at the true boundary.
+                double twinDist = 1.0;
+                if (!chainVoter->emitted().empty()) {
+                    const auto& a = units->phonemes(chainVoter->emitted().back().unit);
+                    const auto& b = units->phonemes(exp);
+                    std::size_t lcp = 0;
+                    while (lcp < a.size() && lcp < b.size() && a[lcp] == b[lcp]) ++lcp;
+                    minI = std::max(minI, (int)lcp + 4);
+                    // distance over the REGION THE PROBE SEES (the first minI phonemes) —
+                    // 113's twins differ in their tails, so a full-ref distance never bites
+                    std::vector<int> ap(a.begin(), a.begin() + std::min((std::size_t)minI, a.size()));
+                    std::vector<int> bp(b.begin(), b.begin() + std::min((std::size_t)minI, b.size()));
+                    twinDist = normEditDist(ap, bp);
+                }
                 if (L >= minI) {
                     const double pc = prefixNorm(units->phonemes(exp), ph, minI);
-                    if (pc <= cfg.chainCost) {
+                    if (pc <= cfg.chainCost && pc <= twinDist - 0.15) {
                         if (auto em = chainVoter->onFire(timeSec, exp, pc)) {
                             if (debug) QR_LOG("chain EARLY %s cost=%.2f at %.1fs",
                                               units->key(em->unit).c_str(), pc, timeSec);

@@ -540,6 +540,21 @@ pass — new-regime data dilutes old-regime robustness, and a short low-LR polis
 recovers it while the new capability sticks; (3) v13 remains necessary (decoder-level windows
 still pay even with a healthy decode); (4) streaming's hard-audio deficit persists post-fix.
 
+**Post-ship live finding — early-prefix runaway on near-twin successors (fixed same evening).**
+On-device v3 test: during surah 113 the highlight ran ~13 s AHEAD of the reciter — ayat 3/4/5
+EARLY-fired at 1.5 s intervals on the shared «wa min sharri...» opening (trace: costs
+0.40/0.40/0.14). The healthy phase-3 decode UNMASKED this: suppression used to mangle the
+repeated prefix, accidentally starving the v11 early-prefix probe. Two guard designs measured:
+(a) LCP-raised minimum length — NO effect (the probe is edit-normalized; a 0.45 threshold
+tolerates the post-LCP mismatches); (b) full-ref twin-distance margin — NO effect (113's twins
+differ in their TAILS; the probe only sees the prefix). The fix: **discrimination margin over
+the REGION THE PROBE SEES** — early fire requires `prefixCost <= normEditDist(first-minI
+phonemes of expected vs of last-emitted) - 0.15` (`normEditDist` in chain.cpp). Session replay:
+113 commits 19.5/21/22.5/24 s -> 19.5/22.5/28.5/33 s (tracking the recitation, which ran to
+~37 s), sequence still exact 15/15; bench 145/151 held; conformance ALL PASS; user-verified
+live ("113 tracking is fixed"). Distinct successors (prefix distance ~0.7+) early-fire as
+before — the guard only defers fires whose evidence cannot tell the next ayah from the current.
+
 ## Segment-level ambiguity map (matcher/find_ambiguous.py --units)
 
 Formalizes the twin classes for the production deferral layer:

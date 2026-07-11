@@ -236,6 +236,20 @@ double prefixNorm(const std::vector<int>& ref, const std::vector<int>& win, int 
     return best;
 }
 
+double normEditDist(const std::vector<int>& a, const std::vector<int>& b) {
+    const int m = (int)a.size(), n = (int)b.size();
+    std::vector<int> prev(n + 1), cur(n + 1);
+    for (int j = 0; j <= n; ++j) prev[j] = j;
+    for (int i = 1; i <= m; ++i) {
+        cur[0] = i;
+        for (int j = 1; j <= n; ++j)
+            cur[j] = std::min({prev[j] + 1, cur[j - 1] + 1,
+                               prev[j - 1] + (a[i - 1] != b[j - 1] ? 1 : 0)});
+        std::swap(prev, cur);
+    }
+    return (double)prev[n] / std::max(1, std::max(m, n));
+}
+
 void ChainVoter::reset() {
     emitted_.clear();
     expected_ = pending_ = -1;

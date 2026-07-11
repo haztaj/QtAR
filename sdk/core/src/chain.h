@@ -140,6 +140,9 @@ std::pair<int, double> windowBest(const std::vector<int>& win, const UnitIndex& 
 // >= minI of cost/len. (_prefix_norm in the reference.)
 double prefixNorm(const std::vector<int>& ref, const std::vector<int>& win, int minI);
 
+// Plain Levenshtein / max(len) — near-twin distance for the early-prefix discrimination guard.
+double normEditDist(const std::vector<int>& a, const std::vector<int>& b);
+
 // Offline decode of a full phoneme stream (per-phoneme times, seconds): enumerate all
 // multi-scale windows, sort fires like the reference ((w1, key, cost) tuple order),
 // run the vote machine. The conformance entry point.
