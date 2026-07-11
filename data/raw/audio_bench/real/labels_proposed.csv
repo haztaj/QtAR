@@ -24,3 +24,5 @@ session_1783458914531.wav,2:285,16.0,0.0,EAR_CONFIRM (aamana r-rasuulu...),
 session_1783459326454.wav,,49.1,0.0,UNCLEAR decode; ear needed,
 session_1783459420705.wav,,1.9,0.0,TOO_SHORT,
 session_1783511790347.wav,2:255-257,108.1,115.1,OK,2:255 2:256 2:257
+session_1783772776305.wav,112:1-4,17.2,,CHECK_TAIL (bad-tracking take 2026-07-11 pm; window probe shows 112:1-4; a trailing 112:1 re-recite?),
+session_1783772836602.wav,114:1-4,20.6,,CHECK_TAIL (continuous fast take; probe shows 114:1-4; did you finish 114:5-6?),

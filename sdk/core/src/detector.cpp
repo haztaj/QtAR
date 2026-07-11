@@ -22,7 +22,9 @@
 #include <android/log.h>
 #define QR_LOG(...) __android_log_print(ANDROID_LOG_INFO, "QuranReciteCore", __VA_ARGS__)
 #else
-#define QR_LOG(...) ((void)0)
+// Desktop (harness/debug): same per-hop engine log to stderr, still gated on setDebug(true)
+// at every call site (test_detector enables it via QR_DEBUG=1).
+#define QR_LOG(...) (std::fprintf(stderr, "[core] " __VA_ARGS__), std::fprintf(stderr, "\n"))
 #endif
 
 namespace quranrecite {
@@ -113,6 +115,9 @@ struct Detector::Impl {
     bool upNextShown = false;     // upNext already revealed for the current active ayah
     std::atomic<bool> debug{false};   // runtime debug logging (see setDebug)
     double lastConfirmSec = -1e9;     // time of the last confirmed unit (chainResetMaxGap gate)
+    double lastEmitSec = -1e9;        // time of the last voter EMISSION (pre-commit gate arm:
+                                      // cold-start takes emit + defer but never confirm, so the
+                                      // commit-only gate starved them of the focused window)
 
     explicit Impl(const Config& c)
         : cfg(c),
@@ -148,6 +153,19 @@ struct Detector::Impl {
     // only — see the VAD gate in feed(): streaming decodes incrementally, so clearing the buffer
     // can't recover crowded tail phonemes (measured no gain + slight harm) and would break its
     // absolute output-frame time axis; chainVadReset is a no-op in streaming mode.
+    // Drop rolling audio before absolute stream second `fromSec` (windowed chain only). The
+    // whole-buffer decode's time axis derives from totalSamples - rolling.size(), so the trim
+    // keeps all bookkeeping consistent; chain context (voter/assembler) is untouched.
+    void focusTrim(double fromSec) {
+        const long bufStart = totalSamples - (long)rolling.size();
+        long cut = (long)(fromSec * kSr) - bufStart;
+        if (cut <= 0) return;
+        if (cut > (long)rolling.size()) cut = (long)rolling.size();
+        if (debug) QR_LOG("chain EMIT -> focusTrim to %.1fs (dropped %.1fs)",
+                          fromSec, (double)cut / kSr);
+        rolling.erase(rolling.begin(), rolling.begin() + cut);
+    }
+
     void boundaryReset() {
         if (debug) QR_LOG("VAD speech-END -> boundaryReset at %.1fs", (double)totalSamples / kSr);
         rolling.clear();
@@ -396,9 +414,22 @@ struct Detector::Impl {
             if (auto em = chainVoter->onFire(timeSec, u, cost)) {
                 if (debug) QR_LOG("chain EMIT %s cost=%.2f at %.1fs",
                                   units->key(em->unit).c_str(), cost, timeSec);
+                // Pre-commit VAD-reset gate arm: only CONFIDENT emissions qualify. Cold-start
+                // takes emit their true first unit near-perfectly (measured 0.06-0.14) while
+                // quiet-take junk fires sit at 0.35-0.45 — an unconditioned arm let junk trigger
+                // early resets that clipped the first ayah (bench -5). Bar = half the fire
+                // threshold, scale-free across the clean/phone chainCost configs.
+                if (cost <= 0.5f * cfg.chainCost) lastEmitSec = timeSec;
                 auto confirms = chainAsm->push(em->unit);
                 for (int cu : confirms) confirmUnit(cu, timeSec);
                 maybeProvisional(em->unit, confirms.empty(), timeSec);
+                // Focused-window trim (windowed only): the emitted unit's audio has served its
+                // purpose — drop it so the next ayah decodes without wide-window collapse, keeping
+                // a short tail for the successor's in-progress prefix. See types.h.
+                if (cfg.chainEmitTrimKeep > 0.0f && !stream) {
+                    focusTrim(timeSec - cfg.chainEmitTrimKeep);
+                    break;   // window slices over the old decode are stale after the trim
+                }
             }
         }
     }
@@ -518,11 +549,17 @@ void Detector::feed(const float* pcm, std::size_t n, int sampleRate) {
         }
         impl_->vadBuf.erase(impl_->vadBuf.begin(), impl_->vadBuf.begin() + off);
         if (boundary) {
-            // Chain: gate the reset — suppress it when the pause is far from the last commit
-            // (mid-long-ayah breath); allow it when it closely follows a commit (short ayah just
-            // ended). Non-Chain (Auto) always resets.
-            const double gap = (double)impl_->totalSamples / kSr - impl_->lastConfirmSec;
-            const bool suppress = impl_->cfg.mode == Mode::Chain && gap > impl_->cfg.chainResetMaxGap;
+            // Chain: gate the reset — allow it only when the pause closely follows CONSUMED
+            // content: a unit commit OR a confident voter emission (cost <= half the fire
+            // threshold; cold starts + surah transitions emit near-perfectly but sit pending
+            // awaiting a supporter, and the unfocused window then deletes that supporter via
+            // repetition suppression — see research/CLAUDE.md 2026-07-11 pm). Mid-long-ayah
+            // breaths follow neither, so the ayah's prefix survives. Non-Chain (Auto) always
+            // resets.
+            const double now = (double)impl_->totalSamples / kSr;
+            const double anchor = std::max(impl_->lastConfirmSec, impl_->lastEmitSec);
+            const bool suppress = impl_->cfg.mode == Mode::Chain &&
+                now - anchor > impl_->cfg.chainResetMaxGap;
             if (!suppress) impl_->boundaryReset();
         }
     }
@@ -558,6 +595,7 @@ void Detector::reset() {
     impl_->chainAlts.clear();
     impl_->streamFedFrames = 0;
     impl_->lastConfirmSec = -1e9;
+    impl_->lastEmitSec = -1e9;
     impl_->decodeSec = 0.0;
     impl_->decodeHops = 0;
     impl_->chainParent.clear();

@@ -68,6 +68,7 @@ int main(int argc, char** argv) {
             // Ablation hooks (research/audio_bench.py taint audit):
             if (const char* s = std::getenv("QR_SUBMIN")) cfg.chainSubMin = (float)atof(s);
             if (const char* e = std::getenv("QR_EARLY")) cfg.chainEarlyPrefix = (float)atof(e);
+            if (const char* t = std::getenv("QR_TRIM")) cfg.chainEmitTrimKeep = (float)atof(t);
             if (const char* v = std::getenv("QR_VAD")) {   // EXPERIMENTAL focused-window reset
                 cfg.vadPath = v;
                 cfg.chainVadReset = true;
@@ -85,6 +86,7 @@ int main(int argc, char** argv) {
     }
 
     Detector det(cfg);
+    if (std::getenv("QR_DEBUG")) det.setDebug(true);   // per-hop engine log to stderr
     std::vector<std::string> seq;
     det.setEventCallback([&](const AyahEvent& e) {
         const char* k = e.type == EventType::Detect ? "detect" : e.type == EventType::Advance ? "advance" : "jump";

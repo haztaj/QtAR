@@ -141,6 +141,14 @@ struct Config {
     // crowding with zero long-ayah regression (1e9 = ungated/blunt: reset on every pause, which guts
     // long ayat — see research/CLAUDE.md).
     float chainResetMaxGap = 4.0f;
+    // EXPERIMENTAL (Mode::Chain, WINDOWED only): on every voter emission, trim the rolling audio
+    // buffer to (emission time - this many seconds). De-crowds CONTINUOUS recitation, which never
+    // pauses long enough for the VAD reset: without a boundary the growing window's decode
+    // COLLAPSES (deletes whole short ayat) once several ayat accumulate — measured on live 114
+    // takes (2026-07-11). The kept tail preserves the in-progress next ayah's prefix (the v1
+    // commit-and-reset cascade guard); votes/streak gating make junk-emission trims rare.
+    // 0 = off. Streaming ignores it (incremental decode never re-windows).
+    float chainEmitTrimKeep = 0.0f;
 };
 
 using EventCallback = std::function<void(const AyahEvent&)>;

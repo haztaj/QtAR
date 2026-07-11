@@ -442,6 +442,55 @@ diverse-learner slice is the cleaned RetaSy test where mic_clean is +1.9 — mod
 regime trade the user must arbitrate); streaming graphs are exported from mic_clean, so a model
 revert also means re-exporting `stream_{conv,encoder}` for the streaming path.
 
+## Repetition suppression — the decode-collapse ROOT CAUSE found (2026-07-11 pm)
+
+Live report post-deployment ("tracking is very bad"): two fresh takes (112 paused-ish, 114
+continuous; same phone/minutes as a third 113 take that tracked PERFECTLY) confirm NOTHING in
+ANY config — old/new model, windowed/streaming, reset on/off all identical. Not a regression;
+a failure class. Chased to the bottom with three probes (all reproducible offline):
+
+1. **Focused 5 s slices decode every ayah cleanly under the 0.45 threshold** (112: 0.00/0.21/
+   0.11/0.36; 114: 0.14/0.09/0.27/0.08) while the wide-window decode emits only 36-46 phonemes
+   for the whole take (whole short ayat deleted). Not retrieval — the DECODE collapses.
+2. **No length effect**: the [0-5 s] region decodes IDENTICALLY (19 ph) whether the input is
+   5/10/15/20 s. The collapse is not attention diffusion over long input.
+3. **Context-replacement is decisive**: region [5-10 s] («maliki n-naas») decodes to 16 ph
+   standalone, 11-13 ph with zeroed/noise context, but **5 ph («...n-naas» only) with the TRUE
+   preceding audio** — which ends in the SAME phrase («rabbi n-naas») — in the Emformer memory.
+
+**The model's left-context memory suppresses repeated phrases.** Surahs 112/113/114 are
+maximally repetitive; a flat/quiet continuous recitation makes consecutive ayat acoustically
+near-identical -> the encoder deletes the repeats. The model was **trained on single-ayah clips
+only** — continuous multi-ayah audio (let alone cross-ayah phrase repeats) is entirely out of
+its training distribution. This RETRO-EXPLAINS the original crowding episode: focused windows
+"fixed retrieval" because focusing removes the repeated phrase from the model memory — the
+suppression was upstream of retrieval all along. It also explains why streaming can't be fixed
+by boundaries (its incremental decode always carries the full left context).
+
+Mitigations, in order of depth:
+- **Confident-emission-armed VAD gate (SHIPPED as interim; 3 design iterations, each measured):**
+  the reset gate's anchor is now `max(lastConfirmSec, lastEmitSec)` where `lastEmitSec` is set
+  only by CONFIDENT emissions (cost <= 0.5 x chainCost). Iteration lessons: (1) blunt lastEmitSec
+  (any emission, pre-commit only) let quiet-take junk fires (0.35-0.45) trigger early resets that
+  clipped first ayat — bench 129 -> 124; (2) confidence bar fixed the sessions but pre-commit-only
+  starved SURAH TRANSITIONS (113:1 emits at 0.00, sits pending, and the unfocused window deletes
+  its supporter 113:2 by repetition suppression — gap-from-last-commit was stale); (3) final form
+  arms on consumed content ALWAYS. **Bench 133/143 (93%): +4 net vs anchor** (cold-start 112 take
+  0 -> exact 112:1-4, short_112_114_cont 13 -> 15 EXACT; real_112_114_cont 15 -> 13 redistribution
+  — the one regression, accepted). fix_98_1_3 unchanged (98:1 never emits confidently — needs the
+  fresh-suffix window). Conformance ALL PASS (the gate lives in Detector::feed, not chain.cpp).
+- **`chainEmitTrimKeep` (experimental, off):** trim the rolling buffer on every emission. Fixed
+  112 alone but NOT the continuous 114 take — the suppressor phrase survives any trim that keeps
+  the successor's prefix. Kept for ablation.
+- **Fresh-context suffix window (v13 candidate, next):** per hop, ALSO decode the last ~5 s
+  standalone (fresh memory — the exact condition the slice probe shows works) and feed it to the
+  matched-filter bank as an extra window. Sidesteps suppression at runtime for windowed AND
+  conceptually maps to a periodic-state-reset variant for streaming.
+- **Concatenation training, phase 3 (the root fix):** synthesize continuous multi-ayah training
+  clips from the existing corpus (consecutive ayat, same reciter, short gaps). Teaches the
+  encoder to emit repeats; no new data collection. Validate with the context-replacement probe +
+  audio_bench gate.
+
 ## Segment-level ambiguity map (matcher/find_ambiguous.py --units)
 
 Formalizes the twin classes for the production deferral layer:
