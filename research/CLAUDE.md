@@ -681,3 +681,10 @@ qiyam + confidence cross-check), degrading gracefully to markers-only. Consequen
 robustness in isolation is THE gating investment → real-data marker adaptation is the critical path;
 silent-prayer markers (off-axis + "akbar" content hole) are the long pole. Path: collect real
 phone-on-stand prayers → adapt marker detector → build the marker state machine → feed aya in.
+
+**Data-collection spec: `research/salat_data_collection_spec.md`.** Balanced dedicated per-marker
+positive files (fixes the anchor being rarest-but-most-important) recorded WHILE PERFORMING the
+posture (captures the off-axis/in-motion difficulty), + real full prayers as negatives (recitation
+rejection) and as the validation exam. Takbir split by posture (stand/ruku/**sujud=face-to-floor,
+hardest**); salam both head-turns; sami'allah from the ruku-rise. Train on isolated+negatives, GATE
+on the real prayers (anchor metric = sami'allah-count-per-rakah + salam-at-end + recitation FP rate).
