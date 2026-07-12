@@ -663,3 +663,21 @@ Phone-on-a-stand IS the deployment condition, so real captured prayer markers ar
 pre-isolated markers). Open downstream fork (same data feeds both): far-field-adapt the shared
 encoder vs a small dedicated marker model — the reuse case weakened (encoder generalizes to
 close/clear markers but not far-field in-prayer ones; shared value may be front-end/infra > weights).
+
+**Diagnosis refined — it's OFF-AXIS/MOTION, not far-field distance (user, 2026-07-12).** The
+shipped ayah detector works well at this SAME phone-on-stand placement, so distance is not the
+blocker. The marker gap is that markers are uttered off-axis + in-motion + short: salam turns the
+head 90° away L/R, takbir is said bowing/prostrating, all 1-2 s — vs on-axis stationary long
+recitation. Plus the "akbar" content hole (fails even close-mic). Real-data adaptation still the
+fix (it captures the real posture-conditioned articulation), but the reason is orientation/motion,
+not channel.
+
+**ARCHITECTURE LOCKED (user, 2026-07-12): one marker-driven state machine, not two paradigms.**
+Rejected the shortcut of a recitation-rhythm backbone for audible prayers (brittle to sajda
+al-tilawa / sajda al-sahw / style mixes — every posture change emits a takbir regardless). Markers
+(takbir=transition, sami'allah=per-rakah anchor, salam=end) are the UNIVERSAL backbone for silent
+AND audible; aya detection is an ENRICHMENT feed into the same machine (which-ayah during audible
+qiyam + confidence cross-check), degrading gracefully to markers-only. Consequence: marker
+robustness in isolation is THE gating investment → real-data marker adaptation is the critical path;
+silent-prayer markers (off-axis + "akbar" content hole) are the long pole. Path: collect real
+phone-on-stand prayers → adapt marker detector → build the marker state machine → feed aya in.
