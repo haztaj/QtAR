@@ -577,3 +577,45 @@ segments + 712 unsegmented ayat = 1,741 units, tau 0.15, matcher-consistent metr
   measured NEUTRAL on the full 747 run (SER 14.5% = 14.5%; quick-pass +0.4 was noise).
   Exact twins already capture the resolvable mass; the 65 near-twin units are too rare.
   The map's value is the deferral/highlight contract, not decoder accuracy.
+
+## salat_eval.py / salat_probe.py — encoder reuse for prayer-state detection
+
+Feasibility probes for a NEW standalone feature (2026-07-12): hands-free **salah (prayer)
+state detection**, solo worshipper on a stand — started as a "wake word" idea, pivoted to
+full prayer tracking as the main use case. Reintegrates into the recite app later. See the
+project memory `project-salat-state-detection`.
+
+Domain fact that shapes everything: only **three prayer phrases are audible** — takbir
+("Allahu akbar"), sami'allah ("sami'allahu liman hamidah"), salam. The ruku/sujud tasbih and
+tashahhud are said silently, so postures during them are INFERRED from the marker sequence +
+timing, never detected. **sami'allah is a unique per-rakah anchor** (fires once, rising from
+ruku) → self-correcting sync that breaks the identical-takbir counting ambiguity.
+
+Central question: does the recitation-trained encoder transfer to these phrases with NO
+retraining? Probes reuse the shared front-end + encoder (the whole point — reuse the
+foundation, not the ayah chain matcher):
+- **`salat_probe.py`** — raw per-phrase decode inspector: energy-segment → greedy phonemes →
+  infix-norm edit distance to each phrase's G2P reference. Shows decode quality by ear-proxy.
+- **`salat_eval.py`** — the scored eval (path a, the no-retrain ceiling): **Silero VAD** →
+  greedy phonemes → **fuzzy-onset + duration 3-marker discriminator** → edit-distance
+  alignment vs a known ground-truth marker sequence. `--audio`/`--ckpt`/`--truth` overridable.
+
+**Result** (`data/salat_phrases.m4a`, 14 utterances, one voice, order
+takbir×5·sami'allah×4·takbir×1·salam×4): **11/14, 0 confusions, 0 false markers** — every
+error a safe "miss," never a wrong marker. sami'allah **4/4**, salam **4/4** (after principled
+`q≈k` / `S≈s` cue tuning — systematic model-confusion classes, not per-clip overfit), takbir
+**3/6**: half the takbirs decode with no recognizable "allahu" because **"akbar" never
+decodes**, so takbir is detected by ABSENCE of the other cues, not a positive signature. Same
+on best_s123_p31 and best_s123_mic → a real transfer property, not a model quirk. Silero
+segmented the clip 14/14 = one segment per utterance (energy VAD over-split the long salam).
+
+**Verdict: moderate engineering project, not research.** MVP runs on the CURRENT model, no
+retraining — the sami'allah anchor + salam end are 100% cold, and missed takbirs are
+recoverable via the deterministic takbir count between anchors (zero false transitions to
+corrupt the state machine). **Path (b)** — a light fine-tune giving takbir a positive "akbar"
+signature (~50–100 self-recorded takbirs+salams) — is the clear next accuracy lever but
+deferrable. **Caveats:** N=14, one voice, one clip — a signal, not a validated accuracy; cue
+tuning unproven on new audio. Next step: record a few full real prayers, re-run
+`salat_eval.py --audio … --truth …` to confirm 11/14 holds, THEN build the `Mode::Salah`
+module (Silero VAD → 3-marker discriminator → anchored state machine) as its own module
+consuming the shared encoder.
