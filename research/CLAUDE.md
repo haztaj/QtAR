@@ -615,7 +615,51 @@ recoverable via the deterministic takbir count between anchors (zero false trans
 corrupt the state machine). **Path (b)** — a light fine-tune giving takbir a positive "akbar"
 signature (~50–100 self-recorded takbirs+salams) — is the clear next accuracy lever but
 deferrable. **Caveats:** N=14, one voice, one clip — a signal, not a validated accuracy; cue
-tuning unproven on new audio. Next step: record a few full real prayers, re-run
-`salat_eval.py --audio … --truth …` to confirm 11/14 holds, THEN build the `Mode::Salah`
-module (Silero VAD → 3-marker discriminator → anchored state machine) as its own module
-consuming the shared encoder.
+tuning unproven on new audio.
+
+**BREADTH TEST — 11/14 did NOT transfer to real prayers (2026-07-12, same day).** 3 full
+prayers (`data/{Isha_4_raka_audible,Sunna_2_raka_silent,Witr_3_raka_audible}.mp4`, 2.4–5.4 min)
+run through `salat_eval.py`. The sami'allah ANCHOR collapsed — Isha **2/4**, Witr **1/3**,
+Sunna(silent) **0/2** — plus recitation false-positives (Witr 3 false "salam" at start, Isha 1
+mid-prayer: Fatiha's «ar-rahmani r-rahim» trips the rahmat cue). Root cause is the METHOD, not
+the acoustics: (a) Silero VAD on continuous prayer yields giant segments (one **38 s** = a whole
+surah) — the "1 VAD segment = 1 marker" premise only holds for silence-isolated phrases, so the
+isolated clip was a SYNTHETIC-EASY condition; (b) recitation contains the marker phonemes ("allah",
+"ar-rahman ar-rahim"). Markers still DECODE (sami'allah `S a n y a a l u h…a m a H a m d a` @83s;
+end salam `s a l a 3 a l i u m r a H a t i l aa` @313s) but are MISSED by the rigid string-cue
+classifier. **Low-volume hypothesis tested + rejected:** recordings are quiet (mean -38..-42 dB)
+but dynaudnorm-boosting to -20 dB left the anchor unchanged (2/4, 1/3, 0/2) — the script already
+RMS-normalizes each segment before decoding, so volume only affects segmentation (barely moved).
+A textbook instance of this repo's synthetic/cached-not-real lesson.
+
+**Revised verdict:** encoder reuse still valid (markers decode even in the silent prayer), but the
+detection layer needs a REDESIGN — not VAD-segment->classify but **continuous marker-spotting**
+(infix-search the phoneme stream for the short marker templates, like the chain matcher) **+
+recitation rejection** (duration + the posture-transition rhythm the segment approach discarded).
+The 3 real prayers are now the durable breadth corpus for re-evaluating the spotter before
+building `Mode::Salah`.
+
+**Silent prayer is the EASIEST case, not the hardest (correction, 2026-07-12).** Level profile
+of Sunna_2_raka_silent: the markers stand 15-30 dB above the silent-recitation baseline (baseline
+~-50 dB RMS; marker bursts -33..-37 dB RMS, peaks -5..-22 dB) -> trivially isolable by a simple
+energy gate, and ZERO recitation false-positives. So it strips every confound EXCEPT marker decode
+quality. The 0/2 in the first run was the pipeline's fault (Silero boundaries + rigid classifier;
+the wide-window "sparse decode" test was itself misled — normalizing a mostly-silent window sets
+gain by the silence). The genuine residual: even tightly gated + fuzzy-matched, the silent markers
+score infix cost 0.6-0.9 (vs 0.17-0.33 on the deliberate isolated clip) — they are articulated
+casually/quickly at mic-stand distance in a real prayer. So the silent prayer ISOLATES the decode
+problem; the lever is decode quality, NOT volume/isolation. Recommended build order: silent prayer
+first (fewest confounds), then audible (adds segmentation + recitation-rejection).
+
+**Root cause pinned = far-field phone-mic channel mismatch (user listened, 2026-07-12).** Markers
+sound clear to a human but at phone-at-distance quality (not studio-close). Corroborated: (1) in the
+AUDIBLE prayers the forward-facing standing recitation decodes fine through the same mic, but the
+markers — said while bowing/prostrating and head-TURNED (salam turns away from the mic) — do not, so
+it's far-field + off-axis + short; (2) `best_s123_mic` (poor-mic AUGMENTATION: synthetic phone
+IRs/RIRs) does NOT close it either (markers still cost 0.5-0.8) — synthetic augmentation != the real
+far-field capture. **Verdict: path (b) real-data adaptation is now the GATING step, not optional.**
+Phone-on-a-stand IS the deployment condition, so real captured prayer markers are the correct
+(non-overfit) adaptation set and are self-labeling + abundant (daily prayers; silent ones give
+pre-isolated markers). Open downstream fork (same data feeds both): far-field-adapt the shared
+encoder vs a small dedicated marker model — the reuse case weakened (encoder generalizes to
+close/clear markers but not far-field in-prayer ones; shared value may be front-end/infra > weights).
