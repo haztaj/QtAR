@@ -29,7 +29,7 @@ QMD_DIR = DATA_DIR / "raw" / "quran-md-ayahs"
 AUDIO_DIR = DATA_DIR / "raw" / "audio"
 MANIFEST_DIR = DATA_DIR / "manifests"
 
-CORPUS_SURAHS = {1, 2, 3} | set(range(78, 115))   # surahs 1-3 added 2026-07-05
+CORPUS_SURAHS = set(range(1, 115))   # FULL QURAN, expanded 2026-07-13 (was 1-3 + Juz Amma)
 WORKERS = 16
 
 VAL_RECITERS = 3
@@ -116,6 +116,15 @@ def main():
 
     print(f"  Sample rates: {sorted(df['sampling_rate'].unique())}")
     print(f"  Total duration: {df['duration'].sum() / 3600:.1f} h")
+
+    # --- Persist enriched metadata back to manifest.csv ---
+    # extract_audio.py writes manifest.csv WITHOUT duration (it only knows path/ids).
+    # training/data.py reads the CSV and length-filters on `duration`; appended rows with
+    # NaN duration are silently dropped (NaN <= max_seconds is False), which after the
+    # 2026-07-13 full-Quran expansion nuked ~all new surah-4..77 clips. Writing the freshly
+    # computed columns back keeps the CSV the single source of truth for the trainer.
+    df.to_csv(manifest_csv, index=False)
+    print(f"  Wrote duration/sampling_rate/num_samples back to {manifest_csv.name}")
 
     # --- Reciter split ---
     reciters = sorted(df["reciter_id"].unique())

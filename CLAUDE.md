@@ -8,11 +8,12 @@ On-device, real-time detection of *which* Quranic ayah is being recited from a l
 
 Output: a ranked `surah:ayah` ID (e.g. `78:1`). Not transcription. Not tajweed scoring.
 
-MVP scope: **Juz Amma (surahs 78–114) + Al-Fātiḥah, Al-Baqarah, Āl-ʿImrān (surahs 1–3), Hafs
-ʿan ʿAsim.** ⚠️ Expanded beyond Juz-Amma-only — user-signed-off 2026-07-05. Surahs 1–3 are fully
-covered by the same 30-reciter quran-md-ayahs data (14,790 clips); surah 4 is skipped (only ayat
-1–34 available). The Juz-Amma-only state is preserved at git tag `juz30-v1` + `backups/juz30/`.
-Full Quran remains out of scope for now.
+Scope: **FULL QURAN — all 114 surahs, Hafs ʿan ʿAsim.** ⚠️ Expanded to the full Quran —
+user-signed-off 2026-07-13. All 71 quran-md-ayahs shards are now downloaded and the full
+Quran is complete in the data (187,080 clips, 30 reciters, all 6,236 ayat, zero coverage
+gaps — the earlier surah-4 truncation was just the then-missing middle shards). Prior scope
+milestones preserved: Juz-Amma-only at git tag `juz30-v1` + `backups/juz30/`; the 1-3 + Juz
+Amma state was the 2026-07-05 expansion (git history around commit that added surahs 1-3).
 
 ---
 
@@ -23,7 +24,7 @@ Full Quran remains out of scope for now.
 | Deployment | Fully on-device / offline. No server component. |
 | Target speaker | App user reciting, including learners and non-native speakers. |
 | Riwayah | Hafs ʿan ʿAsim only. |
-| MVP scope | Juz Amma (78–114) + surahs 1–3. ⚠️ Expanded from Juz-Amma-only, user-signed-off 2026-07-05 (revert: tag `juz30-v1`). |
+| Scope | **Full Quran (all 114 surahs, 6,236 ayat).** ⚠️ Expanded from 1-3 + Juz Amma, user-signed-off 2026-07-13 (prior milestones: tag `juz30-v1`, and the 2026-07-05 surahs 1-3 expansion). |
 | Training hardware | RTX 5080 (16 GB), Ryzen 9 9950X. |
 | Architecture | Two-stage (streaming encoder + CPU fuzzy matcher). Do not swap. |
 | Training framework | **Plain PyTorch** Zipformer+CTC on native Windows. ⚠️ Deviates from the original icefall/k2 plan — user-signed-off 2026-06-29 (k2 is Linux-only; avoids WSL). Export still targets sherpa-onnx / onnxruntime. |
@@ -63,8 +64,8 @@ mic stream → Silero VAD gate → Stage 1 encoder → phoneme posteriors → St
 ## Data
 
 ### Primary (clean, professional)
-- **`Buraaq/quran-md-ayahs`** (HuggingFace) — ~187k rows, 30 Hafs reciters, explicit `surah_id` + `ayah_id` fields (no derivation needed), multilingual text. 71 parquet shards (~34.9 GB total); Juz Amma lives in the final shards — script downloads backward from shard 70 until surahs 78–114 are fully covered.
-  - Pre-downloaded parquets: place in `data/raw/quran-md-ayahs/` (flat) before running `prepare.py`.
+- **`Buraaq/quran-md-ayahs`** (HuggingFace) — ~187k rows, 30 Hafs reciters, explicit `surah_id` + `ayah_id` fields (no derivation needed), multilingual text. 71 parquet shards (~34.9 GB total). **All 71 shards are now downloaded (2026-07-13) and the full Quran is complete** (187,080 clips over all 6,236 ayat, verified by `prepare.py`'s per-surah completeness check — zero INCOMPLETE surahs).
+  - Pre-downloaded parquets: place in `data/raw/quran-md-ayahs/` (flat) before running `prepare.py`. `prepare.py` / `extract_audio.py` scan every shard present on disk and slice `CORPUS_SURAHS = set(range(1,115))` (full Quran).
 
 ### Learner / robustness
 - **`RetaSy/quranic_audio_dataset`** (HuggingFace) — ~6.8k rows, 1287 reciters, 81 countries, Hafs. Has `Surah`/`Aya` fields + 6-class correctness.
@@ -176,7 +177,23 @@ python demo/live_detect.py            # default mic; --list-devices to choose
 
 ## Status
 
-- **Data pipeline: complete.** 16,920 clips / 30.8 h / 30 reciters extracted and
+- **FULL-QURAN corpus expansion — data layer DONE (2026-07-13).** All 71 quran-md-ayahs
+  shards downloaded; full Quran verified complete (187,080 clips / 30 reciters / all 6,236
+  ayat, zero coverage gaps). Corpus scope constants moved to `set(range(1,115))` in
+  prepare/extract_audio/build_manifests + the RetaSy scripts (RetaSy filter widened so
+  surah-1/Al-Fatiha learner clips, 2,934, are no longer dropped). Regenerated: audio
+  (155,370 new mp3, 187,080 total, ~34 GB), lhotse manifests (**984.4 h**; 149,664 train /
+  18,708 val / 18,708 test; same 24/3/3 reciter holdout), `ayah_text.json` (6,236),
+  `ayah_phonemes.json` + `tokens.txt` (6,236 ayat, 34/34 phonemes — no OOV; max 878 = 2:282),
+  and `ambiguous_ayat.json` (**466 ambiguous ayat / 179 classes / 50 context-unresolvable**
+  vs Juz Amma's 26/13/1 — the ambiguity/deferral load scales up as expected). **Deferred to
+  the redeploy phase (coupled to a retrained model): segment refs (`segment_phonemes.json`),
+  unit ambiguity map (`ambiguous_units.json`), forced-alignment spans (GPU).** NEXT (Phase B,
+  needs GPU go-ahead): retrain on the full corpus, then re-export ONNX + rebuild chain/segment
+  assets + re-host for Android (Phase C). Design watch-item: detection design (early-prefix,
+  chain decoder, export window sizes) was tuned/validated at 1,057 ayat; the ~6x index needs
+  re-validation via audio_bench.
+- **Data pipeline (prior, Juz Amma): complete.** 16,920 clips / 30.8 h / 30 reciters extracted and
   manifested (24/3/3 reciter split). RetaSy learner aya IDs derived (84.8%).
   34-phoneme Hafs G2P + token table built over all 564 Juz Amma ayat. See
   `data/CLAUDE.md`.

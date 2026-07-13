@@ -274,7 +274,7 @@ def main():
     if by_res["none"]:
         n_none_cross = [k for k, v in ayat.items()
                         if v["resolvable_by"] == "none" and v.get("cross_parent", True)]
-        print(f"  ⚠ context-insensitive (need option fallback / deeper N-back): "
+        print(f"  [!] context-insensitive (need option fallback / deeper N-back): "
               f"{by_res['none']}" + (f" ({len(n_none_cross)} cross-parent)" if args.units else ""))
         show = n_none_cross if args.units else \
             [k for k, v in ayat.items() if v["resolvable_by"] == "none"]

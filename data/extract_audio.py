@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 Extract MP3 audio bytes from quran-md-ayahs parquets to files on disk.
-Processes the detection corpus (surahs 1-3 + Juz Amma 78-114).  Safe to re-run: skips
-files that already exist (so re-running after the corpus expansion only writes the new
-surah 1-3 clips; the Juz Amma files are untouched).
+Processes the detection corpus (FULL QURAN, surahs 1-114 as of 2026-07-13).  Safe to
+re-run: skips files that already exist (so re-running after the full-Quran expansion only
+writes the newly-covered surahs; the existing 1-3 + Juz Amma files are untouched).
 
 Output layout:
     data/raw/audio/<reciter_id>/s<surah>_a<ayah>.mp3
@@ -22,7 +22,7 @@ DATA_DIR = Path(__file__).parent
 QMD_DIR = DATA_DIR / "raw" / "quran-md-ayahs"
 AUDIO_DIR = DATA_DIR / "raw" / "audio"
 
-CORPUS_SURAHS = {1, 2, 3} | set(range(78, 115))   # surahs 1-3 added 2026-07-05
+CORPUS_SURAHS = set(range(1, 115))   # FULL QURAN, expanded 2026-07-13 (was 1-3 + Juz Amma)
 WORKERS = 8  # parallel writers
 
 

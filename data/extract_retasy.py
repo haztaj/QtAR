@@ -19,7 +19,7 @@ import pandas as pd
 from datasets import Audio, load_dataset
 
 sys.path.insert(0, str(Path(__file__).parent))
-from derive_aya_ids import (JUZ_AMMA, SURAH_NAME_TO_ID, build_reference, normalize)
+from derive_aya_ids import (CORPUS_SURAHS, SURAH_NAME_TO_ID, build_reference, normalize)
 
 DATA_DIR = Path(__file__).parent
 OUT_DIR = DATA_DIR / "raw" / "retasy_audio"
@@ -43,7 +43,7 @@ def main():
 
     for ex in ds:
         sid = SURAH_NAME_TO_ID.get(ex["Surah"])
-        if sid is None or sid not in JUZ_AMMA:
+        if sid is None or sid not in CORPUS_SURAHS:
             non_quran += 1
             continue
         aid = ref.get((sid, normalize(str(ex["Aya"]))))

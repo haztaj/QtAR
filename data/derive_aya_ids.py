@@ -20,7 +20,10 @@ from datasets import load_dataset
 DATA_DIR = Path(__file__).parent
 QMD_DIR = DATA_DIR / "raw" / "quran-md-ayahs"
 
-JUZ_AMMA = set(range(78, 115))
+# FULL QURAN corpus (expanded 2026-07-13; was Juz Amma range(78,115)). Kept as the
+# RetaSy corpus filter — RetaSy only contains short surahs + Al-Fatiha, and widening to
+# the full corpus rescues surah-1 (Al-Fatiha) learner clips that the Juz-Amma filter dropped.
+CORPUS_SURAHS = set(range(1, 115))
 
 SURAH_NAME_TO_ID = {
     "Al-Faatihah": 1,
@@ -83,7 +86,7 @@ def build_reference() -> dict[tuple[int, str], int]:
     print(f"Building reference from {len(parquets)} parquet(s) ...")
     for path in parquets:
         df = pd.read_parquet(path, columns=["surah_id", "ayah_id", "ayah_ar"])
-        juz = df[df["surah_id"].isin(JUZ_AMMA)].drop_duplicates(["surah_id", "ayah_id"])
+        juz = df[df["surah_id"].isin(CORPUS_SURAHS)].drop_duplicates(["surah_id", "ayah_id"])
         for row in juz.itertuples(index=False):
             key = (int(row.surah_id), normalize(row.ayah_ar))
             ref[key] = int(row.ayah_id)
@@ -106,8 +109,8 @@ def load_retasy() -> pd.DataFrame:
     df["surah_id"] = df["Surah"].map(SURAH_NAME_TO_ID)
     df = df.dropna(subset=["surah_id"])
     df["surah_id"] = df["surah_id"].astype(int)
-    df = df[df["surah_id"].isin(JUZ_AMMA)].copy()
-    print(f"  RetaSy Juz Amma rows: {len(df)}")
+    df = df[df["surah_id"].isin(CORPUS_SURAHS)].copy()
+    print(f"  RetaSy corpus rows: {len(df)}")
     return df
 
 

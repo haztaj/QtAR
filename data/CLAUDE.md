@@ -26,12 +26,15 @@ python data/retasy_review.py    # by-ear review page -> raw/retasy_audio/review.
 
 ## Key facts (verified by the scripts)
 
-- **Primary corpus:** `Buraaq/quran-md-ayahs` — **31,710 clips, 30 Hafs reciters, 153.9 h**
-  over surahs 1–3 + Juz Amma (1,057 ayat; was 16,920 clips / 30.8 h / 564 Juz-Amma ayat before
-  the 2026-07-05 expansion). Audio is MP3 at **mixed sample rates** (16k / 22050 / 24k / 44.1k /
-  48k) — resample to 16 kHz at load time. **Long ayat:** surahs 1–3 add very long verses (max
-  2:282 = 878 phonemes vs Juz Amma's ~105; 148 ayat > 150 phonemes) — matters for the training
-  frame budget and the fixed-window export/detection tuning (sized for short Juz-Amma ayat).
+- **Primary corpus:** `Buraaq/quran-md-ayahs` — **187,080 clips, 30 Hafs reciters, 984.4 h**
+  over the **FULL QURAN (all 114 surahs, 6,236 ayat)** as of the 2026-07-13 expansion (was
+  31,710 clips / 153.9 h / 1,057 ayat for surahs 1-3 + Juz Amma; 16,920 / 30.8 h / 564 ayat
+  Juz-Amma-only). All 71 shards are downloaded and coverage is complete (0 INCOMPLETE surahs
+  in `prepare.py`'s per-surah check). Audio is MP3 at **mixed sample rates** (now 8k / 11025 /
+  12k / 16k / 22050 / 24k / 32k / 44.1k / 48k) — resample to 16 kHz at load time. **Long ayat:**
+  the full Quran has very long verses (max 2:282 = 878 phonemes vs Juz Amma's ~105; mean 83.2) —
+  matters for the training frame budget and the fixed-window export/detection tuning (originally
+  sized for short Juz-Amma ayat).
 - **Reciter split** (deterministic, alphabetical): 24 train / 3 val / 3 test.
   val = nasser_alqatami, saood_ash_shuraym, tunaiji;
   test = warsh_husary, warsh_yassin, yasser_ad_dussary.
