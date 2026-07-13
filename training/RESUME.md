@@ -9,6 +9,39 @@ Cross-session/cross-OS handoff note. Read this first when picking up the full-Qu
   Data layer done + committed + pushed. See root `CLAUDE.md` status entry for full detail.
 - **Phase-1 warm-start training PAUSED at epoch 15** (stopped intentionally to continue on Ubuntu).
 
+## Running on Ubuntu (booted on the same hardware; work from the same `C:\` folder)
+
+The simplest path is to use the **same repo folder off the Windows drive** — the checkpoints AND the
+34 GB audio corpus are already there, so no copying. `C:\` mounts clean R/W because Windows Fast
+Startup + hibernation are already disabled (`HiberbootEnabled=0`, no `hiberfil.sys`).
+
+```bash
+# 1. Mount the Windows drive (find the partition with: lsblk -f). ntfs3 kernel driver = R/W.
+sudo mkdir -p /mnt/c && sudo mount -t ntfs3 /dev/nvme0n1p3 /mnt/c   # adjust device
+cd /mnt/c/Users/hazem/projects/QtAR
+
+# 2. Git works from the NTFS mount after 3 one-time config fixes (cosmetic/ownership guards —
+#    none break git; commit/pull/push all work):
+git config --global --add safe.directory /mnt/c/Users/hazem/projects/QtAR   # "dubious ownership"
+git config core.filemode false      # NTFS has no Unix perm bits -> avoids fake "mode changed" diffs
+git config core.autocrlf input      # only if CRLF/LF noise shows files as modified (harmless otherwise)
+git pull                            # get RESUME.md + the committed corpus/code changes
+
+# 3. Python env (native Linux — no ffmpeg_fix hack needed; ffmpeg/libsndfile are trivial here):
+#    install the CUDA PyTorch wheel + deps (torch/torchaudio, soundfile, pandas, onnxruntime,
+#    rapidfuzz, audiomentations, mutagen, lhotse). Then smoke-test:
+python training/train.py --smoke --num-workers 0
+
+# 4. Full performance (Linux advantages over Windows): set the CPU governor to performance,
+#    and raise --frame-budget well above the Windows 20000 cap (no WDDM cliff, no desktop VRAM
+#    contention). Benchmark one epoch and push the budget up until GPU memory is comfortably used.
+sudo cpupower frequency-set -g performance   # optional; needs linux-tools
+```
+
+**Training-I/O caveat:** reading 123k MP3s/epoch off the NTFS mount is slower than native ext4.
+Benchmark one epoch first. If I/O-bound, copy ONLY `data/raw/audio/` to the ext4 drive and repoint
+the manifest there; keep everything else (git, checkpoints, code) in the same `C:\` folder.
+
 ## Checkpoints (⚠️ NOT in git — gitignored `.pt`; live on disk only)
 
 - `training/exp/best_full.pt` — best model, **val PER 0.0618** (epoch 13) on the full 114-surah val.
