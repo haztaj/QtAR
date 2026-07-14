@@ -3,25 +3,378 @@
     "lexicon": "data\\lang\\ayah_phonemes.json",
     "tau": 0.15,
     "metric": "normalized Levenshtein (1/1/1), matcher-consistent",
-    "rapidfuzz": false,
-    "n_ayat": 1057
+    "rapidfuzz": true,
+    "n_ayat": 6236
   },
   "summary": {
-    "n_ambiguous": 40,
-    "n_classes": 20,
-    "n_exact_duplicate": 18,
+    "n_ambiguous": 466,
+    "n_classes": 179,
+    "n_exact_duplicate": 232,
     "resolvable_by": {
-      "both": 30,
-      "predecessor": 4,
-      "successor": 5,
-      "none": 1
+      "both": 273,
+      "predecessor": 64,
+      "successor": 79,
+      "none": 50
     }
   },
   "classes": [
     {
       "members": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "size": 31
+    },
+    {
+      "members": [
+        "52:11",
+        "77:15",
+        "77:19",
+        "77:24",
+        "77:28",
+        "77:34",
+        "77:37",
+        "77:40",
+        "77:45",
+        "77:47",
+        "77:49",
+        "83:10"
+      ],
+      "size": 12
+    },
+    {
+      "members": [
+        "26:9",
+        "26:68",
+        "26:104",
+        "26:122",
+        "26:140",
+        "26:159",
+        "26:175",
+        "26:191"
+      ],
+      "size": 8
+    },
+    {
+      "members": [
+        "26:108",
+        "26:110",
+        "26:126",
+        "26:131",
+        "26:144",
+        "26:150",
+        "26:163",
+        "26:179"
+      ],
+      "size": 8
+    },
+    {
+      "members": [
+        "10:48",
+        "21:38",
+        "27:71",
+        "32:28",
+        "34:29",
+        "36:48",
+        "67:25"
+      ],
+      "size": 7
+    },
+    {
+      "members": [
+        "40:1",
+        "41:1",
+        "42:1",
+        "43:1",
+        "44:1",
+        "45:1",
+        "46:1"
+      ],
+      "size": 7
+    },
+    {
+      "members": [
         "2:1",
-        "3:1"
+        "3:1",
+        "29:1",
+        "30:1",
+        "31:1",
+        "32:1"
+      ],
+      "size": 6
+    },
+    {
+      "members": [
+        "26:8",
+        "26:67",
+        "26:103",
+        "26:121",
+        "26:174",
+        "26:190"
+      ],
+      "size": 6
+    },
+    {
+      "members": [
+        "10:1",
+        "12:1",
+        "26:2",
+        "28:2",
+        "31:2"
+      ],
+      "size": 5
+    },
+    {
+      "members": [
+        "26:107",
+        "26:125",
+        "26:143",
+        "26:162",
+        "26:178"
+      ],
+      "size": 5
+    },
+    {
+      "members": [
+        "26:109",
+        "26:127",
+        "26:145",
+        "26:164",
+        "26:180"
+      ],
+      "size": 5
+    },
+    {
+      "members": [
+        "26:106",
+        "26:124",
+        "26:142",
+        "26:161"
+      ],
+      "size": 4
+    },
+    {
+      "members": [
+        "37:27",
+        "37:50",
+        "52:25",
+        "68:30"
+      ],
+      "size": 4
+    },
+    {
+      "members": [
+        "37:40",
+        "37:74",
+        "37:128",
+        "37:160"
+      ],
+      "size": 4
+    },
+    {
+      "members": [
+        "37:78",
+        "37:108",
+        "37:119",
+        "37:129"
+      ],
+      "size": 4
+    },
+    {
+      "members": [
+        "37:80",
+        "37:121",
+        "37:131",
+        "77:44"
+      ],
+      "size": 4
+    },
+    {
+      "members": [
+        "37:81",
+        "37:111",
+        "37:122",
+        "37:132"
+      ],
+      "size": 4
+    },
+    {
+      "members": [
+        "39:1",
+        "40:2",
+        "45:2",
+        "46:2"
+      ],
+      "size": 4
+    },
+    {
+      "members": [
+        "54:17",
+        "54:22",
+        "54:32",
+        "54:40"
+      ],
+      "size": 4
+    },
+    {
+      "members": [
+        "3:51",
+        "19:36",
+        "43:64"
+      ],
+      "size": 3
+    },
+    {
+      "members": [
+        "3:182",
+        "8:51",
+        "22:10"
+      ],
+      "size": 3
+    },
+    {
+      "members": [
+        "7:15",
+        "15:37",
+        "38:80"
+      ],
+      "size": 3
+    },
+    {
+      "members": [
+        "16:29",
+        "39:72",
+        "40:76"
+      ],
+      "size": 3
+    },
+    {
+      "members": [
+        "16:34",
+        "39:48",
+        "45:33"
+      ],
+      "size": 3
+    },
+    {
+      "members": [
+        "16:55",
+        "29:66",
+        "30:34"
+      ],
+      "size": 3
+    },
+    {
+      "members": [
+        "20:24",
+        "20:43",
+        "79:17"
+      ],
+      "size": 3
+    },
+    {
+      "members": [
+        "23:82",
+        "37:16",
+        "37:53"
+      ],
+      "size": 3
+    },
+    {
+      "members": [
+        "26:134",
+        "26:147",
+        "44:52"
+      ],
+      "size": 3
+    },
+    {
+      "members": [
+        "38:87",
+        "68:52",
+        "81:27"
+      ],
+      "size": 3
+    },
+    {
+      "members": [
+        "41:8",
+        "84:25",
+        "95:6"
+      ],
+      "size": 3
+    },
+    {
+      "members": [
+        "54:16",
+        "54:21",
+        "54:30"
+      ],
+      "size": 3
+    },
+    {
+      "members": [
+        "56:74",
+        "56:96",
+        "69:52"
+      ],
+      "size": 3
+    },
+    {
+      "members": [
+        "57:1",
+        "59:1",
+        "61:1"
+      ],
+      "size": 3
+    },
+    {
+      "members": [
+        "1:2",
+        "37:182"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "2:5",
+        "31:5"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "2:35",
+        "7:19"
       ],
       "size": 2
     },
@@ -29,6 +382,20 @@
       "members": [
         "2:47",
         "2:122"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "2:49",
+        "7:141"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "2:95",
+        "62:7"
       ],
       "size": 2
     },
@@ -62,8 +429,869 @@
     },
     {
       "members": [
+        "2:173",
+        "16:115"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "3:89",
+        "24:5"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
         "3:189",
         "85:9"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "4:48",
+        "4:116"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "5:10",
+        "5:86"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "6:4",
+        "36:46"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "6:10",
+        "21:41"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "6:15",
+        "39:13"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "6:21",
+        "10:17"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "6:117",
+        "68:7"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "7:45",
+        "11:19"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "7:61",
+        "7:67"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "7:65",
+        "11:50"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "7:78",
+        "7:91"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "7:80",
+        "29:28"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "7:81",
+        "27:55"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "7:82",
+        "27:56"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "7:107",
+        "26:32"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "7:108",
+        "26:33"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "7:112",
+        "26:37"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "7:120",
+        "26:46"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "7:121",
+        "26:47"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "7:122",
+        "26:48"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "7:183",
+        "68:45"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "7:200",
+        "41:36"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "8:13",
+        "59:4"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "9:33",
+        "61:9"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "9:55",
+        "9:85"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "9:73",
+        "66:9"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "11:22",
+        "16:109"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "11:96",
+        "40:23"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "11:110",
+        "41:45"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "12:2",
+        "43:3"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "12:22",
+        "28:14"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "14:20",
+        "35:17"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "15:5",
+        "23:43"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "15:11",
+        "43:7"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "15:12",
+        "26:200"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "15:19",
+        "50:7"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "15:29",
+        "38:72"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "15:30",
+        "38:73"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "15:34",
+        "38:77"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "15:35",
+        "38:78"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "15:36",
+        "38:79"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "15:38",
+        "38:81"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "15:40",
+        "38:83"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "15:45",
+        "51:15"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "15:57",
+        "51:31"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "15:58",
+        "51:32"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "15:73",
+        "15:83"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "16:42",
+        "29:59"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "16:43",
+        "21:7"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "17:48",
+        "25:9"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "18:72",
+        "18:75"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "18:89",
+        "18:92"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "19:37",
+        "43:65"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "19:41",
+        "19:56"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "20:9",
+        "79:15"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "21:14",
+        "68:31"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "21:16",
+        "44:38"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "21:70",
+        "37:98"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "21:75",
+        "21:86"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "21:92",
+        "23:52"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "22:62",
+        "31:30"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "23:5",
+        "70:29"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "23:6",
+        "70:30"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "23:7",
+        "70:31"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "23:8",
+        "70:32"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "23:9",
+        "70:34"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "23:26",
+        "23:39"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "23:31",
+        "23:42"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "23:79",
+        "67:24"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "23:83",
+        "27:68"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "23:85",
+        "23:87"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "24:10",
+        "24:20"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "26:1",
+        "28:1"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "26:24",
+        "44:7"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "26:58",
+        "44:26"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "26:66",
+        "37:82"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "26:70",
+        "37:85"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "26:105",
+        "26:160"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "26:116",
+        "26:167"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "26:153",
+        "26:185"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "26:170",
+        "37:134"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "26:171",
+        "37:135"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "26:172",
+        "37:136"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "26:173",
+        "27:58"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "26:204",
+        "37:176"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "27:3",
+        "31:4"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "27:53",
+        "41:18"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "27:80",
+        "30:52"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "27:81",
+        "30:53"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "28:62",
+        "28:74"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "30:37",
+        "39:52"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "33:62",
+        "48:23"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "37:17",
+        "56:48"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "37:43",
+        "56:12"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "37:154",
+        "68:36"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "37:174",
+        "37:178"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "37:175",
+        "37:179"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "43:2",
+        "44:2"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "43:83",
+        "70:42"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "50:40",
+        "52:49"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "51:5",
+        "77:7"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "52:17",
+        "54:54"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "52:19",
+        "77:43"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "52:40",
+        "68:46"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "52:41",
+        "68:47"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "56:13",
+        "56:39"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "56:67",
+        "68:27"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "56:80",
+        "69:43"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "68:15",
+        "83:13"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "69:21",
+        "101:7"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "69:22",
+        "88:10"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "69:34",
+        "107:3"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "69:40",
+        "81:19"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "70:12",
+        "80:36"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "73:19",
+        "76:29"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "74:54",
+        "80:11"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "74:55",
+        "80:12"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "75:22",
+        "88:8"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "77:3",
+        "79:2"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "77:9",
+        "81:11"
+      ],
+      "size": 2
+    },
+    {
+      "members": [
+        "77:25",
+        "78:6"
       ],
       "size": 2
     },
@@ -118,13 +1346,6 @@
     },
     {
       "members": [
-        "84:25",
-        "95:6"
-      ],
-      "size": 2
-    },
-    {
-      "members": [
         "91:4",
         "92:1"
       ],
@@ -160,14 +1381,45 @@
     }
   ],
   "ambiguous": {
+    "1:2": {
+      "confusable_with": [
+        "37:182"
+      ],
+      "max_norm_dist": 0.069,
+      "predecessor": "1:1",
+      "successor": "1:3",
+      "resolvable_by": "both"
+    },
     "2:1": {
       "confusable_with": [
-        "3:1"
+        "3:1",
+        "29:1",
+        "30:1",
+        "31:1",
+        "32:1"
       ],
       "max_norm_dist": 0.0,
       "predecessor": null,
       "successor": "2:2",
       "resolvable_by": "successor"
+    },
+    "2:5": {
+      "confusable_with": [
+        "31:5"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "2:4",
+      "successor": "2:6",
+      "resolvable_by": "both"
+    },
+    "2:35": {
+      "confusable_with": [
+        "7:19"
+      ],
+      "max_norm_dist": 0.1311,
+      "predecessor": "2:34",
+      "successor": "2:36",
+      "resolvable_by": "both"
     },
     "2:47": {
       "confusable_with": [
@@ -176,6 +1428,24 @@
       "max_norm_dist": 0.0,
       "predecessor": "2:46",
       "successor": "2:48",
+      "resolvable_by": "both"
+    },
+    "2:49": {
+      "confusable_with": [
+        "7:141"
+      ],
+      "max_norm_dist": 0.0451,
+      "predecessor": "2:48",
+      "successor": "2:50",
+      "resolvable_by": "both"
+    },
+    "2:95": {
+      "confusable_with": [
+        "62:7"
+      ],
+      "max_norm_dist": 0.0548,
+      "predecessor": "2:94",
+      "successor": "2:96",
       "resolvable_by": "both"
     },
     "2:122": {
@@ -232,14 +1502,37 @@
       "successor": "2:163",
       "resolvable_by": "both"
     },
+    "2:173": {
+      "confusable_with": [
+        "16:115"
+      ],
+      "max_norm_dist": 0.141,
+      "predecessor": "2:172",
+      "successor": "2:174",
+      "resolvable_by": "both"
+    },
     "3:1": {
       "confusable_with": [
-        "2:1"
+        "2:1",
+        "29:1",
+        "30:1",
+        "31:1",
+        "32:1"
       ],
       "max_norm_dist": 0.0,
       "predecessor": null,
       "successor": "3:2",
       "resolvable_by": "successor"
+    },
+    "3:51": {
+      "confusable_with": [
+        "19:36",
+        "43:64"
+      ],
+      "max_norm_dist": 0.0678,
+      "predecessor": "3:50",
+      "successor": "3:52",
+      "resolvable_by": "both"
     },
     "3:60": {
       "confusable_with": [
@@ -266,6 +1559,25 @@
       "max_norm_dist": 0.0,
       "predecessor": "3:87",
       "successor": "3:89",
+      "resolvable_by": "predecessor"
+    },
+    "3:89": {
+      "confusable_with": [
+        "24:5"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "3:88",
+      "successor": "3:90",
+      "resolvable_by": "successor"
+    },
+    "3:182": {
+      "confusable_with": [
+        "8:51",
+        "22:10"
+      ],
+      "max_norm_dist": 0.0794,
+      "predecessor": "3:181",
+      "successor": "3:183",
       "resolvable_by": "both"
     },
     "3:189": {
@@ -275,6 +1587,5000 @@
       "max_norm_dist": 0.1475,
       "predecessor": "3:188",
       "successor": "3:190",
+      "resolvable_by": "both"
+    },
+    "4:48": {
+      "confusable_with": [
+        "4:116"
+      ],
+      "max_norm_dist": 0.115,
+      "predecessor": "4:47",
+      "successor": "4:49",
+      "resolvable_by": "both"
+    },
+    "4:116": {
+      "confusable_with": [
+        "4:48"
+      ],
+      "max_norm_dist": 0.115,
+      "predecessor": "4:115",
+      "successor": "4:117",
+      "resolvable_by": "both"
+    },
+    "5:10": {
+      "confusable_with": [
+        "5:86"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "5:9",
+      "successor": "5:11",
+      "resolvable_by": "both"
+    },
+    "5:86": {
+      "confusable_with": [
+        "5:10"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "5:85",
+      "successor": "5:87",
+      "resolvable_by": "both"
+    },
+    "6:4": {
+      "confusable_with": [
+        "36:46"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "6:3",
+      "successor": "6:5",
+      "resolvable_by": "both"
+    },
+    "6:10": {
+      "confusable_with": [
+        "21:41"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "6:9",
+      "successor": "6:11",
+      "resolvable_by": "both"
+    },
+    "6:15": {
+      "confusable_with": [
+        "39:13"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "6:14",
+      "successor": "6:16",
+      "resolvable_by": "both"
+    },
+    "6:21": {
+      "confusable_with": [
+        "10:17"
+      ],
+      "max_norm_dist": 0.0674,
+      "predecessor": "6:20",
+      "successor": "6:22",
+      "resolvable_by": "both"
+    },
+    "6:117": {
+      "confusable_with": [
+        "68:7"
+      ],
+      "max_norm_dist": 0.087,
+      "predecessor": "6:116",
+      "successor": "6:118",
+      "resolvable_by": "both"
+    },
+    "7:15": {
+      "confusable_with": [
+        "15:37",
+        "38:80"
+      ],
+      "max_norm_dist": 0.0741,
+      "predecessor": "7:14",
+      "successor": "7:16",
+      "resolvable_by": "both"
+    },
+    "7:19": {
+      "confusable_with": [
+        "2:35"
+      ],
+      "max_norm_dist": 0.1311,
+      "predecessor": "7:18",
+      "successor": "7:20",
+      "resolvable_by": "both"
+    },
+    "7:45": {
+      "confusable_with": [
+        "11:19"
+      ],
+      "max_norm_dist": 0.0385,
+      "predecessor": "7:44",
+      "successor": "7:46",
+      "resolvable_by": "both"
+    },
+    "7:61": {
+      "confusable_with": [
+        "7:67"
+      ],
+      "max_norm_dist": 0.0484,
+      "predecessor": "7:60",
+      "successor": "7:62",
+      "resolvable_by": "both"
+    },
+    "7:65": {
+      "confusable_with": [
+        "11:50"
+      ],
+      "max_norm_dist": 0.1474,
+      "predecessor": "7:64",
+      "successor": "7:66",
+      "resolvable_by": "both"
+    },
+    "7:67": {
+      "confusable_with": [
+        "7:61"
+      ],
+      "max_norm_dist": 0.0484,
+      "predecessor": "7:66",
+      "successor": "7:68",
+      "resolvable_by": "both"
+    },
+    "7:78": {
+      "confusable_with": [
+        "7:91"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "7:77",
+      "successor": "7:79",
+      "resolvable_by": "both"
+    },
+    "7:80": {
+      "confusable_with": [
+        "29:28"
+      ],
+      "max_norm_dist": 0.0889,
+      "predecessor": "7:79",
+      "successor": "7:81",
+      "resolvable_by": "predecessor"
+    },
+    "7:81": {
+      "confusable_with": [
+        "27:55"
+      ],
+      "max_norm_dist": 0.1216,
+      "predecessor": "7:80",
+      "successor": "7:82",
+      "resolvable_by": "none"
+    },
+    "7:82": {
+      "confusable_with": [
+        "27:56"
+      ],
+      "max_norm_dist": 0.1196,
+      "predecessor": "7:81",
+      "successor": "7:83",
+      "resolvable_by": "successor"
+    },
+    "7:91": {
+      "confusable_with": [
+        "7:78"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "7:90",
+      "successor": "7:92",
+      "resolvable_by": "both"
+    },
+    "7:107": {
+      "confusable_with": [
+        "26:32"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "7:106",
+      "successor": "7:108",
+      "resolvable_by": "predecessor"
+    },
+    "7:108": {
+      "confusable_with": [
+        "26:33"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "7:107",
+      "successor": "7:109",
+      "resolvable_by": "successor"
+    },
+    "7:112": {
+      "confusable_with": [
+        "26:37"
+      ],
+      "max_norm_dist": 0.1111,
+      "predecessor": "7:111",
+      "successor": "7:113",
+      "resolvable_by": "both"
+    },
+    "7:120": {
+      "confusable_with": [
+        "26:46"
+      ],
+      "max_norm_dist": 0.0385,
+      "predecessor": "7:119",
+      "successor": "7:121",
+      "resolvable_by": "predecessor"
+    },
+    "7:121": {
+      "confusable_with": [
+        "26:47"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "7:120",
+      "successor": "7:122",
+      "resolvable_by": "none"
+    },
+    "7:122": {
+      "confusable_with": [
+        "26:48"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "7:121",
+      "successor": "7:123",
+      "resolvable_by": "successor"
+    },
+    "7:141": {
+      "confusable_with": [
+        "2:49"
+      ],
+      "max_norm_dist": 0.0451,
+      "predecessor": "7:140",
+      "successor": "7:142",
+      "resolvable_by": "both"
+    },
+    "7:183": {
+      "confusable_with": [
+        "68:45"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "7:182",
+      "successor": "7:184",
+      "resolvable_by": "both"
+    },
+    "7:200": {
+      "confusable_with": [
+        "41:36"
+      ],
+      "max_norm_dist": 0.0988,
+      "predecessor": "7:199",
+      "successor": "7:201",
+      "resolvable_by": "both"
+    },
+    "8:13": {
+      "confusable_with": [
+        "59:4"
+      ],
+      "max_norm_dist": 0.1183,
+      "predecessor": "8:12",
+      "successor": "8:14",
+      "resolvable_by": "both"
+    },
+    "8:51": {
+      "confusable_with": [
+        "3:182",
+        "22:10"
+      ],
+      "max_norm_dist": 0.0794,
+      "predecessor": "8:50",
+      "successor": "8:52",
+      "resolvable_by": "both"
+    },
+    "9:33": {
+      "confusable_with": [
+        "61:9"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "9:32",
+      "successor": "9:34",
+      "resolvable_by": "both"
+    },
+    "9:55": {
+      "confusable_with": [
+        "9:85"
+      ],
+      "max_norm_dist": 0.1157,
+      "predecessor": "9:54",
+      "successor": "9:56",
+      "resolvable_by": "both"
+    },
+    "9:73": {
+      "confusable_with": [
+        "66:9"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "9:72",
+      "successor": "9:74",
+      "resolvable_by": "both"
+    },
+    "9:85": {
+      "confusable_with": [
+        "9:55"
+      ],
+      "max_norm_dist": 0.1157,
+      "predecessor": "9:84",
+      "successor": "9:86",
+      "resolvable_by": "both"
+    },
+    "10:1": {
+      "confusable_with": [
+        "12:1",
+        "31:2"
+      ],
+      "max_norm_dist": 0.1379,
+      "predecessor": null,
+      "successor": "10:2",
+      "resolvable_by": "successor"
+    },
+    "10:17": {
+      "confusable_with": [
+        "6:21"
+      ],
+      "max_norm_dist": 0.0674,
+      "predecessor": "10:16",
+      "successor": "10:18",
+      "resolvable_by": "both"
+    },
+    "10:48": {
+      "confusable_with": [
+        "21:38",
+        "27:71",
+        "32:28",
+        "34:29",
+        "36:48",
+        "67:25"
+      ],
+      "max_norm_dist": 0.0732,
+      "predecessor": "10:47",
+      "successor": "10:49",
+      "resolvable_by": "both"
+    },
+    "11:19": {
+      "confusable_with": [
+        "7:45"
+      ],
+      "max_norm_dist": 0.0385,
+      "predecessor": "11:18",
+      "successor": "11:20",
+      "resolvable_by": "both"
+    },
+    "11:22": {
+      "confusable_with": [
+        "16:109"
+      ],
+      "max_norm_dist": 0.0952,
+      "predecessor": "11:21",
+      "successor": "11:23",
+      "resolvable_by": "both"
+    },
+    "11:50": {
+      "confusable_with": [
+        "7:65"
+      ],
+      "max_norm_dist": 0.1474,
+      "predecessor": "11:49",
+      "successor": "11:51",
+      "resolvable_by": "both"
+    },
+    "11:96": {
+      "confusable_with": [
+        "40:23"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "11:95",
+      "successor": "11:97",
+      "resolvable_by": "both"
+    },
+    "11:110": {
+      "confusable_with": [
+        "41:45"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "11:109",
+      "successor": "11:111",
+      "resolvable_by": "both"
+    },
+    "12:1": {
+      "confusable_with": [
+        "10:1",
+        "26:2",
+        "28:2"
+      ],
+      "max_norm_dist": 0.1379,
+      "predecessor": null,
+      "successor": "12:2",
+      "resolvable_by": "none"
+    },
+    "12:2": {
+      "confusable_with": [
+        "43:3"
+      ],
+      "max_norm_dist": 0.0556,
+      "predecessor": "12:1",
+      "successor": "12:3",
+      "resolvable_by": "successor"
+    },
+    "12:22": {
+      "confusable_with": [
+        "28:14"
+      ],
+      "max_norm_dist": 0.0886,
+      "predecessor": "12:21",
+      "successor": "12:23",
+      "resolvable_by": "both"
+    },
+    "14:20": {
+      "confusable_with": [
+        "35:17"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "14:19",
+      "successor": "14:21",
+      "resolvable_by": "both"
+    },
+    "15:5": {
+      "confusable_with": [
+        "23:43"
+      ],
+      "max_norm_dist": 0.0227,
+      "predecessor": "15:4",
+      "successor": "15:6",
+      "resolvable_by": "both"
+    },
+    "15:11": {
+      "confusable_with": [
+        "43:7"
+      ],
+      "max_norm_dist": 0.12,
+      "predecessor": "15:10",
+      "successor": "15:12",
+      "resolvable_by": "predecessor"
+    },
+    "15:12": {
+      "confusable_with": [
+        "26:200"
+      ],
+      "max_norm_dist": 0.1429,
+      "predecessor": "15:11",
+      "successor": "15:13",
+      "resolvable_by": "successor"
+    },
+    "15:19": {
+      "confusable_with": [
+        "50:7"
+      ],
+      "max_norm_dist": 0.1216,
+      "predecessor": "15:18",
+      "successor": "15:20",
+      "resolvable_by": "both"
+    },
+    "15:29": {
+      "confusable_with": [
+        "38:72"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "15:28",
+      "successor": "15:30",
+      "resolvable_by": "predecessor"
+    },
+    "15:30": {
+      "confusable_with": [
+        "38:73"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "15:29",
+      "successor": "15:31",
+      "resolvable_by": "successor"
+    },
+    "15:34": {
+      "confusable_with": [
+        "38:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "15:33",
+      "successor": "15:35",
+      "resolvable_by": "predecessor"
+    },
+    "15:35": {
+      "confusable_with": [
+        "38:78"
+      ],
+      "max_norm_dist": 0.0811,
+      "predecessor": "15:34",
+      "successor": "15:36",
+      "resolvable_by": "none"
+    },
+    "15:36": {
+      "confusable_with": [
+        "38:79"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "15:35",
+      "successor": "15:37",
+      "resolvable_by": "none"
+    },
+    "15:37": {
+      "confusable_with": [
+        "7:15",
+        "38:80"
+      ],
+      "max_norm_dist": 0.0741,
+      "predecessor": "15:36",
+      "successor": "15:38",
+      "resolvable_by": "none"
+    },
+    "15:38": {
+      "confusable_with": [
+        "38:81"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "15:37",
+      "successor": "15:39",
+      "resolvable_by": "successor"
+    },
+    "15:40": {
+      "confusable_with": [
+        "38:83"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "15:39",
+      "successor": "15:41",
+      "resolvable_by": "both"
+    },
+    "15:45": {
+      "confusable_with": [
+        "51:15"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "15:44",
+      "successor": "15:46",
+      "resolvable_by": "both"
+    },
+    "15:57": {
+      "confusable_with": [
+        "51:31"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "15:56",
+      "successor": "15:58",
+      "resolvable_by": "predecessor"
+    },
+    "15:58": {
+      "confusable_with": [
+        "51:32"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "15:57",
+      "successor": "15:59",
+      "resolvable_by": "successor"
+    },
+    "15:73": {
+      "confusable_with": [
+        "15:83"
+      ],
+      "max_norm_dist": 0.1,
+      "predecessor": "15:72",
+      "successor": "15:74",
+      "resolvable_by": "both"
+    },
+    "15:83": {
+      "confusable_with": [
+        "15:73"
+      ],
+      "max_norm_dist": 0.1,
+      "predecessor": "15:82",
+      "successor": "15:84",
+      "resolvable_by": "both"
+    },
+    "16:29": {
+      "confusable_with": [
+        "39:72",
+        "40:76"
+      ],
+      "max_norm_dist": 0.0923,
+      "predecessor": "16:28",
+      "successor": "16:30",
+      "resolvable_by": "both"
+    },
+    "16:34": {
+      "confusable_with": [
+        "39:48",
+        "45:33"
+      ],
+      "max_norm_dist": 0.127,
+      "predecessor": "16:33",
+      "successor": "16:35",
+      "resolvable_by": "both"
+    },
+    "16:42": {
+      "confusable_with": [
+        "29:59"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "16:41",
+      "successor": "16:43",
+      "resolvable_by": "predecessor"
+    },
+    "16:43": {
+      "confusable_with": [
+        "21:7"
+      ],
+      "max_norm_dist": 0.046,
+      "predecessor": "16:42",
+      "successor": "16:44",
+      "resolvable_by": "successor"
+    },
+    "16:55": {
+      "confusable_with": [
+        "29:66",
+        "30:34"
+      ],
+      "max_norm_dist": 0.1091,
+      "predecessor": "16:54",
+      "successor": "16:56",
+      "resolvable_by": "both"
+    },
+    "16:109": {
+      "confusable_with": [
+        "11:22"
+      ],
+      "max_norm_dist": 0.0952,
+      "predecessor": "16:108",
+      "successor": "16:110",
+      "resolvable_by": "both"
+    },
+    "16:115": {
+      "confusable_with": [
+        "2:173"
+      ],
+      "max_norm_dist": 0.141,
+      "predecessor": "16:114",
+      "successor": "16:116",
+      "resolvable_by": "both"
+    },
+    "17:48": {
+      "confusable_with": [
+        "25:9"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "17:47",
+      "successor": "17:49",
+      "resolvable_by": "both"
+    },
+    "18:72": {
+      "confusable_with": [
+        "18:75"
+      ],
+      "max_norm_dist": 0.098,
+      "predecessor": "18:71",
+      "successor": "18:73",
+      "resolvable_by": "both"
+    },
+    "18:75": {
+      "confusable_with": [
+        "18:72"
+      ],
+      "max_norm_dist": 0.098,
+      "predecessor": "18:74",
+      "successor": "18:76",
+      "resolvable_by": "both"
+    },
+    "18:89": {
+      "confusable_with": [
+        "18:92"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "18:88",
+      "successor": "18:90",
+      "resolvable_by": "both"
+    },
+    "18:92": {
+      "confusable_with": [
+        "18:89"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "18:91",
+      "successor": "18:93",
+      "resolvable_by": "both"
+    },
+    "19:36": {
+      "confusable_with": [
+        "3:51",
+        "43:64"
+      ],
+      "max_norm_dist": 0.1017,
+      "predecessor": "19:35",
+      "successor": "19:37",
+      "resolvable_by": "predecessor"
+    },
+    "19:37": {
+      "confusable_with": [
+        "43:65"
+      ],
+      "max_norm_dist": 0.1447,
+      "predecessor": "19:36",
+      "successor": "19:38",
+      "resolvable_by": "successor"
+    },
+    "19:41": {
+      "confusable_with": [
+        "19:56"
+      ],
+      "max_norm_dist": 0.0727,
+      "predecessor": "19:40",
+      "successor": "19:42",
+      "resolvable_by": "both"
+    },
+    "19:56": {
+      "confusable_with": [
+        "19:41"
+      ],
+      "max_norm_dist": 0.0727,
+      "predecessor": "19:55",
+      "successor": "19:57",
+      "resolvable_by": "both"
+    },
+    "20:9": {
+      "confusable_with": [
+        "79:15"
+      ],
+      "max_norm_dist": 0.0952,
+      "predecessor": "20:8",
+      "successor": "20:10",
+      "resolvable_by": "both"
+    },
+    "20:24": {
+      "confusable_with": [
+        "20:43",
+        "79:17"
+      ],
+      "max_norm_dist": 0.0345,
+      "predecessor": "20:23",
+      "successor": "20:25",
+      "resolvable_by": "both"
+    },
+    "20:43": {
+      "confusable_with": [
+        "20:24",
+        "79:17"
+      ],
+      "max_norm_dist": 0.0345,
+      "predecessor": "20:42",
+      "successor": "20:44",
+      "resolvable_by": "both"
+    },
+    "21:7": {
+      "confusable_with": [
+        "16:43"
+      ],
+      "max_norm_dist": 0.046,
+      "predecessor": "21:6",
+      "successor": "21:8",
+      "resolvable_by": "both"
+    },
+    "21:14": {
+      "confusable_with": [
+        "68:31"
+      ],
+      "max_norm_dist": 0.129,
+      "predecessor": "21:13",
+      "successor": "21:15",
+      "resolvable_by": "both"
+    },
+    "21:16": {
+      "confusable_with": [
+        "44:38"
+      ],
+      "max_norm_dist": 0.0816,
+      "predecessor": "21:15",
+      "successor": "21:17",
+      "resolvable_by": "both"
+    },
+    "21:38": {
+      "confusable_with": [
+        "10:48",
+        "27:71",
+        "32:28",
+        "34:29",
+        "36:48",
+        "67:25"
+      ],
+      "max_norm_dist": 0.0732,
+      "predecessor": "21:37",
+      "successor": "21:39",
+      "resolvable_by": "both"
+    },
+    "21:41": {
+      "confusable_with": [
+        "6:10"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "21:40",
+      "successor": "21:42",
+      "resolvable_by": "both"
+    },
+    "21:70": {
+      "confusable_with": [
+        "37:98"
+      ],
+      "max_norm_dist": 0.093,
+      "predecessor": "21:69",
+      "successor": "21:71",
+      "resolvable_by": "both"
+    },
+    "21:75": {
+      "confusable_with": [
+        "21:86"
+      ],
+      "max_norm_dist": 0.0652,
+      "predecessor": "21:74",
+      "successor": "21:76",
+      "resolvable_by": "both"
+    },
+    "21:86": {
+      "confusable_with": [
+        "21:75"
+      ],
+      "max_norm_dist": 0.0652,
+      "predecessor": "21:85",
+      "successor": "21:87",
+      "resolvable_by": "both"
+    },
+    "21:92": {
+      "confusable_with": [
+        "23:52"
+      ],
+      "max_norm_dist": 0.0968,
+      "predecessor": "21:91",
+      "successor": "21:93",
+      "resolvable_by": "both"
+    },
+    "22:10": {
+      "confusable_with": [
+        "3:182",
+        "8:51"
+      ],
+      "max_norm_dist": 0.0794,
+      "predecessor": "22:9",
+      "successor": "22:11",
+      "resolvable_by": "both"
+    },
+    "22:62": {
+      "confusable_with": [
+        "31:30"
+      ],
+      "max_norm_dist": 0.04,
+      "predecessor": "22:61",
+      "successor": "22:63",
+      "resolvable_by": "both"
+    },
+    "23:5": {
+      "confusable_with": [
+        "70:29"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "23:4",
+      "successor": "23:6",
+      "resolvable_by": "predecessor"
+    },
+    "23:6": {
+      "confusable_with": [
+        "70:30"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "23:5",
+      "successor": "23:7",
+      "resolvable_by": "none"
+    },
+    "23:7": {
+      "confusable_with": [
+        "70:31"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "23:6",
+      "successor": "23:8",
+      "resolvable_by": "none"
+    },
+    "23:8": {
+      "confusable_with": [
+        "70:32"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "23:7",
+      "successor": "23:9",
+      "resolvable_by": "none"
+    },
+    "23:9": {
+      "confusable_with": [
+        "70:34"
+      ],
+      "max_norm_dist": 0.0556,
+      "predecessor": "23:8",
+      "successor": "23:10",
+      "resolvable_by": "successor"
+    },
+    "23:26": {
+      "confusable_with": [
+        "23:39"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "23:25",
+      "successor": "23:27",
+      "resolvable_by": "both"
+    },
+    "23:31": {
+      "confusable_with": [
+        "23:42"
+      ],
+      "max_norm_dist": 0.0513,
+      "predecessor": "23:30",
+      "successor": "23:32",
+      "resolvable_by": "both"
+    },
+    "23:39": {
+      "confusable_with": [
+        "23:26"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "23:38",
+      "successor": "23:40",
+      "resolvable_by": "both"
+    },
+    "23:42": {
+      "confusable_with": [
+        "23:31"
+      ],
+      "max_norm_dist": 0.0513,
+      "predecessor": "23:41",
+      "successor": "23:43",
+      "resolvable_by": "predecessor"
+    },
+    "23:43": {
+      "confusable_with": [
+        "15:5"
+      ],
+      "max_norm_dist": 0.0227,
+      "predecessor": "23:42",
+      "successor": "23:44",
+      "resolvable_by": "successor"
+    },
+    "23:52": {
+      "confusable_with": [
+        "21:92"
+      ],
+      "max_norm_dist": 0.0968,
+      "predecessor": "23:51",
+      "successor": "23:53",
+      "resolvable_by": "both"
+    },
+    "23:79": {
+      "confusable_with": [
+        "67:24"
+      ],
+      "max_norm_dist": 0.0625,
+      "predecessor": "23:78",
+      "successor": "23:80",
+      "resolvable_by": "both"
+    },
+    "23:82": {
+      "confusable_with": [
+        "37:16"
+      ],
+      "max_norm_dist": 0.0862,
+      "predecessor": "23:81",
+      "successor": "23:83",
+      "resolvable_by": "predecessor"
+    },
+    "23:83": {
+      "confusable_with": [
+        "27:68"
+      ],
+      "max_norm_dist": 0.1159,
+      "predecessor": "23:82",
+      "successor": "23:84",
+      "resolvable_by": "successor"
+    },
+    "23:85": {
+      "confusable_with": [
+        "23:87"
+      ],
+      "max_norm_dist": 0.1389,
+      "predecessor": "23:84",
+      "successor": "23:86",
+      "resolvable_by": "both"
+    },
+    "23:87": {
+      "confusable_with": [
+        "23:85"
+      ],
+      "max_norm_dist": 0.1389,
+      "predecessor": "23:86",
+      "successor": "23:88",
+      "resolvable_by": "both"
+    },
+    "24:5": {
+      "confusable_with": [
+        "3:89"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "24:4",
+      "successor": "24:6",
+      "resolvable_by": "both"
+    },
+    "24:10": {
+      "confusable_with": [
+        "24:20"
+      ],
+      "max_norm_dist": 0.127,
+      "predecessor": "24:9",
+      "successor": "24:11",
+      "resolvable_by": "both"
+    },
+    "24:20": {
+      "confusable_with": [
+        "24:10"
+      ],
+      "max_norm_dist": 0.127,
+      "predecessor": "24:19",
+      "successor": "24:21",
+      "resolvable_by": "both"
+    },
+    "25:9": {
+      "confusable_with": [
+        "17:48"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "25:8",
+      "successor": "25:10",
+      "resolvable_by": "both"
+    },
+    "26:1": {
+      "confusable_with": [
+        "28:1"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": null,
+      "successor": "26:2",
+      "resolvable_by": "none"
+    },
+    "26:2": {
+      "confusable_with": [
+        "12:1",
+        "28:2"
+      ],
+      "max_norm_dist": 0.1034,
+      "predecessor": "26:1",
+      "successor": "26:3",
+      "resolvable_by": "successor"
+    },
+    "26:8": {
+      "confusable_with": [
+        "26:67",
+        "26:103",
+        "26:121",
+        "26:174",
+        "26:190"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:7",
+      "successor": "26:9",
+      "resolvable_by": "predecessor"
+    },
+    "26:9": {
+      "confusable_with": [
+        "26:68",
+        "26:104",
+        "26:122",
+        "26:140",
+        "26:159",
+        "26:175",
+        "26:191"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:8",
+      "successor": "26:10",
+      "resolvable_by": "successor"
+    },
+    "26:24": {
+      "confusable_with": [
+        "44:7"
+      ],
+      "max_norm_dist": 0.0877,
+      "predecessor": "26:23",
+      "successor": "26:25",
+      "resolvable_by": "both"
+    },
+    "26:32": {
+      "confusable_with": [
+        "7:107"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:31",
+      "successor": "26:33",
+      "resolvable_by": "predecessor"
+    },
+    "26:33": {
+      "confusable_with": [
+        "7:108"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:32",
+      "successor": "26:34",
+      "resolvable_by": "successor"
+    },
+    "26:37": {
+      "confusable_with": [
+        "7:112"
+      ],
+      "max_norm_dist": 0.1111,
+      "predecessor": "26:36",
+      "successor": "26:38",
+      "resolvable_by": "both"
+    },
+    "26:46": {
+      "confusable_with": [
+        "7:120"
+      ],
+      "max_norm_dist": 0.0385,
+      "predecessor": "26:45",
+      "successor": "26:47",
+      "resolvable_by": "predecessor"
+    },
+    "26:47": {
+      "confusable_with": [
+        "7:121"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:46",
+      "successor": "26:48",
+      "resolvable_by": "none"
+    },
+    "26:48": {
+      "confusable_with": [
+        "7:122"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:47",
+      "successor": "26:49",
+      "resolvable_by": "successor"
+    },
+    "26:58": {
+      "confusable_with": [
+        "44:26"
+      ],
+      "max_norm_dist": 0.1304,
+      "predecessor": "26:57",
+      "successor": "26:59",
+      "resolvable_by": "both"
+    },
+    "26:66": {
+      "confusable_with": [
+        "37:82"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:65",
+      "successor": "26:67",
+      "resolvable_by": "predecessor"
+    },
+    "26:67": {
+      "confusable_with": [
+        "26:8",
+        "26:103",
+        "26:121",
+        "26:174",
+        "26:190"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:66",
+      "successor": "26:68",
+      "resolvable_by": "none"
+    },
+    "26:68": {
+      "confusable_with": [
+        "26:9",
+        "26:104",
+        "26:122",
+        "26:140",
+        "26:159",
+        "26:175",
+        "26:191"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:67",
+      "successor": "26:69",
+      "resolvable_by": "successor"
+    },
+    "26:70": {
+      "confusable_with": [
+        "37:85"
+      ],
+      "max_norm_dist": 0.0556,
+      "predecessor": "26:69",
+      "successor": "26:71",
+      "resolvable_by": "both"
+    },
+    "26:103": {
+      "confusable_with": [
+        "26:8",
+        "26:67",
+        "26:121",
+        "26:174",
+        "26:190"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:102",
+      "successor": "26:104",
+      "resolvable_by": "predecessor"
+    },
+    "26:104": {
+      "confusable_with": [
+        "26:9",
+        "26:68",
+        "26:122",
+        "26:140",
+        "26:159",
+        "26:175",
+        "26:191"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:103",
+      "successor": "26:105",
+      "resolvable_by": "none"
+    },
+    "26:105": {
+      "confusable_with": [
+        "26:160"
+      ],
+      "max_norm_dist": 0.0714,
+      "predecessor": "26:104",
+      "successor": "26:106",
+      "resolvable_by": "none"
+    },
+    "26:106": {
+      "confusable_with": [
+        "26:124",
+        "26:142",
+        "26:161"
+      ],
+      "max_norm_dist": 0.1053,
+      "predecessor": "26:105",
+      "successor": "26:107",
+      "resolvable_by": "none"
+    },
+    "26:107": {
+      "confusable_with": [
+        "26:125",
+        "26:143",
+        "26:162",
+        "26:178"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:106",
+      "successor": "26:108",
+      "resolvable_by": "none"
+    },
+    "26:108": {
+      "confusable_with": [
+        "26:110",
+        "26:126",
+        "26:131",
+        "26:144",
+        "26:150",
+        "26:163",
+        "26:179"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:107",
+      "successor": "26:109",
+      "resolvable_by": "none"
+    },
+    "26:109": {
+      "confusable_with": [
+        "26:127",
+        "26:145",
+        "26:164",
+        "26:180"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:108",
+      "successor": "26:110",
+      "resolvable_by": "none"
+    },
+    "26:110": {
+      "confusable_with": [
+        "26:108",
+        "26:126",
+        "26:131",
+        "26:144",
+        "26:150",
+        "26:163",
+        "26:179"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:109",
+      "successor": "26:111",
+      "resolvable_by": "successor"
+    },
+    "26:116": {
+      "confusable_with": [
+        "26:167"
+      ],
+      "max_norm_dist": 0.1346,
+      "predecessor": "26:115",
+      "successor": "26:117",
+      "resolvable_by": "both"
+    },
+    "26:121": {
+      "confusable_with": [
+        "26:8",
+        "26:67",
+        "26:103",
+        "26:174",
+        "26:190"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:120",
+      "successor": "26:122",
+      "resolvable_by": "predecessor"
+    },
+    "26:122": {
+      "confusable_with": [
+        "26:9",
+        "26:68",
+        "26:104",
+        "26:140",
+        "26:159",
+        "26:175",
+        "26:191"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:121",
+      "successor": "26:123",
+      "resolvable_by": "successor"
+    },
+    "26:124": {
+      "confusable_with": [
+        "26:106",
+        "26:142",
+        "26:161"
+      ],
+      "max_norm_dist": 0.1316,
+      "predecessor": "26:123",
+      "successor": "26:125",
+      "resolvable_by": "predecessor"
+    },
+    "26:125": {
+      "confusable_with": [
+        "26:107",
+        "26:143",
+        "26:162",
+        "26:178"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:124",
+      "successor": "26:126",
+      "resolvable_by": "none"
+    },
+    "26:126": {
+      "confusable_with": [
+        "26:108",
+        "26:110",
+        "26:131",
+        "26:144",
+        "26:150",
+        "26:163",
+        "26:179"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:125",
+      "successor": "26:127",
+      "resolvable_by": "none"
+    },
+    "26:127": {
+      "confusable_with": [
+        "26:109",
+        "26:145",
+        "26:164",
+        "26:180"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:126",
+      "successor": "26:128",
+      "resolvable_by": "successor"
+    },
+    "26:131": {
+      "confusable_with": [
+        "26:108",
+        "26:110",
+        "26:126",
+        "26:144",
+        "26:150",
+        "26:163",
+        "26:179"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:130",
+      "successor": "26:132",
+      "resolvable_by": "both"
+    },
+    "26:134": {
+      "confusable_with": [
+        "26:147",
+        "44:52"
+      ],
+      "max_norm_dist": 0.1176,
+      "predecessor": "26:133",
+      "successor": "26:135",
+      "resolvable_by": "both"
+    },
+    "26:140": {
+      "confusable_with": [
+        "26:9",
+        "26:68",
+        "26:104",
+        "26:122",
+        "26:159",
+        "26:175",
+        "26:191"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:139",
+      "successor": "26:141",
+      "resolvable_by": "both"
+    },
+    "26:142": {
+      "confusable_with": [
+        "26:106",
+        "26:124",
+        "26:161"
+      ],
+      "max_norm_dist": 0.1316,
+      "predecessor": "26:141",
+      "successor": "26:143",
+      "resolvable_by": "predecessor"
+    },
+    "26:143": {
+      "confusable_with": [
+        "26:107",
+        "26:125",
+        "26:162",
+        "26:178"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:142",
+      "successor": "26:144",
+      "resolvable_by": "none"
+    },
+    "26:144": {
+      "confusable_with": [
+        "26:108",
+        "26:110",
+        "26:126",
+        "26:131",
+        "26:150",
+        "26:163",
+        "26:179"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:143",
+      "successor": "26:145",
+      "resolvable_by": "none"
+    },
+    "26:145": {
+      "confusable_with": [
+        "26:109",
+        "26:127",
+        "26:164",
+        "26:180"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:144",
+      "successor": "26:146",
+      "resolvable_by": "successor"
+    },
+    "26:147": {
+      "confusable_with": [
+        "26:134",
+        "44:52"
+      ],
+      "max_norm_dist": 0.1176,
+      "predecessor": "26:146",
+      "successor": "26:148",
+      "resolvable_by": "both"
+    },
+    "26:150": {
+      "confusable_with": [
+        "26:108",
+        "26:110",
+        "26:126",
+        "26:131",
+        "26:144",
+        "26:163",
+        "26:179"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:149",
+      "successor": "26:151",
+      "resolvable_by": "both"
+    },
+    "26:153": {
+      "confusable_with": [
+        "26:185"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:152",
+      "successor": "26:154",
+      "resolvable_by": "both"
+    },
+    "26:159": {
+      "confusable_with": [
+        "26:9",
+        "26:68",
+        "26:104",
+        "26:122",
+        "26:140",
+        "26:175",
+        "26:191"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:158",
+      "successor": "26:160",
+      "resolvable_by": "predecessor"
+    },
+    "26:160": {
+      "confusable_with": [
+        "26:105"
+      ],
+      "max_norm_dist": 0.0714,
+      "predecessor": "26:159",
+      "successor": "26:161",
+      "resolvable_by": "none"
+    },
+    "26:161": {
+      "confusable_with": [
+        "26:106",
+        "26:124",
+        "26:142"
+      ],
+      "max_norm_dist": 0.1053,
+      "predecessor": "26:160",
+      "successor": "26:162",
+      "resolvable_by": "none"
+    },
+    "26:162": {
+      "confusable_with": [
+        "26:107",
+        "26:125",
+        "26:143",
+        "26:178"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:161",
+      "successor": "26:163",
+      "resolvable_by": "none"
+    },
+    "26:163": {
+      "confusable_with": [
+        "26:108",
+        "26:110",
+        "26:126",
+        "26:131",
+        "26:144",
+        "26:150",
+        "26:179"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:162",
+      "successor": "26:164",
+      "resolvable_by": "none"
+    },
+    "26:164": {
+      "confusable_with": [
+        "26:109",
+        "26:127",
+        "26:145",
+        "26:180"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:163",
+      "successor": "26:165",
+      "resolvable_by": "successor"
+    },
+    "26:167": {
+      "confusable_with": [
+        "26:116"
+      ],
+      "max_norm_dist": 0.1346,
+      "predecessor": "26:166",
+      "successor": "26:168",
+      "resolvable_by": "both"
+    },
+    "26:170": {
+      "confusable_with": [
+        "37:134"
+      ],
+      "max_norm_dist": 0.1,
+      "predecessor": "26:169",
+      "successor": "26:171",
+      "resolvable_by": "predecessor"
+    },
+    "26:171": {
+      "confusable_with": [
+        "37:135"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:170",
+      "successor": "26:172",
+      "resolvable_by": "none"
+    },
+    "26:172": {
+      "confusable_with": [
+        "37:136"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:171",
+      "successor": "26:173",
+      "resolvable_by": "none"
+    },
+    "26:173": {
+      "confusable_with": [
+        "27:58"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:172",
+      "successor": "26:174",
+      "resolvable_by": "none"
+    },
+    "26:174": {
+      "confusable_with": [
+        "26:8",
+        "26:67",
+        "26:103",
+        "26:121",
+        "26:190"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:173",
+      "successor": "26:175",
+      "resolvable_by": "none"
+    },
+    "26:175": {
+      "confusable_with": [
+        "26:9",
+        "26:68",
+        "26:104",
+        "26:122",
+        "26:140",
+        "26:159",
+        "26:191"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:174",
+      "successor": "26:176",
+      "resolvable_by": "successor"
+    },
+    "26:178": {
+      "confusable_with": [
+        "26:107",
+        "26:125",
+        "26:143",
+        "26:162"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:177",
+      "successor": "26:179",
+      "resolvable_by": "predecessor"
+    },
+    "26:179": {
+      "confusable_with": [
+        "26:108",
+        "26:110",
+        "26:126",
+        "26:131",
+        "26:144",
+        "26:150",
+        "26:163"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:178",
+      "successor": "26:180",
+      "resolvable_by": "none"
+    },
+    "26:180": {
+      "confusable_with": [
+        "26:109",
+        "26:127",
+        "26:145",
+        "26:164"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:179",
+      "successor": "26:181",
+      "resolvable_by": "successor"
+    },
+    "26:185": {
+      "confusable_with": [
+        "26:153"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:184",
+      "successor": "26:186",
+      "resolvable_by": "both"
+    },
+    "26:190": {
+      "confusable_with": [
+        "26:8",
+        "26:67",
+        "26:103",
+        "26:121",
+        "26:174"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:189",
+      "successor": "26:191",
+      "resolvable_by": "predecessor"
+    },
+    "26:191": {
+      "confusable_with": [
+        "26:9",
+        "26:68",
+        "26:104",
+        "26:122",
+        "26:140",
+        "26:159",
+        "26:175"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:190",
+      "successor": "26:192",
+      "resolvable_by": "successor"
+    },
+    "26:200": {
+      "confusable_with": [
+        "15:12"
+      ],
+      "max_norm_dist": 0.1429,
+      "predecessor": "26:199",
+      "successor": "26:201",
+      "resolvable_by": "both"
+    },
+    "26:204": {
+      "confusable_with": [
+        "37:176"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "26:203",
+      "successor": "26:205",
+      "resolvable_by": "both"
+    },
+    "27:3": {
+      "confusable_with": [
+        "31:4"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "27:2",
+      "successor": "27:4",
+      "resolvable_by": "both"
+    },
+    "27:53": {
+      "confusable_with": [
+        "41:18"
+      ],
+      "max_norm_dist": 0.05,
+      "predecessor": "27:52",
+      "successor": "27:54",
+      "resolvable_by": "both"
+    },
+    "27:55": {
+      "confusable_with": [
+        "7:81"
+      ],
+      "max_norm_dist": 0.1216,
+      "predecessor": "27:54",
+      "successor": "27:56",
+      "resolvable_by": "predecessor"
+    },
+    "27:56": {
+      "confusable_with": [
+        "7:82"
+      ],
+      "max_norm_dist": 0.1196,
+      "predecessor": "27:55",
+      "successor": "27:57",
+      "resolvable_by": "successor"
+    },
+    "27:58": {
+      "confusable_with": [
+        "26:173"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "27:57",
+      "successor": "27:59",
+      "resolvable_by": "both"
+    },
+    "27:68": {
+      "confusable_with": [
+        "23:83"
+      ],
+      "max_norm_dist": 0.1159,
+      "predecessor": "27:67",
+      "successor": "27:69",
+      "resolvable_by": "both"
+    },
+    "27:71": {
+      "confusable_with": [
+        "10:48",
+        "21:38",
+        "32:28",
+        "34:29",
+        "36:48",
+        "67:25"
+      ],
+      "max_norm_dist": 0.0732,
+      "predecessor": "27:70",
+      "successor": "27:72",
+      "resolvable_by": "both"
+    },
+    "27:80": {
+      "confusable_with": [
+        "30:52"
+      ],
+      "max_norm_dist": 0.0286,
+      "predecessor": "27:79",
+      "successor": "27:81",
+      "resolvable_by": "predecessor"
+    },
+    "27:81": {
+      "confusable_with": [
+        "30:53"
+      ],
+      "max_norm_dist": 0.0118,
+      "predecessor": "27:80",
+      "successor": "27:82",
+      "resolvable_by": "successor"
+    },
+    "28:1": {
+      "confusable_with": [
+        "26:1"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": null,
+      "successor": "28:2",
+      "resolvable_by": "none"
+    },
+    "28:2": {
+      "confusable_with": [
+        "12:1",
+        "26:2"
+      ],
+      "max_norm_dist": 0.1034,
+      "predecessor": "28:1",
+      "successor": "28:3",
+      "resolvable_by": "successor"
+    },
+    "28:14": {
+      "confusable_with": [
+        "12:22"
+      ],
+      "max_norm_dist": 0.0886,
+      "predecessor": "28:13",
+      "successor": "28:15",
+      "resolvable_by": "both"
+    },
+    "28:62": {
+      "confusable_with": [
+        "28:74"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "28:61",
+      "successor": "28:63",
+      "resolvable_by": "both"
+    },
+    "28:74": {
+      "confusable_with": [
+        "28:62"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "28:73",
+      "successor": "28:75",
+      "resolvable_by": "both"
+    },
+    "29:1": {
+      "confusable_with": [
+        "2:1",
+        "3:1",
+        "30:1",
+        "31:1",
+        "32:1"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": null,
+      "successor": "29:2",
+      "resolvable_by": "successor"
+    },
+    "29:28": {
+      "confusable_with": [
+        "7:80"
+      ],
+      "max_norm_dist": 0.0889,
+      "predecessor": "29:27",
+      "successor": "29:29",
+      "resolvable_by": "both"
+    },
+    "29:59": {
+      "confusable_with": [
+        "16:42"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "29:58",
+      "successor": "29:60",
+      "resolvable_by": "both"
+    },
+    "29:66": {
+      "confusable_with": [
+        "16:55",
+        "30:34"
+      ],
+      "max_norm_dist": 0.1091,
+      "predecessor": "29:65",
+      "successor": "29:67",
+      "resolvable_by": "both"
+    },
+    "30:1": {
+      "confusable_with": [
+        "2:1",
+        "3:1",
+        "29:1",
+        "31:1",
+        "32:1"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": null,
+      "successor": "30:2",
+      "resolvable_by": "successor"
+    },
+    "30:34": {
+      "confusable_with": [
+        "16:55",
+        "29:66"
+      ],
+      "max_norm_dist": 0.1091,
+      "predecessor": "30:33",
+      "successor": "30:35",
+      "resolvable_by": "both"
+    },
+    "30:37": {
+      "confusable_with": [
+        "39:52"
+      ],
+      "max_norm_dist": 0.0404,
+      "predecessor": "30:36",
+      "successor": "30:38",
+      "resolvable_by": "both"
+    },
+    "30:52": {
+      "confusable_with": [
+        "27:80"
+      ],
+      "max_norm_dist": 0.0286,
+      "predecessor": "30:51",
+      "successor": "30:53",
+      "resolvable_by": "predecessor"
+    },
+    "30:53": {
+      "confusable_with": [
+        "27:81"
+      ],
+      "max_norm_dist": 0.0118,
+      "predecessor": "30:52",
+      "successor": "30:54",
+      "resolvable_by": "successor"
+    },
+    "31:1": {
+      "confusable_with": [
+        "2:1",
+        "3:1",
+        "29:1",
+        "30:1",
+        "32:1"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": null,
+      "successor": "31:2",
+      "resolvable_by": "none"
+    },
+    "31:2": {
+      "confusable_with": [
+        "10:1"
+      ],
+      "max_norm_dist": 0.1034,
+      "predecessor": "31:1",
+      "successor": "31:3",
+      "resolvable_by": "successor"
+    },
+    "31:4": {
+      "confusable_with": [
+        "27:3"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "31:3",
+      "successor": "31:5",
+      "resolvable_by": "predecessor"
+    },
+    "31:5": {
+      "confusable_with": [
+        "2:5"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "31:4",
+      "successor": "31:6",
+      "resolvable_by": "successor"
+    },
+    "31:30": {
+      "confusable_with": [
+        "22:62"
+      ],
+      "max_norm_dist": 0.04,
+      "predecessor": "31:29",
+      "successor": "31:31",
+      "resolvable_by": "both"
+    },
+    "32:1": {
+      "confusable_with": [
+        "2:1",
+        "3:1",
+        "29:1",
+        "30:1",
+        "31:1"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": null,
+      "successor": "32:2",
+      "resolvable_by": "successor"
+    },
+    "32:28": {
+      "confusable_with": [
+        "10:48",
+        "21:38",
+        "27:71",
+        "34:29",
+        "36:48",
+        "67:25"
+      ],
+      "max_norm_dist": 0.0732,
+      "predecessor": "32:27",
+      "successor": "32:29",
+      "resolvable_by": "both"
+    },
+    "33:62": {
+      "confusable_with": [
+        "48:23"
+      ],
+      "max_norm_dist": 0.0972,
+      "predecessor": "33:61",
+      "successor": "33:63",
+      "resolvable_by": "both"
+    },
+    "34:29": {
+      "confusable_with": [
+        "10:48",
+        "21:38",
+        "27:71",
+        "32:28",
+        "36:48",
+        "67:25"
+      ],
+      "max_norm_dist": 0.0732,
+      "predecessor": "34:28",
+      "successor": "34:30",
+      "resolvable_by": "both"
+    },
+    "35:17": {
+      "confusable_with": [
+        "14:20"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "35:16",
+      "successor": "35:18",
+      "resolvable_by": "both"
+    },
+    "36:46": {
+      "confusable_with": [
+        "6:4"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "36:45",
+      "successor": "36:47",
+      "resolvable_by": "both"
+    },
+    "36:48": {
+      "confusable_with": [
+        "10:48",
+        "21:38",
+        "27:71",
+        "32:28",
+        "34:29",
+        "67:25"
+      ],
+      "max_norm_dist": 0.0732,
+      "predecessor": "36:47",
+      "successor": "36:49",
+      "resolvable_by": "both"
+    },
+    "37:16": {
+      "confusable_with": [
+        "23:82",
+        "37:53"
+      ],
+      "max_norm_dist": 0.0862,
+      "predecessor": "37:15",
+      "successor": "37:17",
+      "resolvable_by": "predecessor"
+    },
+    "37:17": {
+      "confusable_with": [
+        "56:48"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "37:16",
+      "successor": "37:18",
+      "resolvable_by": "successor"
+    },
+    "37:27": {
+      "confusable_with": [
+        "37:50",
+        "52:25",
+        "68:30"
+      ],
+      "max_norm_dist": 0.1053,
+      "predecessor": "37:26",
+      "successor": "37:28",
+      "resolvable_by": "both"
+    },
+    "37:40": {
+      "confusable_with": [
+        "37:74",
+        "37:128",
+        "37:160"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "37:39",
+      "successor": "37:41",
+      "resolvable_by": "both"
+    },
+    "37:43": {
+      "confusable_with": [
+        "56:12"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "37:42",
+      "successor": "37:44",
+      "resolvable_by": "both"
+    },
+    "37:50": {
+      "confusable_with": [
+        "37:27",
+        "52:25",
+        "68:30"
+      ],
+      "max_norm_dist": 0.0789,
+      "predecessor": "37:49",
+      "successor": "37:51",
+      "resolvable_by": "both"
+    },
+    "37:53": {
+      "confusable_with": [
+        "37:16"
+      ],
+      "max_norm_dist": 0.0755,
+      "predecessor": "37:52",
+      "successor": "37:54",
+      "resolvable_by": "both"
+    },
+    "37:74": {
+      "confusable_with": [
+        "37:40",
+        "37:128",
+        "37:160"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "37:73",
+      "successor": "37:75",
+      "resolvable_by": "both"
+    },
+    "37:78": {
+      "confusable_with": [
+        "37:108",
+        "37:119",
+        "37:129"
+      ],
+      "max_norm_dist": 0.069,
+      "predecessor": "37:77",
+      "successor": "37:79",
+      "resolvable_by": "both"
+    },
+    "37:80": {
+      "confusable_with": [
+        "37:121",
+        "37:131",
+        "77:44"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "37:79",
+      "successor": "37:81",
+      "resolvable_by": "predecessor"
+    },
+    "37:81": {
+      "confusable_with": [
+        "37:111",
+        "37:122",
+        "37:132"
+      ],
+      "max_norm_dist": 0.0667,
+      "predecessor": "37:80",
+      "successor": "37:82",
+      "resolvable_by": "none"
+    },
+    "37:82": {
+      "confusable_with": [
+        "26:66"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "37:81",
+      "successor": "37:83",
+      "resolvable_by": "successor"
+    },
+    "37:85": {
+      "confusable_with": [
+        "26:70"
+      ],
+      "max_norm_dist": 0.0556,
+      "predecessor": "37:84",
+      "successor": "37:86",
+      "resolvable_by": "both"
+    },
+    "37:98": {
+      "confusable_with": [
+        "21:70"
+      ],
+      "max_norm_dist": 0.093,
+      "predecessor": "37:97",
+      "successor": "37:99",
+      "resolvable_by": "both"
+    },
+    "37:108": {
+      "confusable_with": [
+        "37:78",
+        "37:119",
+        "37:129"
+      ],
+      "max_norm_dist": 0.069,
+      "predecessor": "37:107",
+      "successor": "37:109",
+      "resolvable_by": "both"
+    },
+    "37:111": {
+      "confusable_with": [
+        "37:81",
+        "37:122",
+        "37:132"
+      ],
+      "max_norm_dist": 0.0667,
+      "predecessor": "37:110",
+      "successor": "37:112",
+      "resolvable_by": "both"
+    },
+    "37:119": {
+      "confusable_with": [
+        "37:78",
+        "37:108",
+        "37:129"
+      ],
+      "max_norm_dist": 0.069,
+      "predecessor": "37:118",
+      "successor": "37:120",
+      "resolvable_by": "both"
+    },
+    "37:121": {
+      "confusable_with": [
+        "37:80",
+        "37:131",
+        "77:44"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "37:120",
+      "successor": "37:122",
+      "resolvable_by": "predecessor"
+    },
+    "37:122": {
+      "confusable_with": [
+        "37:81",
+        "37:111",
+        "37:132"
+      ],
+      "max_norm_dist": 0.0667,
+      "predecessor": "37:121",
+      "successor": "37:123",
+      "resolvable_by": "successor"
+    },
+    "37:128": {
+      "confusable_with": [
+        "37:40",
+        "37:74",
+        "37:160"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "37:127",
+      "successor": "37:129",
+      "resolvable_by": "predecessor"
+    },
+    "37:129": {
+      "confusable_with": [
+        "37:78",
+        "37:108",
+        "37:119"
+      ],
+      "max_norm_dist": 0.069,
+      "predecessor": "37:128",
+      "successor": "37:130",
+      "resolvable_by": "successor"
+    },
+    "37:131": {
+      "confusable_with": [
+        "37:80",
+        "37:121",
+        "77:44"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "37:130",
+      "successor": "37:132",
+      "resolvable_by": "predecessor"
+    },
+    "37:132": {
+      "confusable_with": [
+        "37:81",
+        "37:111",
+        "37:122"
+      ],
+      "max_norm_dist": 0.0667,
+      "predecessor": "37:131",
+      "successor": "37:133",
+      "resolvable_by": "successor"
+    },
+    "37:134": {
+      "confusable_with": [
+        "26:170"
+      ],
+      "max_norm_dist": 0.1,
+      "predecessor": "37:133",
+      "successor": "37:135",
+      "resolvable_by": "predecessor"
+    },
+    "37:135": {
+      "confusable_with": [
+        "26:171"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "37:134",
+      "successor": "37:136",
+      "resolvable_by": "none"
+    },
+    "37:136": {
+      "confusable_with": [
+        "26:172"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "37:135",
+      "successor": "37:137",
+      "resolvable_by": "successor"
+    },
+    "37:154": {
+      "confusable_with": [
+        "68:36"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "37:153",
+      "successor": "37:155",
+      "resolvable_by": "both"
+    },
+    "37:160": {
+      "confusable_with": [
+        "37:40",
+        "37:74",
+        "37:128"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "37:159",
+      "successor": "37:161",
+      "resolvable_by": "both"
+    },
+    "37:174": {
+      "confusable_with": [
+        "37:178"
+      ],
+      "max_norm_dist": 0.0435,
+      "predecessor": "37:173",
+      "successor": "37:175",
+      "resolvable_by": "predecessor"
+    },
+    "37:175": {
+      "confusable_with": [
+        "37:179"
+      ],
+      "max_norm_dist": 0.1154,
+      "predecessor": "37:174",
+      "successor": "37:176",
+      "resolvable_by": "none"
+    },
+    "37:176": {
+      "confusable_with": [
+        "26:204"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "37:175",
+      "successor": "37:177",
+      "resolvable_by": "successor"
+    },
+    "37:178": {
+      "confusable_with": [
+        "37:174"
+      ],
+      "max_norm_dist": 0.0435,
+      "predecessor": "37:177",
+      "successor": "37:179",
+      "resolvable_by": "predecessor"
+    },
+    "37:179": {
+      "confusable_with": [
+        "37:175"
+      ],
+      "max_norm_dist": 0.1154,
+      "predecessor": "37:178",
+      "successor": "37:180",
+      "resolvable_by": "successor"
+    },
+    "37:182": {
+      "confusable_with": [
+        "1:2"
+      ],
+      "max_norm_dist": 0.069,
+      "predecessor": "37:181",
+      "successor": null,
+      "resolvable_by": "predecessor"
+    },
+    "38:72": {
+      "confusable_with": [
+        "15:29"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "38:71",
+      "successor": "38:73",
+      "resolvable_by": "predecessor"
+    },
+    "38:73": {
+      "confusable_with": [
+        "15:30"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "38:72",
+      "successor": "38:74",
+      "resolvable_by": "successor"
+    },
+    "38:77": {
+      "confusable_with": [
+        "15:34"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "38:76",
+      "successor": "38:78",
+      "resolvable_by": "predecessor"
+    },
+    "38:78": {
+      "confusable_with": [
+        "15:35"
+      ],
+      "max_norm_dist": 0.0811,
+      "predecessor": "38:77",
+      "successor": "38:79",
+      "resolvable_by": "none"
+    },
+    "38:79": {
+      "confusable_with": [
+        "15:36"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "38:78",
+      "successor": "38:80",
+      "resolvable_by": "none"
+    },
+    "38:80": {
+      "confusable_with": [
+        "7:15",
+        "15:37"
+      ],
+      "max_norm_dist": 0.0741,
+      "predecessor": "38:79",
+      "successor": "38:81",
+      "resolvable_by": "none"
+    },
+    "38:81": {
+      "confusable_with": [
+        "15:38"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "38:80",
+      "successor": "38:82",
+      "resolvable_by": "successor"
+    },
+    "38:83": {
+      "confusable_with": [
+        "15:40"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "38:82",
+      "successor": "38:84",
+      "resolvable_by": "both"
+    },
+    "38:87": {
+      "confusable_with": [
+        "68:52",
+        "81:27"
+      ],
+      "max_norm_dist": 0.1333,
+      "predecessor": "38:86",
+      "successor": "38:88",
+      "resolvable_by": "both"
+    },
+    "39:1": {
+      "confusable_with": [
+        "40:2",
+        "45:2",
+        "46:2"
+      ],
+      "max_norm_dist": 0.05,
+      "predecessor": null,
+      "successor": "39:2",
+      "resolvable_by": "successor"
+    },
+    "39:13": {
+      "confusable_with": [
+        "6:15"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "39:12",
+      "successor": "39:14",
+      "resolvable_by": "both"
+    },
+    "39:48": {
+      "confusable_with": [
+        "16:34",
+        "45:33"
+      ],
+      "max_norm_dist": 0.127,
+      "predecessor": "39:47",
+      "successor": "39:49",
+      "resolvable_by": "both"
+    },
+    "39:52": {
+      "confusable_with": [
+        "30:37"
+      ],
+      "max_norm_dist": 0.0404,
+      "predecessor": "39:51",
+      "successor": "39:53",
+      "resolvable_by": "both"
+    },
+    "39:72": {
+      "confusable_with": [
+        "16:29",
+        "40:76"
+      ],
+      "max_norm_dist": 0.0923,
+      "predecessor": "39:71",
+      "successor": "39:73",
+      "resolvable_by": "both"
+    },
+    "40:1": {
+      "confusable_with": [
+        "41:1",
+        "42:1",
+        "43:1",
+        "44:1",
+        "45:1",
+        "46:1"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": null,
+      "successor": "40:2",
+      "resolvable_by": "none"
+    },
+    "40:2": {
+      "confusable_with": [
+        "39:1",
+        "45:2",
+        "46:2"
+      ],
+      "max_norm_dist": 0.05,
+      "predecessor": "40:1",
+      "successor": "40:3",
+      "resolvable_by": "successor"
+    },
+    "40:23": {
+      "confusable_with": [
+        "11:96"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "40:22",
+      "successor": "40:24",
+      "resolvable_by": "both"
+    },
+    "40:76": {
+      "confusable_with": [
+        "16:29",
+        "39:72"
+      ],
+      "max_norm_dist": 0.0615,
+      "predecessor": "40:75",
+      "successor": "40:77",
+      "resolvable_by": "both"
+    },
+    "41:1": {
+      "confusable_with": [
+        "40:1",
+        "42:1",
+        "43:1",
+        "44:1",
+        "45:1",
+        "46:1"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": null,
+      "successor": "41:2",
+      "resolvable_by": "successor"
+    },
+    "41:8": {
+      "confusable_with": [
+        "84:25",
+        "95:6"
+      ],
+      "max_norm_dist": 0.0794,
+      "predecessor": "41:7",
+      "successor": "41:9",
+      "resolvable_by": "both"
+    },
+    "41:18": {
+      "confusable_with": [
+        "27:53"
+      ],
+      "max_norm_dist": 0.05,
+      "predecessor": "41:17",
+      "successor": "41:19",
+      "resolvable_by": "both"
+    },
+    "41:36": {
+      "confusable_with": [
+        "7:200"
+      ],
+      "max_norm_dist": 0.0988,
+      "predecessor": "41:35",
+      "successor": "41:37",
+      "resolvable_by": "both"
+    },
+    "41:45": {
+      "confusable_with": [
+        "11:110"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "41:44",
+      "successor": "41:46",
+      "resolvable_by": "both"
+    },
+    "42:1": {
+      "confusable_with": [
+        "40:1",
+        "41:1",
+        "43:1",
+        "44:1",
+        "45:1",
+        "46:1"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": null,
+      "successor": "42:2",
+      "resolvable_by": "successor"
+    },
+    "43:1": {
+      "confusable_with": [
+        "40:1",
+        "41:1",
+        "42:1",
+        "44:1",
+        "45:1",
+        "46:1"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": null,
+      "successor": "43:2",
+      "resolvable_by": "none"
+    },
+    "43:2": {
+      "confusable_with": [
+        "44:2"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "43:1",
+      "successor": "43:3",
+      "resolvable_by": "none"
+    },
+    "43:3": {
+      "confusable_with": [
+        "12:2"
+      ],
+      "max_norm_dist": 0.0556,
+      "predecessor": "43:2",
+      "successor": "43:4",
+      "resolvable_by": "successor"
+    },
+    "43:7": {
+      "confusable_with": [
+        "15:11"
+      ],
+      "max_norm_dist": 0.12,
+      "predecessor": "43:6",
+      "successor": "43:8",
+      "resolvable_by": "both"
+    },
+    "43:64": {
+      "confusable_with": [
+        "3:51",
+        "19:36"
+      ],
+      "max_norm_dist": 0.1017,
+      "predecessor": "43:63",
+      "successor": "43:65",
+      "resolvable_by": "predecessor"
+    },
+    "43:65": {
+      "confusable_with": [
+        "19:37"
+      ],
+      "max_norm_dist": 0.1447,
+      "predecessor": "43:64",
+      "successor": "43:66",
+      "resolvable_by": "successor"
+    },
+    "43:83": {
+      "confusable_with": [
+        "70:42"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "43:82",
+      "successor": "43:84",
+      "resolvable_by": "both"
+    },
+    "44:1": {
+      "confusable_with": [
+        "40:1",
+        "41:1",
+        "42:1",
+        "43:1",
+        "45:1",
+        "46:1"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": null,
+      "successor": "44:2",
+      "resolvable_by": "none"
+    },
+    "44:2": {
+      "confusable_with": [
+        "43:2"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "44:1",
+      "successor": "44:3",
+      "resolvable_by": "successor"
+    },
+    "44:7": {
+      "confusable_with": [
+        "26:24"
+      ],
+      "max_norm_dist": 0.0877,
+      "predecessor": "44:6",
+      "successor": "44:8",
+      "resolvable_by": "both"
+    },
+    "44:26": {
+      "confusable_with": [
+        "26:58"
+      ],
+      "max_norm_dist": 0.1304,
+      "predecessor": "44:25",
+      "successor": "44:27",
+      "resolvable_by": "both"
+    },
+    "44:38": {
+      "confusable_with": [
+        "21:16"
+      ],
+      "max_norm_dist": 0.0816,
+      "predecessor": "44:37",
+      "successor": "44:39",
+      "resolvable_by": "both"
+    },
+    "44:52": {
+      "confusable_with": [
+        "26:134",
+        "26:147"
+      ],
+      "max_norm_dist": 0.1176,
+      "predecessor": "44:51",
+      "successor": "44:53",
+      "resolvable_by": "both"
+    },
+    "45:1": {
+      "confusable_with": [
+        "40:1",
+        "41:1",
+        "42:1",
+        "43:1",
+        "44:1",
+        "46:1"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": null,
+      "successor": "45:2",
+      "resolvable_by": "none"
+    },
+    "45:2": {
+      "confusable_with": [
+        "39:1",
+        "40:2",
+        "46:2"
+      ],
+      "max_norm_dist": 0.05,
+      "predecessor": "45:1",
+      "successor": "45:3",
+      "resolvable_by": "successor"
+    },
+    "45:33": {
+      "confusable_with": [
+        "16:34",
+        "39:48"
+      ],
+      "max_norm_dist": 0.0635,
+      "predecessor": "45:32",
+      "successor": "45:34",
+      "resolvable_by": "both"
+    },
+    "46:1": {
+      "confusable_with": [
+        "40:1",
+        "41:1",
+        "42:1",
+        "43:1",
+        "44:1",
+        "45:1"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": null,
+      "successor": "46:2",
+      "resolvable_by": "none"
+    },
+    "46:2": {
+      "confusable_with": [
+        "39:1",
+        "40:2",
+        "45:2"
+      ],
+      "max_norm_dist": 0.05,
+      "predecessor": "46:1",
+      "successor": "46:3",
+      "resolvable_by": "successor"
+    },
+    "48:23": {
+      "confusable_with": [
+        "33:62"
+      ],
+      "max_norm_dist": 0.0972,
+      "predecessor": "48:22",
+      "successor": "48:24",
+      "resolvable_by": "both"
+    },
+    "50:7": {
+      "confusable_with": [
+        "15:19"
+      ],
+      "max_norm_dist": 0.1216,
+      "predecessor": "50:6",
+      "successor": "50:8",
+      "resolvable_by": "both"
+    },
+    "50:40": {
+      "confusable_with": [
+        "52:49"
+      ],
+      "max_norm_dist": 0.1026,
+      "predecessor": "50:39",
+      "successor": "50:41",
+      "resolvable_by": "both"
+    },
+    "51:5": {
+      "confusable_with": [
+        "77:7"
+      ],
+      "max_norm_dist": 0.1364,
+      "predecessor": "51:4",
+      "successor": "51:6",
+      "resolvable_by": "both"
+    },
+    "51:15": {
+      "confusable_with": [
+        "15:45"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "51:14",
+      "successor": "51:16",
+      "resolvable_by": "both"
+    },
+    "51:31": {
+      "confusable_with": [
+        "15:57"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "51:30",
+      "successor": "51:32",
+      "resolvable_by": "predecessor"
+    },
+    "51:32": {
+      "confusable_with": [
+        "15:58"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "51:31",
+      "successor": "51:33",
+      "resolvable_by": "successor"
+    },
+    "52:11": {
+      "confusable_with": [
+        "77:15",
+        "77:19",
+        "77:24",
+        "77:28",
+        "77:34",
+        "77:37",
+        "77:40",
+        "77:45",
+        "77:47",
+        "77:49",
+        "83:10"
+      ],
+      "max_norm_dist": 0.0625,
+      "predecessor": "52:10",
+      "successor": "52:12",
+      "resolvable_by": "both"
+    },
+    "52:17": {
+      "confusable_with": [
+        "54:54"
+      ],
+      "max_norm_dist": 0.0909,
+      "predecessor": "52:16",
+      "successor": "52:18",
+      "resolvable_by": "both"
+    },
+    "52:19": {
+      "confusable_with": [
+        "77:43"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "52:18",
+      "successor": "52:20",
+      "resolvable_by": "both"
+    },
+    "52:25": {
+      "confusable_with": [
+        "37:27",
+        "37:50",
+        "68:30"
+      ],
+      "max_norm_dist": 0.1053,
+      "predecessor": "52:24",
+      "successor": "52:26",
+      "resolvable_by": "both"
+    },
+    "52:40": {
+      "confusable_with": [
+        "68:46"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "52:39",
+      "successor": "52:41",
+      "resolvable_by": "predecessor"
+    },
+    "52:41": {
+      "confusable_with": [
+        "68:47"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "52:40",
+      "successor": "52:42",
+      "resolvable_by": "successor"
+    },
+    "52:49": {
+      "confusable_with": [
+        "50:40"
+      ],
+      "max_norm_dist": 0.1026,
+      "predecessor": "52:48",
+      "successor": null,
+      "resolvable_by": "predecessor"
+    },
+    "54:16": {
+      "confusable_with": [
+        "54:21",
+        "54:30"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "54:15",
+      "successor": "54:17",
+      "resolvable_by": "predecessor"
+    },
+    "54:17": {
+      "confusable_with": [
+        "54:22",
+        "54:32",
+        "54:40"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "54:16",
+      "successor": "54:18",
+      "resolvable_by": "successor"
+    },
+    "54:21": {
+      "confusable_with": [
+        "54:16",
+        "54:30"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "54:20",
+      "successor": "54:22",
+      "resolvable_by": "predecessor"
+    },
+    "54:22": {
+      "confusable_with": [
+        "54:17",
+        "54:32",
+        "54:40"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "54:21",
+      "successor": "54:23",
+      "resolvable_by": "successor"
+    },
+    "54:30": {
+      "confusable_with": [
+        "54:16",
+        "54:21"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "54:29",
+      "successor": "54:31",
+      "resolvable_by": "both"
+    },
+    "54:32": {
+      "confusable_with": [
+        "54:17",
+        "54:22",
+        "54:40"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "54:31",
+      "successor": "54:33",
+      "resolvable_by": "both"
+    },
+    "54:40": {
+      "confusable_with": [
+        "54:17",
+        "54:22",
+        "54:32"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "54:39",
+      "successor": "54:41",
+      "resolvable_by": "both"
+    },
+    "54:54": {
+      "confusable_with": [
+        "52:17"
+      ],
+      "max_norm_dist": 0.0909,
+      "predecessor": "54:53",
+      "successor": "54:55",
+      "resolvable_by": "both"
+    },
+    "55:13": {
+      "confusable_with": [
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:12",
+      "successor": "55:14",
+      "resolvable_by": "both"
+    },
+    "55:16": {
+      "confusable_with": [
+        "55:13",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:15",
+      "successor": "55:17",
+      "resolvable_by": "both"
+    },
+    "55:18": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:17",
+      "successor": "55:19",
+      "resolvable_by": "both"
+    },
+    "55:21": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:20",
+      "successor": "55:22",
+      "resolvable_by": "both"
+    },
+    "55:23": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:22",
+      "successor": "55:24",
+      "resolvable_by": "both"
+    },
+    "55:25": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:24",
+      "successor": "55:26",
+      "resolvable_by": "both"
+    },
+    "55:28": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:27",
+      "successor": "55:29",
+      "resolvable_by": "both"
+    },
+    "55:30": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:29",
+      "successor": "55:31",
+      "resolvable_by": "both"
+    },
+    "55:32": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:31",
+      "successor": "55:33",
+      "resolvable_by": "both"
+    },
+    "55:34": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:33",
+      "successor": "55:35",
+      "resolvable_by": "both"
+    },
+    "55:36": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:35",
+      "successor": "55:37",
+      "resolvable_by": "both"
+    },
+    "55:38": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:37",
+      "successor": "55:39",
+      "resolvable_by": "both"
+    },
+    "55:40": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:39",
+      "successor": "55:41",
+      "resolvable_by": "both"
+    },
+    "55:42": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:41",
+      "successor": "55:43",
+      "resolvable_by": "both"
+    },
+    "55:45": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:44",
+      "successor": "55:46",
+      "resolvable_by": "both"
+    },
+    "55:47": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:46",
+      "successor": "55:48",
+      "resolvable_by": "both"
+    },
+    "55:49": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:48",
+      "successor": "55:50",
+      "resolvable_by": "both"
+    },
+    "55:51": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:50",
+      "successor": "55:52",
+      "resolvable_by": "both"
+    },
+    "55:53": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:52",
+      "successor": "55:54",
+      "resolvable_by": "both"
+    },
+    "55:55": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:54",
+      "successor": "55:56",
+      "resolvable_by": "both"
+    },
+    "55:57": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:56",
+      "successor": "55:58",
+      "resolvable_by": "both"
+    },
+    "55:59": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:58",
+      "successor": "55:60",
+      "resolvable_by": "both"
+    },
+    "55:61": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:60",
+      "successor": "55:62",
+      "resolvable_by": "both"
+    },
+    "55:63": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:62",
+      "successor": "55:64",
+      "resolvable_by": "both"
+    },
+    "55:65": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:64",
+      "successor": "55:66",
+      "resolvable_by": "both"
+    },
+    "55:67": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:66",
+      "successor": "55:68",
+      "resolvable_by": "both"
+    },
+    "55:69": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:71",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:68",
+      "successor": "55:70",
+      "resolvable_by": "both"
+    },
+    "55:71": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:73",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:70",
+      "successor": "55:72",
+      "resolvable_by": "both"
+    },
+    "55:73": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:75",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:72",
+      "successor": "55:74",
+      "resolvable_by": "both"
+    },
+    "55:75": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:77"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:74",
+      "successor": "55:76",
+      "resolvable_by": "both"
+    },
+    "55:77": {
+      "confusable_with": [
+        "55:13",
+        "55:16",
+        "55:18",
+        "55:21",
+        "55:23",
+        "55:25",
+        "55:28",
+        "55:30",
+        "55:32",
+        "55:34",
+        "55:36",
+        "55:38",
+        "55:40",
+        "55:42",
+        "55:45",
+        "55:47",
+        "55:49",
+        "55:51",
+        "55:53",
+        "55:55",
+        "55:57",
+        "55:59",
+        "55:61",
+        "55:63",
+        "55:65",
+        "55:67",
+        "55:69",
+        "55:71",
+        "55:73",
+        "55:75"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "55:76",
+      "successor": "55:78",
+      "resolvable_by": "both"
+    },
+    "56:12": {
+      "confusable_with": [
+        "37:43"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "56:11",
+      "successor": "56:13",
+      "resolvable_by": "predecessor"
+    },
+    "56:13": {
+      "confusable_with": [
+        "56:39"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "56:12",
+      "successor": "56:14",
+      "resolvable_by": "successor"
+    },
+    "56:39": {
+      "confusable_with": [
+        "56:13"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "56:38",
+      "successor": "56:40",
+      "resolvable_by": "both"
+    },
+    "56:48": {
+      "confusable_with": [
+        "37:17"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "56:47",
+      "successor": "56:49",
+      "resolvable_by": "both"
+    },
+    "56:67": {
+      "confusable_with": [
+        "68:27"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "56:66",
+      "successor": "56:68",
+      "resolvable_by": "both"
+    },
+    "56:74": {
+      "confusable_with": [
+        "56:96",
+        "69:52"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "56:73",
+      "successor": "56:75",
+      "resolvable_by": "both"
+    },
+    "56:80": {
+      "confusable_with": [
+        "69:43"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "56:79",
+      "successor": "56:81",
+      "resolvable_by": "both"
+    },
+    "56:96": {
+      "confusable_with": [
+        "56:74",
+        "69:52"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "56:95",
+      "successor": null,
+      "resolvable_by": "predecessor"
+    },
+    "57:1": {
+      "confusable_with": [
+        "59:1",
+        "61:1"
+      ],
+      "max_norm_dist": 0.0806,
+      "predecessor": null,
+      "successor": "57:2",
+      "resolvable_by": "successor"
+    },
+    "59:1": {
+      "confusable_with": [
+        "57:1",
+        "61:1"
+      ],
+      "max_norm_dist": 0.0806,
+      "predecessor": null,
+      "successor": "59:2",
+      "resolvable_by": "successor"
+    },
+    "59:4": {
+      "confusable_with": [
+        "8:13"
+      ],
+      "max_norm_dist": 0.1183,
+      "predecessor": "59:3",
+      "successor": "59:5",
+      "resolvable_by": "both"
+    },
+    "61:1": {
+      "confusable_with": [
+        "57:1",
+        "59:1"
+      ],
+      "max_norm_dist": 0.0806,
+      "predecessor": null,
+      "successor": "61:2",
+      "resolvable_by": "successor"
+    },
+    "61:9": {
+      "confusable_with": [
+        "9:33"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "61:8",
+      "successor": "61:10",
+      "resolvable_by": "both"
+    },
+    "62:7": {
+      "confusable_with": [
+        "2:95"
+      ],
+      "max_norm_dist": 0.0548,
+      "predecessor": "62:6",
+      "successor": "62:8",
+      "resolvable_by": "both"
+    },
+    "66:9": {
+      "confusable_with": [
+        "9:73"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "66:8",
+      "successor": "66:10",
+      "resolvable_by": "both"
+    },
+    "67:24": {
+      "confusable_with": [
+        "23:79"
+      ],
+      "max_norm_dist": 0.0625,
+      "predecessor": "67:23",
+      "successor": "67:25",
+      "resolvable_by": "predecessor"
+    },
+    "67:25": {
+      "confusable_with": [
+        "10:48",
+        "21:38",
+        "27:71",
+        "32:28",
+        "34:29",
+        "36:48"
+      ],
+      "max_norm_dist": 0.0732,
+      "predecessor": "67:24",
+      "successor": "67:26",
+      "resolvable_by": "successor"
+    },
+    "68:7": {
+      "confusable_with": [
+        "6:117"
+      ],
+      "max_norm_dist": 0.087,
+      "predecessor": "68:6",
+      "successor": "68:8",
+      "resolvable_by": "both"
+    },
+    "68:15": {
+      "confusable_with": [
+        "83:13"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "68:14",
+      "successor": "68:16",
+      "resolvable_by": "both"
+    },
+    "68:27": {
+      "confusable_with": [
+        "56:67"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "68:26",
+      "successor": "68:28",
+      "resolvable_by": "both"
+    },
+    "68:30": {
+      "confusable_with": [
+        "37:27",
+        "37:50",
+        "52:25"
+      ],
+      "max_norm_dist": 0.1053,
+      "predecessor": "68:29",
+      "successor": "68:31",
+      "resolvable_by": "predecessor"
+    },
+    "68:31": {
+      "confusable_with": [
+        "21:14"
+      ],
+      "max_norm_dist": 0.129,
+      "predecessor": "68:30",
+      "successor": "68:32",
+      "resolvable_by": "successor"
+    },
+    "68:36": {
+      "confusable_with": [
+        "37:154"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "68:35",
+      "successor": "68:37",
+      "resolvable_by": "both"
+    },
+    "68:45": {
+      "confusable_with": [
+        "7:183"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "68:44",
+      "successor": "68:46",
+      "resolvable_by": "predecessor"
+    },
+    "68:46": {
+      "confusable_with": [
+        "52:40"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "68:45",
+      "successor": "68:47",
+      "resolvable_by": "none"
+    },
+    "68:47": {
+      "confusable_with": [
+        "52:41"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "68:46",
+      "successor": "68:48",
+      "resolvable_by": "successor"
+    },
+    "68:52": {
+      "confusable_with": [
+        "38:87",
+        "81:27"
+      ],
+      "max_norm_dist": 0.1333,
+      "predecessor": "68:51",
+      "successor": null,
+      "resolvable_by": "predecessor"
+    },
+    "69:21": {
+      "confusable_with": [
+        "101:7"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "69:20",
+      "successor": "69:22",
+      "resolvable_by": "predecessor"
+    },
+    "69:22": {
+      "confusable_with": [
+        "88:10"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "69:21",
+      "successor": "69:23",
+      "resolvable_by": "successor"
+    },
+    "69:34": {
+      "confusable_with": [
+        "107:3"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "69:33",
+      "successor": "69:35",
+      "resolvable_by": "both"
+    },
+    "69:40": {
+      "confusable_with": [
+        "81:19"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "69:39",
+      "successor": "69:41",
+      "resolvable_by": "both"
+    },
+    "69:43": {
+      "confusable_with": [
+        "56:80"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "69:42",
+      "successor": "69:44",
+      "resolvable_by": "both"
+    },
+    "69:52": {
+      "confusable_with": [
+        "56:74",
+        "56:96"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "69:51",
+      "successor": null,
+      "resolvable_by": "predecessor"
+    },
+    "70:12": {
+      "confusable_with": [
+        "80:36"
+      ],
+      "max_norm_dist": 0.1053,
+      "predecessor": "70:11",
+      "successor": "70:13",
+      "resolvable_by": "both"
+    },
+    "70:29": {
+      "confusable_with": [
+        "23:5"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "70:28",
+      "successor": "70:30",
+      "resolvable_by": "predecessor"
+    },
+    "70:30": {
+      "confusable_with": [
+        "23:6"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "70:29",
+      "successor": "70:31",
+      "resolvable_by": "none"
+    },
+    "70:31": {
+      "confusable_with": [
+        "23:7"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "70:30",
+      "successor": "70:32",
+      "resolvable_by": "none"
+    },
+    "70:32": {
+      "confusable_with": [
+        "23:8"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "70:31",
+      "successor": "70:33",
+      "resolvable_by": "successor"
+    },
+    "70:34": {
+      "confusable_with": [
+        "23:9"
+      ],
+      "max_norm_dist": 0.0556,
+      "predecessor": "70:33",
+      "successor": "70:35",
+      "resolvable_by": "both"
+    },
+    "70:42": {
+      "confusable_with": [
+        "43:83"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "70:41",
+      "successor": "70:43",
+      "resolvable_by": "both"
+    },
+    "73:19": {
+      "confusable_with": [
+        "76:29"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "73:18",
+      "successor": "73:20",
+      "resolvable_by": "both"
+    },
+    "74:54": {
+      "confusable_with": [
+        "80:11"
+      ],
+      "max_norm_dist": 0.05,
+      "predecessor": "74:53",
+      "successor": "74:55",
+      "resolvable_by": "predecessor"
+    },
+    "74:55": {
+      "confusable_with": [
+        "80:12"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "74:54",
+      "successor": "74:56",
+      "resolvable_by": "successor"
+    },
+    "75:22": {
+      "confusable_with": [
+        "88:8"
+      ],
+      "max_norm_dist": 0.08,
+      "predecessor": "75:21",
+      "successor": "75:23",
+      "resolvable_by": "both"
+    },
+    "76:29": {
+      "confusable_with": [
+        "73:19"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "76:28",
+      "successor": "76:30",
+      "resolvable_by": "both"
+    },
+    "77:3": {
+      "confusable_with": [
+        "79:2"
+      ],
+      "max_norm_dist": 0.1053,
+      "predecessor": "77:2",
+      "successor": "77:4",
+      "resolvable_by": "both"
+    },
+    "77:7": {
+      "confusable_with": [
+        "51:5"
+      ],
+      "max_norm_dist": 0.1364,
+      "predecessor": "77:6",
+      "successor": "77:8",
+      "resolvable_by": "both"
+    },
+    "77:9": {
+      "confusable_with": [
+        "81:11"
+      ],
+      "max_norm_dist": 0.1429,
+      "predecessor": "77:8",
+      "successor": "77:10",
+      "resolvable_by": "both"
+    },
+    "77:15": {
+      "confusable_with": [
+        "52:11",
+        "77:19",
+        "77:24",
+        "77:28",
+        "77:34",
+        "77:37",
+        "77:40",
+        "77:45",
+        "77:47",
+        "77:49",
+        "83:10"
+      ],
+      "max_norm_dist": 0.0625,
+      "predecessor": "77:14",
+      "successor": "77:16",
+      "resolvable_by": "both"
+    },
+    "77:19": {
+      "confusable_with": [
+        "52:11",
+        "77:15",
+        "77:24",
+        "77:28",
+        "77:34",
+        "77:37",
+        "77:40",
+        "77:45",
+        "77:47",
+        "77:49",
+        "83:10"
+      ],
+      "max_norm_dist": 0.0625,
+      "predecessor": "77:18",
+      "successor": "77:20",
+      "resolvable_by": "both"
+    },
+    "77:24": {
+      "confusable_with": [
+        "52:11",
+        "77:15",
+        "77:19",
+        "77:28",
+        "77:34",
+        "77:37",
+        "77:40",
+        "77:45",
+        "77:47",
+        "77:49",
+        "83:10"
+      ],
+      "max_norm_dist": 0.0625,
+      "predecessor": "77:23",
+      "successor": "77:25",
+      "resolvable_by": "predecessor"
+    },
+    "77:25": {
+      "confusable_with": [
+        "78:6"
+      ],
+      "max_norm_dist": 0.1111,
+      "predecessor": "77:24",
+      "successor": "77:26",
+      "resolvable_by": "successor"
+    },
+    "77:28": {
+      "confusable_with": [
+        "52:11",
+        "77:15",
+        "77:19",
+        "77:24",
+        "77:34",
+        "77:37",
+        "77:40",
+        "77:45",
+        "77:47",
+        "77:49",
+        "83:10"
+      ],
+      "max_norm_dist": 0.0625,
+      "predecessor": "77:27",
+      "successor": "77:29",
+      "resolvable_by": "both"
+    },
+    "77:34": {
+      "confusable_with": [
+        "52:11",
+        "77:15",
+        "77:19",
+        "77:24",
+        "77:28",
+        "77:37",
+        "77:40",
+        "77:45",
+        "77:47",
+        "77:49",
+        "83:10"
+      ],
+      "max_norm_dist": 0.0625,
+      "predecessor": "77:33",
+      "successor": "77:35",
+      "resolvable_by": "both"
+    },
+    "77:37": {
+      "confusable_with": [
+        "52:11",
+        "77:15",
+        "77:19",
+        "77:24",
+        "77:28",
+        "77:34",
+        "77:40",
+        "77:45",
+        "77:47",
+        "77:49",
+        "83:10"
+      ],
+      "max_norm_dist": 0.0625,
+      "predecessor": "77:36",
+      "successor": "77:38",
+      "resolvable_by": "both"
+    },
+    "77:40": {
+      "confusable_with": [
+        "52:11",
+        "77:15",
+        "77:19",
+        "77:24",
+        "77:28",
+        "77:34",
+        "77:37",
+        "77:45",
+        "77:47",
+        "77:49",
+        "83:10"
+      ],
+      "max_norm_dist": 0.0625,
+      "predecessor": "77:39",
+      "successor": "77:41",
+      "resolvable_by": "both"
+    },
+    "77:43": {
+      "confusable_with": [
+        "52:19"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "77:42",
+      "successor": "77:44",
+      "resolvable_by": "predecessor"
+    },
+    "77:44": {
+      "confusable_with": [
+        "37:80",
+        "37:121",
+        "37:131"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "77:43",
+      "successor": "77:45",
+      "resolvable_by": "none"
+    },
+    "77:45": {
+      "confusable_with": [
+        "52:11",
+        "77:15",
+        "77:19",
+        "77:24",
+        "77:28",
+        "77:34",
+        "77:37",
+        "77:40",
+        "77:47",
+        "77:49",
+        "83:10"
+      ],
+      "max_norm_dist": 0.0625,
+      "predecessor": "77:44",
+      "successor": "77:46",
+      "resolvable_by": "successor"
+    },
+    "77:47": {
+      "confusable_with": [
+        "52:11",
+        "77:15",
+        "77:19",
+        "77:24",
+        "77:28",
+        "77:34",
+        "77:37",
+        "77:40",
+        "77:45",
+        "77:49",
+        "83:10"
+      ],
+      "max_norm_dist": 0.0625,
+      "predecessor": "77:46",
+      "successor": "77:48",
+      "resolvable_by": "both"
+    },
+    "77:49": {
+      "confusable_with": [
+        "52:11",
+        "77:15",
+        "77:19",
+        "77:24",
+        "77:28",
+        "77:34",
+        "77:37",
+        "77:40",
+        "77:45",
+        "77:47",
+        "83:10"
+      ],
+      "max_norm_dist": 0.0625,
+      "predecessor": "77:48",
+      "successor": "77:50",
+      "resolvable_by": "both"
+    },
+    "78:6": {
+      "confusable_with": [
+        "77:25"
+      ],
+      "max_norm_dist": 0.1111,
+      "predecessor": "78:5",
+      "successor": "78:7",
+      "resolvable_by": "both"
+    },
+    "79:2": {
+      "confusable_with": [
+        "77:3"
+      ],
+      "max_norm_dist": 0.1053,
+      "predecessor": "79:1",
+      "successor": "79:3",
+      "resolvable_by": "both"
+    },
+    "79:15": {
+      "confusable_with": [
+        "20:9"
+      ],
+      "max_norm_dist": 0.0952,
+      "predecessor": "79:14",
+      "successor": "79:16",
+      "resolvable_by": "both"
+    },
+    "79:17": {
+      "confusable_with": [
+        "20:24",
+        "20:43"
+      ],
+      "max_norm_dist": 0.0345,
+      "predecessor": "79:16",
+      "successor": "79:18",
       "resolvable_by": "both"
     },
     "79:33": {
@@ -304,6 +6610,24 @@
       "successor": "79:42",
       "resolvable_by": "both"
     },
+    "80:11": {
+      "confusable_with": [
+        "74:54"
+      ],
+      "max_norm_dist": 0.05,
+      "predecessor": "80:10",
+      "successor": "80:12",
+      "resolvable_by": "predecessor"
+    },
+    "80:12": {
+      "confusable_with": [
+        "74:55"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "80:11",
+      "successor": "80:13",
+      "resolvable_by": "successor"
+    },
     "80:32": {
       "confusable_with": [
         "79:33"
@@ -313,6 +6637,15 @@
       "successor": "80:33",
       "resolvable_by": "both"
     },
+    "80:36": {
+      "confusable_with": [
+        "70:12"
+      ],
+      "max_norm_dist": 0.1053,
+      "predecessor": "80:35",
+      "successor": "80:37",
+      "resolvable_by": "both"
+    },
     "81:6": {
       "confusable_with": [
         "82:3"
@@ -320,6 +6653,34 @@
       "max_norm_dist": 0.0455,
       "predecessor": "81:5",
       "successor": "81:7",
+      "resolvable_by": "both"
+    },
+    "81:11": {
+      "confusable_with": [
+        "77:9"
+      ],
+      "max_norm_dist": 0.1429,
+      "predecessor": "81:10",
+      "successor": "81:12",
+      "resolvable_by": "both"
+    },
+    "81:19": {
+      "confusable_with": [
+        "69:40"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "81:18",
+      "successor": "81:20",
+      "resolvable_by": "both"
+    },
+    "81:27": {
+      "confusable_with": [
+        "38:87",
+        "68:52"
+      ],
+      "max_norm_dist": 0.1333,
+      "predecessor": "81:26",
+      "successor": "81:28",
       "resolvable_by": "both"
     },
     "82:3": {
@@ -347,6 +6708,34 @@
       "max_norm_dist": 0.0,
       "predecessor": "83:8",
       "successor": "83:10",
+      "resolvable_by": "predecessor"
+    },
+    "83:10": {
+      "confusable_with": [
+        "52:11",
+        "77:15",
+        "77:19",
+        "77:24",
+        "77:28",
+        "77:34",
+        "77:37",
+        "77:40",
+        "77:45",
+        "77:47",
+        "77:49"
+      ],
+      "max_norm_dist": 0.0625,
+      "predecessor": "83:9",
+      "successor": "83:11",
+      "resolvable_by": "successor"
+    },
+    "83:13": {
+      "confusable_with": [
+        "68:15"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "83:12",
+      "successor": "83:14",
       "resolvable_by": "both"
     },
     "83:20": {
@@ -405,9 +6794,10 @@
     },
     "84:25": {
       "confusable_with": [
+        "41:8",
         "95:6"
       ],
-      "max_norm_dist": 0.0317,
+      "max_norm_dist": 0.0492,
       "predecessor": "84:24",
       "successor": null,
       "resolvable_by": "predecessor"
@@ -419,6 +6809,24 @@
       "max_norm_dist": 0.1475,
       "predecessor": "85:8",
       "successor": "85:10",
+      "resolvable_by": "both"
+    },
+    "88:8": {
+      "confusable_with": [
+        "75:22"
+      ],
+      "max_norm_dist": 0.08,
+      "predecessor": "88:7",
+      "successor": "88:9",
+      "resolvable_by": "both"
+    },
+    "88:10": {
+      "confusable_with": [
+        "69:22"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "88:9",
+      "successor": "88:11",
       "resolvable_by": "both"
     },
     "91:4": {
@@ -477,9 +6885,10 @@
     },
     "95:6": {
       "confusable_with": [
+        "41:8",
         "84:25"
       ],
-      "max_norm_dist": 0.0317,
+      "max_norm_dist": 0.0794,
       "predecessor": "95:5",
       "successor": "95:7",
       "resolvable_by": "both"
@@ -501,6 +6910,24 @@
       "predecessor": "99:7",
       "successor": null,
       "resolvable_by": "none"
+    },
+    "101:7": {
+      "confusable_with": [
+        "69:21"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "101:6",
+      "successor": "101:8",
+      "resolvable_by": "both"
+    },
+    "107:3": {
+      "confusable_with": [
+        "69:34"
+      ],
+      "max_norm_dist": 0.0,
+      "predecessor": "107:2",
+      "successor": "107:4",
+      "resolvable_by": "both"
     },
     "109:3": {
       "confusable_with": [
