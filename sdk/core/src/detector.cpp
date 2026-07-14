@@ -399,6 +399,13 @@ struct Detector::Impl {
             if (soft && alts.size() == ph.size()) winAlts.assign(alts.begin() + off, alts.end());
             auto [u, cost] = windowBest(win, *units, cfg.chainCost, winAlts, cfg.chainSubMin);
             if (u < 0 || cost > cfg.chainCost) continue;
+            if (cfg.chainStartAtAyahSec > 0.0f && chainAsm->confirmed().empty()
+                && units->segIdxOf(u) >= 2) {   // cold start: decaying penalty on mid-ayah matches
+                const double frac = (double)timeSec / cfg.chainStartAtAyahSec;   // 0..1 over the window
+                const double m = frac >= 1.0 ? 1.0
+                                 : cfg.chainStartAyahMult + (1.0 - cfg.chainStartAyahMult) * frac;
+                if (cost > cfg.chainCost * m) continue;   // mid-ayah needs a tighter cost early
+            }
             if (auto em = chainVoter->onFire(timeSec, u, cost)) {
                 if (debug) QR_LOG("chain EMIT %s cost=%.2f at %.1fs (suffix)",
                                   units->key(em->unit).c_str(), cost, timeSec);
@@ -515,6 +522,13 @@ struct Detector::Impl {
             if (soft && alts.size() == ph.size()) winAlts.assign(alts.begin() + off, alts.end());
             auto [u, cost] = windowBest(win, *units, cfg.chainCost, winAlts, cfg.chainSubMin);
             if (u < 0 || cost > cfg.chainCost) continue;
+            if (cfg.chainStartAtAyahSec > 0.0f && chainAsm->confirmed().empty()
+                && units->segIdxOf(u) >= 2) {   // cold start: decaying penalty on mid-ayah matches
+                const double frac = (double)timeSec / cfg.chainStartAtAyahSec;   // 0..1 over the window
+                const double m = frac >= 1.0 ? 1.0
+                                 : cfg.chainStartAyahMult + (1.0 - cfg.chainStartAyahMult) * frac;
+                if (cost > cfg.chainCost * m) continue;   // mid-ayah needs a tighter cost early
+            }
             if (auto em = chainVoter->onFire(timeSec, u, cost)) {
                 if (debug) QR_LOG("chain EMIT %s cost=%.2f at %.1fs",
                                   units->key(em->unit).c_str(), cost, timeSec);

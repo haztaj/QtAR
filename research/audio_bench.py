@@ -160,6 +160,13 @@ ARMS = {
                         env={"QR_COST": "0.30", "QR_SUFFIX": str(REPO / "export/onnx/model_full_p3_5s.int8.onnx")}),
     "p3fullsuf35": dict(model=REPO / "export/onnx/model_full_p3_22s.int8.onnx",
                         env={"QR_COST": "0.35", "QR_SUFFIX": str(REPO / "export/onnx/model_full_p3_5s.int8.onnx")}),
+    # cold-start ayah-begin penalty sweep (decaying): STARTMULT = fire-bar multiplier at t=0.
+    "p3fullsuf_noayah": dict(model=REPO / "export/onnx/model_full_p3_22s.int8.onnx",
+                             env={"QR_STARTAYAH": "0", "QR_SUFFIX": str(REPO / "export/onnx/model_full_p3_5s.int8.onnx")}),
+    "p3fullsuf_m5": dict(model=REPO / "export/onnx/model_full_p3_22s.int8.onnx",
+                         env={"QR_STARTMULT": "0.5", "QR_SUFFIX": str(REPO / "export/onnx/model_full_p3_5s.int8.onnx")}),
+    "p3fullsuf_m7": dict(model=REPO / "export/onnx/model_full_p3_22s.int8.onnx",
+                         env={"QR_STARTMULT": "0.7", "QR_SUFFIX": str(REPO / "export/onnx/model_full_p3_5s.int8.onnx")}),
 }
 
 def truth_str(seq): return [f"{s}:{a}" for s, a in seq]

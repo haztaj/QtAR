@@ -119,6 +119,16 @@ struct Config {
                                     // prefix-collision unit whose cost OVERLAPS the correct one, so
                                     // a cost gate can't separate them; the correct surah recurs
                                     // while wrong jumps are one-off. <= 1 disables the gate.
+    float chainStartAtAyahSec = 12.0f;  // ramp window for the cold-start ayah-begin penalty (below).
+                                    // 0 disables the penalty entirely.
+    float chainStartAyahMult = 0.5f;    // DECAYING cold-start penalty on mid-ayah (#02+) matches: a
+                                    // reciter starts at an ayah's beginning, so a mid-ayah match early
+                                    // is a wrong prefix collision. Rather than hard-block it (which lost
+                                    // long opening ayat whose first segment decodes poorly), a mid-ayah
+                                    // unit must clear a TIGHTER fire bar = chainCost * m(t), where m
+                                    // ramps from chainStartAyahMult (t=0) up to 1.0 at chainStartAtAyahSec.
+                                    // So mid-ayah needs a ~2x better cost at t=0, easing to normal — the
+                                    // correct long ayah still locks in a bit later. 1.0 = no penalty.
     int chainVotesNext = 1;
     int chainVotesJump = 2;
     float chainEarlyPrefix = 0.5f;  // >0: fire the EXPECTED unit once this fraction of its
