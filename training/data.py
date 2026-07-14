@@ -158,6 +158,27 @@ def load_features(path: str) -> tuple[torch.Tensor, int]:
     return logmel_16k(load_wav_16k(path)), SAMPLE_RATE
 
 
+def _localize_path(p: str) -> str:
+    """Re-anchor a manifest audio path on the current repo root.
+
+    Manifests generated on Windows store absolute paths like
+    ``C:\\Users\\hazem\\projects\\QtAR\\data\\raw\\audio\\<reciter>\\<file>.mp3``.
+    After the Windows->Linux move the corpus lives under ``<REPO>/data/...``, so
+    we cut each path at its ``/data/`` segment and rejoin it to ``REPO``. This is
+    location-independent (doesn't hard-code the repo name/prefix) and idempotent
+    for already-local absolute or repo-relative paths.
+    """
+    if not isinstance(p, str) or not p:
+        return p
+    s = p.replace("\\", "/")
+    i = s.rfind("/data/")
+    if i != -1:
+        return str(REPO / s[i + 1:])
+    if s.startswith("data/"):
+        return str(REPO / s)
+    return p
+
+
 # ---------------------------------------------------------------------------
 # Dataset
 # ---------------------------------------------------------------------------
@@ -175,6 +196,8 @@ class AyahDataset(Dataset):
         manifest_csv = Path(manifest_csv)
         tag = split or manifest_csv.parent.name   # log label
         df = pd.read_csv(manifest_csv)
+        if "path" in df.columns:                      # re-anchor Windows paths post-move
+            df["path"] = df["path"].map(_localize_path)
         if split is not None:
             split_map = reciter_split(df["reciter_id"].unique().tolist())
             df = df[df["reciter_id"].map(split_map) == split].reset_index(drop=True)
@@ -192,7 +215,7 @@ class AyahDataset(Dataset):
         # Exclude files that hard-fail to decode (see data/raw/audio/bad_files.txt).
         bad_path = manifest_csv.parent / "bad_files.txt"
         if bad_path.exists():
-            bad = set(bad_path.read_text(encoding="utf-8").split())
+            bad = {_localize_path(x) for x in bad_path.read_text(encoding="utf-8").split()}
             before = len(df)
             df = df[~df["path"].isin(bad)].reset_index(drop=True)
             if len(df) < before:

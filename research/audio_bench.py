@@ -26,7 +26,8 @@ REPO = Path(__file__).resolve().parent.parent
 for p in ("training", "matcher", "research"):
     sys.path.insert(0, str(REPO / p))
 
-BIN = REPO / "sdk/build/cmake/test_detector.exe"
+_BIN_LINUX = REPO / "sdk/build/cmake-linux/test_detector"
+BIN = _BIN_LINUX if _BIN_LINUX.exists() else REPO / "sdk/build/cmake/test_detector.exe"
 MODEL = REPO / "export/onnx/model_s123_mic_clean_22s.int8.onnx"
 CONF = REPO / "conformance"
 VAD = CONF / "assets/silero_vad.onnx"
@@ -138,6 +139,17 @@ ARMS = {
     "micsuf7":   dict(model=REPO / "export/onnx/model_s123_mic_22s.int8.onnx",
                       env={"QR_SUFFIX": str(REPO / "export/onnx/model_s123_mic_7s.int8.onnx"),
                            "QR_SUFFIX_SEC": "7"}),
+    # === FULL-QURAN retrain (best_full_p2r2) — the redeploy candidate (2026-07-14) ===
+    "p2r2":       dict(model=REPO / "export/onnx/model_full_p2r2_22s.int8.onnx"),
+    "p2r2suf":    dict(model=REPO / "export/onnx/model_full_p2r2_22s.int8.onnx",
+                       env={"QR_SUFFIX": str(REPO / "export/onnx/model_full_p2r2_5s.int8.onnx")}),
+    "p2r2stream": dict(model=REPO / "export/onnx/model_full_p2r2_22s.int8.onnx", stream=True),
+    "p2r2sufvad": dict(model=REPO / "export/onnx/model_full_p2r2_22s.int8.onnx", vad=True,
+                       env={"QR_SUFFIX": str(REPO / "export/onnx/model_full_p2r2_5s.int8.onnx")}),
+    # full-Quran + PHASE-3 continuous fix (best_full_p3) — the suppression-cured candidate
+    "p3full":    dict(model=REPO / "export/onnx/model_full_p3_22s.int8.onnx"),
+    "p3fullsuf": dict(model=REPO / "export/onnx/model_full_p3_22s.int8.onnx",
+                      env={"QR_SUFFIX": str(REPO / "export/onnx/model_full_p3_5s.int8.onnx")}),
 }
 
 def truth_str(seq): return [f"{s}:{a}" for s, a in seq]
@@ -145,8 +157,9 @@ def truth_str(seq): return [f"{s}:{a}" for s, a in seq]
 def compose(name, seq, gap_s, augment):
     out = BENCH / f"{name}.wav"
     if out.exists(): return out
-    from data import load_wav_16k
+    from data import load_wav_16k, _localize_path
     manifest = pd.read_csv(REPO / "data/raw/audio/manifest.csv")
+    manifest["path"] = manifest["path"].map(_localize_path)   # re-anchor Windows paths post-move
     aug = None
     if augment:
         from augment import build_waveform_augment

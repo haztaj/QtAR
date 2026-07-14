@@ -37,6 +37,9 @@ data class HighlightInfo(
     // segmentCount <= 1 means no sub-ayah progress to show.
     val segment: Int = 0,
     val segmentCount: Int = 0,
+    // WORD-LEVEL highlight: global words.db ids of the ACTIVE waqf segment's words (from
+    // data/lang/segment_words.json via MushafScreen). Null -> whole-ayah highlight only.
+    val activeWordIds: IntRange? = null,
 )
 
 private const val BASMALLAH_GLYPH = "﷽"   // U+FDFD, rendered in quran-common.ttf
@@ -180,11 +183,32 @@ private fun MushafLineItem(
                     var j = i
                     while (j + 1 < line.words.size &&
                            line.words[j + 1].surah == w.surah && line.words[j + 1].ayah == w.ayah) j++
-                    val run = buildString {
-                        for (k in i..j) { append(line.words[k].glyph); if (k != j) append(" ") }
+                    val segIds = highlight.activeWordIds
+                    if (key == highlight.active && segIds != null) {
+                        // Word-level: the ACTIVE ayah's run, sub-split so the words of the
+                        // waqf segment being recited get the darker tint. Sub-runs stay
+                        // coalesced (spaces inside) so each region is one continuous box.
+                        var k = i
+                        while (k <= j) {
+                            val inSeg = line.words[k].wordId in segIds
+                            var m = k
+                            while (m + 1 <= j && (line.words[m + 1].wordId in segIds) == inSeg) m++
+                            val sub = buildString {
+                                for (q in k..m) { append(line.words[q].glyph); if (q != m) append(" ") }
+                                if (m != j) append(" ")   // joint space carries this sub-run's tint
+                            }
+                            withStyle(SpanStyle(background = if (inSeg) upNextBg else activeBg)) {
+                                append(sub)
+                            }
+                            k = m + 1
+                        }
+                    } else {
+                        val run = buildString {
+                            for (k in i..j) { append(line.words[k].glyph); if (k != j) append(" ") }
+                        }
+                        if (bg != Color.Unspecified) withStyle(SpanStyle(background = bg)) { append(run) }
+                        else append(run)
                     }
-                    if (bg != Color.Unspecified) withStyle(SpanStyle(background = bg)) { append(run) }
-                    else append(run)
                     if (j + 1 < line.words.size) append(" ")   // gap between ayat: unhighlighted
                     i = j + 1
                 }

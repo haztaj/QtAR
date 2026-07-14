@@ -140,6 +140,33 @@ class MushafRepository private constructor(
         return out
     }
 
+    // ---- word-level highlighting (segment -> word map; see data/build_segment_words.py) ----
+    private val segmentWords: Map<String, IntArray> by lazy {
+        val txt = assetManager.open("quranrecite/segment_words.json").bufferedReader().use { it.readText() }
+        val obj = org.json.JSONObject(txt)
+        buildMap {
+            for (k in obj.keys()) {
+                if (k.startsWith("_")) continue
+                val arr = obj.getJSONArray(k)
+                put(k, intArrayOf(arr.getInt(0), arr.getInt(1)))
+            }
+        }
+    }
+    private val firstWordIds = HashMap<String, Int?>()
+
+    /** Content-word ordinal range [w0, w1) of a unit key ("s:a#NN" or "s:a"), or null. */
+    fun segmentWordRange(unitKey: String): IntArray? = segmentWords[unitKey]
+
+    /** Global words.db id of the ayah's first word (word ordinals offset from it). */
+    fun firstWordId(surah: Int, ayah: Int): Int? = synchronized(firstWordIds) {
+        firstWordIds.getOrPut("$surah:$ayah") {
+            words.rawQuery(
+                "select min(id) from words where surah=? and ayah=?",
+                arrayOf(surah.toString(), ayah.toString()),
+            ).use { if (it.moveToFirst() && !it.isNull(0)) it.getInt(0) else null }
+        }
+    }
+
     /** Page holding the first word of the given ayah (drives jump + auto-advance). */
     fun pageForAyah(surah: Int, ayah: Int): Int? {
         val wid = words.rawQuery(

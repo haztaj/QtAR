@@ -67,6 +67,25 @@ fun MushafScreen(
     val surahNameFamily = remember(repo) { FontFamily(Typeface(repo.surahNameTypeface)) }
     val quranCommonFamily = remember(repo) { FontFamily(Typeface(repo.quranCommonTypeface)) }
 
+    // Word-level highlight: resolve the ACTIVE waqf segment's global word-id range from the
+    // segment->word map (exact by construction — data/build_segment_words.py). Falls back to
+    // the plain whole-ayah highlight whenever unresolved (no segment info, unmapped, etc.).
+    val enriched by produceState(highlight, highlight) {
+        value = withContext(Dispatchers.IO) {
+            val a = highlight.active
+            if (a != null && highlight.segmentCount > 1 &&
+                highlight.segment in 1..highlight.segmentCount) {
+                val range = repo.segmentWordRange(a + "#%02d".format(highlight.segment))
+                val parts = a.split(":")
+                val first = if (range != null)
+                    repo.firstWordId(parts[0].toInt(), parts[1].toInt()) else null
+                if (range != null && first != null)
+                    highlight.copy(activeWordIds = (first + range[0])..(first + range[1] - 1))
+                else highlight
+            } else highlight
+        }
+    }
+
     val page = pagerState.currentPage + 1
     val topSurah by produceState(1, page) { value = withContext(Dispatchers.IO) { repo.pageTopSurah(page) } }
     val juz = repo.pageJuz(page)
@@ -132,7 +151,7 @@ fun MushafScreen(
                             contentAlignment = Alignment.Center,
                         ) {
                             if (data == null) CircularProgressIndicator()
-                            else MushafPageView(data.first, data.second, highlight,
+                            else MushafPageView(data.first, data.second, enriched,
                                                 repo.surahHeaderTypeface, repo.quranCommonTypeface,
                                                 repo::surahHeaderGlyph,
                                                 onContentWidth = { contentWidth = it },

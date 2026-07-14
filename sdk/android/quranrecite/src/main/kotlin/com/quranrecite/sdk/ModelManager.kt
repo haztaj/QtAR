@@ -273,7 +273,7 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
     companion object {
         // Bundled small-asset version — bump when the shipped lexicon/tokens/etc change (corpus
         // change). Independent of the model version, which comes from the manifest.
-        const val ASSETS_VERSION = "s123-v1"
+        const val ASSETS_VERSION = "full-p3-v1"   // full-Quran corpus (6236 ayat / 10510 units)
         // Remote manifest of the current released model: {"version","url","sha256"}. Publish a new
         // model by uploading the .onnx and updating this JSON (see `./gradlew :demo:modelManifest`).
         // Empty -> no download (rely on a bundled or cached model).
