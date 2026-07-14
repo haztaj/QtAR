@@ -112,6 +112,13 @@ struct Config {
     float chainHopSec = 1.5f;
     float chainCost = 0.30f;        // window fire threshold; 0.30 = clean-decode reference,
                                     // ~0.45 for consumer phone mics (~30% PER decodes)
+    int chainProvVotes = 2;         // corroboration required to surface a PROVISIONAL highlight:
+                                    // the emitted unit's parent surah must appear in >= this many
+                                    // recent emits. chainCost governs commit/recall, but at the
+                                    // full-Quran 6x index a fire <= chainCost is often a wrong
+                                    // prefix-collision unit whose cost OVERLAPS the correct one, so
+                                    // a cost gate can't separate them; the correct surah recurs
+                                    // while wrong jumps are one-off. <= 1 disables the gate.
     int chainVotesNext = 1;
     int chainVotesJump = 2;
     float chainEarlyPrefix = 0.5f;  // >0: fire the EXPECTED unit once this fraction of its

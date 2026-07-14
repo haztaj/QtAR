@@ -150,6 +150,16 @@ ARMS = {
     "p3full":    dict(model=REPO / "export/onnx/model_full_p3_22s.int8.onnx"),
     "p3fullsuf": dict(model=REPO / "export/onnx/model_full_p3_22s.int8.onnx",
                       env={"QR_SUFFIX": str(REPO / "export/onnx/model_full_p3_5s.int8.onnx")}),
+    # the ACTUAL deployed live path: streaming acoustics (+ v13 suffix) — what the phone runs
+    "p3fullstream":    dict(model=REPO / "export/onnx/model_full_p3_22s.int8.onnx", stream=True),
+    "p3fullstreamsuf": dict(model=REPO / "export/onnx/model_full_p3_22s.int8.onnx", stream=True,
+                            env={"QR_SUFFIX": str(REPO / "export/onnx/model_full_p3_5s.int8.onnx")}),
+    # provisional-flicker fix probe: tighter fire cost (0.45 -> 0.30/0.35) to stop wrong
+    # prefix-collision units surfacing as provisional highlights at the 6x index.
+    "p3fullsuf30": dict(model=REPO / "export/onnx/model_full_p3_22s.int8.onnx",
+                        env={"QR_COST": "0.30", "QR_SUFFIX": str(REPO / "export/onnx/model_full_p3_5s.int8.onnx")}),
+    "p3fullsuf35": dict(model=REPO / "export/onnx/model_full_p3_22s.int8.onnx",
+                        env={"QR_COST": "0.35", "QR_SUFFIX": str(REPO / "export/onnx/model_full_p3_5s.int8.onnx")}),
 }
 
 def truth_str(seq): return [f"{s}:{a}" for s, a in seq]

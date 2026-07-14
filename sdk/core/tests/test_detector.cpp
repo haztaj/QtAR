@@ -65,6 +65,7 @@ int main(int argc, char** argv) {
             cfg.unitPhonemesPath = conf + "/assets/unit_phonemes.json";
             cfg.chainSubMin = 0.0f;                 // Phase-2 soft scoring (as the demo runs)
             if (const char* c = std::getenv("QR_COST")) cfg.chainCost = (float)atof(c);
+            if (const char* p = std::getenv("QR_PROV")) cfg.chainProvVotes = atoi(p);
             // Ablation hooks (research/audio_bench.py taint audit):
             if (const char* s = std::getenv("QR_SUBMIN")) cfg.chainSubMin = (float)atof(s);
             if (const char* e = std::getenv("QR_EARLY")) cfg.chainEarlyPrefix = (float)atof(e);

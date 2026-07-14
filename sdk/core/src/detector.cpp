@@ -405,7 +405,7 @@ struct Detector::Impl {
                 if (cost <= 0.5f * cfg.chainCost) lastEmitSec = timeSec;
                 auto confirms = chainAsm->push(em->unit);
                 for (int cu : confirms) confirmUnit(cu, timeSec);
-                maybeProvisional(em->unit, confirms.empty(), timeSec);
+                maybeProvisional(em->unit, confirms.empty(), timeSec, cost);
             }
         }
     }
@@ -526,7 +526,7 @@ struct Detector::Impl {
                 if (cost <= 0.5f * cfg.chainCost) lastEmitSec = timeSec;
                 auto confirms = chainAsm->push(em->unit);
                 for (int cu : confirms) confirmUnit(cu, timeSec);
-                maybeProvisional(em->unit, confirms.empty(), timeSec);
+                maybeProvisional(em->unit, confirms.empty(), timeSec, cost);
                 // Focused-window trim (windowed only): the emitted unit's audio has served its
                 // purpose — drop it so the next ayah decodes without wide-window collapse, keeping
                 // a short tail for the successor's in-progress prefix. See types.h.
@@ -543,8 +543,25 @@ struct Detector::Impl {
     // pending unit's ayah as the provisional ACTIVE highlight (lighter, unconfirmed); the
     // first real confirmation overwrites it. Only before anything is confirmed — mid-stream
     // pendings stay invisible (junk jumps would flicker the highlight).
-    void maybeProvisional(int unit, bool deferred, double timeSec) {
+    std::vector<int> provRecent_;   // parent surahs of recent emits (pre-commit corroboration)
+    int parentSurah(int unit) const {
+        const std::string& pk = units->parentKey(unit);
+        return std::stoi(pk.substr(0, pk.find(':')));
+    }
+    void maybeProvisional(int unit, bool deferred, double timeSec, double cost) {
+        provRecent_.push_back(parentSurah(unit));               // track every emit's surah...
+        if (provRecent_.size() > 6) provRecent_.erase(provRecent_.begin());
         if (!deferred || !hlCb || !chainAsm->confirmed().empty()) return;
+        // Surface a provisional only when it's trustworthy. Raw cost can't separate the correct
+        // in-sequence unit from a wrong prefix-collision at the 6x index — their costs OVERLAP on
+        // phone audio (correct 0.31-0.34, wrong 0.32-0.40, and wrong units can even fire < 0.30).
+        // The reliable signal is CORROBORATION: the correct surah recurs across emits while a wrong
+        // prefix jump is one-off. Require the unit's parent surah to appear in >= chainProvVotes
+        // recent emits before highlighting. Kills the flicker (one-offs never corroborate, however
+        // cheap) without the cold-start latency a pure tight-cost gate caused (correct emits at
+        // 0.31-0.34 were suppressed until the late commit). chainProvVotes <= 1 disables the gate.
+        const int corrob = (int)std::count(provRecent_.begin(), provRecent_.end(), parentSurah(unit));
+        if (corrob < cfg.chainProvVotes) return;
         const auto& pend = chainAsm->pendingUnits();
         if (pend.empty() || pend.back() != unit) return;   // dropped, not deferred
         const auto c = units->parentKey(unit).find(':');
