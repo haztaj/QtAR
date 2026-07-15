@@ -141,6 +141,7 @@ struct Detector::Impl {
             p.costThresh = c.chainCost;
             p.votesNext = c.chainVotesNext;
             p.votesJump = c.chainVotesJump;
+            p.strongStartCost = c.chainStrongStartCost;
             chainVoter = std::make_unique<ChainVoter>(*units, p);
             chainAsm = std::make_unique<ChainAssembler>(*units);
             if (!c.streamConvPath.empty() && !c.streamEncoderPath.empty())
@@ -410,7 +411,16 @@ struct Detector::Impl {
                 if (debug) QR_LOG("chain EMIT %s cost=%.2f at %.1fs (suffix)",
                                   units->key(em->unit).c_str(), cost, timeSec);
                 if (cost <= 0.5f * cfg.chainCost) lastEmitSec = timeSec;
-                auto confirms = chainAsm->push(em->unit);
+                // Fast single-commit ONLY a strong match to a SURAH OPENING (ayah 1, segment #01):
+                // reliable "reciter just began this surah" signal. A strong match to a mid-surah
+                // ayah at cold start is usually a wrong prefix collision (can't be told from cost),
+                // so those keep the safe 2-vote deferral.
+                const std::string& spk = units->parentKey(em->unit);
+                const bool strongStart = chainAsm->confirmed().empty()
+                    && cfg.chainStrongStartCost > 0.0f && cost <= cfg.chainStrongStartCost
+                    && units->segIdxOf(em->unit) <= 1
+                    && std::stoi(spk.substr(spk.find(':') + 1)) == 1;
+                auto confirms = chainAsm->push(em->unit, strongStart);
                 for (int cu : confirms) confirmUnit(cu, timeSec);
                 maybeProvisional(em->unit, confirms.empty(), timeSec, cost);
             }
@@ -538,7 +548,16 @@ struct Detector::Impl {
                 // early resets that clipped the first ayah (bench -5). Bar = half the fire
                 // threshold, scale-free across the clean/phone chainCost configs.
                 if (cost <= 0.5f * cfg.chainCost) lastEmitSec = timeSec;
-                auto confirms = chainAsm->push(em->unit);
+                // Fast single-commit ONLY a strong match to a SURAH OPENING (ayah 1, segment #01):
+                // reliable "reciter just began this surah" signal. A strong match to a mid-surah
+                // ayah at cold start is usually a wrong prefix collision (can't be told from cost),
+                // so those keep the safe 2-vote deferral.
+                const std::string& spk = units->parentKey(em->unit);
+                const bool strongStart = chainAsm->confirmed().empty()
+                    && cfg.chainStrongStartCost > 0.0f && cost <= cfg.chainStrongStartCost
+                    && units->segIdxOf(em->unit) <= 1
+                    && std::stoi(spk.substr(spk.find(':') + 1)) == 1;
+                auto confirms = chainAsm->push(em->unit, strongStart);
                 for (int cu : confirms) confirmUnit(cu, timeSec);
                 maybeProvisional(em->unit, confirms.empty(), timeSec, cost);
                 // Focused-window trim (windowed only): the emitted unit's audio has served its

@@ -129,6 +129,10 @@ struct Config {
                                     // ramps from chainStartAyahMult (t=0) up to 1.0 at chainStartAtAyahSec.
                                     // So mid-ayah needs a ~2x better cost at t=0, easing to normal — the
                                     // correct long ayah still locks in a bit later. 1.0 = no penalty.
+    float chainStrongStartCost = 0.25f; // at cold start, a strong ayah-BEGIN match (cost <= this)
+                                    // commits with a single vote so a clean opening ayah locks in
+                                    // fast (before a quiet/hard decode degrades). Ayah-start only,
+                                    // above kStrongCost (0.15). <= 0 disables (2-vote default).
     int chainVotesNext = 1;
     int chainVotesJump = 2;
     float chainEarlyPrefix = 0.5f;  // >0: fire the EXPECTED unit once this fraction of its

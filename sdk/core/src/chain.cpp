@@ -283,6 +283,12 @@ std::optional<UnitEmission> ChainVoter::onFire(double w1, int unit, double cost)
     const bool escalate = streak_ >= kStreakMin && unit != expected_ && !near;
     int need = unit == expected_ ? p_.votesNext : p_.votesJump + (escalate ? kStreakExtra : 0);
     if (cost <= kStrongCost) need = std::min(need, escalate ? 2 : 1);  // confidence-scaled
+    // A strong match to a SURAH OPENING (ayah 1, segment #01) at COLD START emits on one vote —
+    // the reliable "reciter just began this surah" signal, captured before the decode degrades.
+    // Ayah-1 only: a strong mid-surah match at cold start is usually a wrong prefix collision.
+    if (emitted_.empty() && p_.strongStartCost > 0.0 && cost <= p_.strongStartCost
+        && idx_.segIdxOf(unit) <= 1 && parseKey(idx_.key(unit)).a == 1)
+        need = 1;
     if (unit == pending_) ++votes_;
     else { pending_ = unit; votes_ = 1; }
     if (votes_ < need) return std::nullopt;
@@ -306,7 +312,7 @@ bool ChainAssembler::supports(int p, int u) const {
            (idx_.parentOf(u) == idx_.parentOf(p) && idx_.segIdxOf(u) > idx_.segIdxOf(p));
 }
 
-std::vector<int> ChainAssembler::push(int u) {
+std::vector<int> ChainAssembler::push(int u, bool forceConfirm) {
     int sup = -1;
     for (int k = (int)pending_.size() - 1; k >= 0; --k)
         if (supports(pending_[k], u)) { sup = k; break; }
@@ -332,6 +338,11 @@ std::vector<int> ChainAssembler::push(int u) {
             }
             return {};                                 // backward/repeat: drop (re-fire)
         }
+    }
+    if (forceConfirm) {                                // strong ayah-begin at cold start: lock in
+        confirmed_.push_back(u);                        // now, don't wait for a supporter that a
+        pending_.clear();                               // degrading decode may never deliver
+        return {u};
     }
     pending_.push_back(u);                             // unexpected jump: await support
     if (pending_.size() > 2) pending_.erase(pending_.begin());  // oldest ages out

@@ -67,6 +67,11 @@ struct ChainParams {
     double costThresh = 0.30;   // window fire threshold (FIRE_COST)
     int votesNext = 1;
     int votesJump = 2;
+    double strongStartCost = 0.25;  // at COLD START (nothing emitted yet) a strong AYAH-BEGIN
+                                    // match (cost <= this) commits with a SINGLE vote — the
+                                    // reliable "reciter just began this ayah" signal, locked in
+                                    // before the decode degrades. Above kStrongCost (0.15) so a
+                                    // clean opening (~0.25) qualifies; ayah-start only. <=0 off.
     double earlyPrefix = 0.0;   // >0 (e.g. 0.5): context-gated early detection — fire the
                                 // EXPECTED unit once this fraction of its prefix matches
                                 // the decode tail (cuts commit-at-unit-end latency)
@@ -111,7 +116,7 @@ class ChainAssembler {
 public:
     explicit ChainAssembler(const UnitIndex& idx) : idx_(idx) {}
     void reset();
-    std::vector<int> push(int unit);
+    std::vector<int> push(int unit, bool forceConfirm = false);
     std::vector<int> flush();
     const std::vector<int>& confirmed() const { return confirmed_; }
     const std::vector<int>& pendingUnits() const { return pending_; }
