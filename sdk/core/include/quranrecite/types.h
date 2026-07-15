@@ -95,7 +95,11 @@ struct Config {
     float streakBonus = 0.05f;
 
     // Front-end (must match conformance/spec.md §Stage 1).
-    float normRms = 0.1f;
+    float normRms = 0.1f;    // gain-normalize target (matches data.py NORM_RMS + the frontend goldens).
+                             // The demo overrides to 0.15 for quiet-mic robustness: quiet phone mics
+                             // (RMS ~0.02-0.03) decode better with more amplification (+2 on audio_bench,
+                             // concentrated on the quiet pulled sessions). A future retrain should set
+                             // data.py NORM_RMS to match whatever ships.
 
     // Unit-chain decoder (Mode::Chain): sliding matched-filter windows over waqf segments.
     // The phoneme stream is decoded once per hop from the rolling buffer (largest chain

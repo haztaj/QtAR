@@ -109,6 +109,9 @@ data class Config(
     // asset bundle (manifest "suffixModel" or -PbundleSuffix); silently off when absent.
     // 0 = off; 5.0 = the measured operating point (7 s regressed — see research/CLAUDE.md).
     val chainSuffixSec: Float = 0.0f,
+    // Gain-normalize target RMS. 0.10 matches training; 0.15 gives quiet phone mics more amplification
+    // and decodes them better (+2 on audio_bench, concentrated on quiet sessions). See types.h normRms.
+    val normRms: Float = 0.15f,
 )
 
 /**
@@ -200,7 +203,7 @@ class QuranReciteDetector(
                     config.mode.ordinal, assets.unitPhonemesPath, config.chainCost,
                     config.chainSubMin, streamConv, streamEnc,
                     config.chainVadReset, config.chainResetMaxGap,
-                    suffix, config.chainSuffixSec)
+                    suffix, config.chainSuffixSec, config.normRms)
                 nativeSetDebug(nativeHandle, debugLogging)      // carry the current flag to the engine
                 mainHandler.post { listener?.onModelReady() }
             },
@@ -271,7 +274,7 @@ class QuranReciteDetector(
         mode: Int, unitPhonemesPath: String, chainCost: Float, chainSubMin: Float,
         streamConvPath: String, streamEncoderPath: String,
         chainVadReset: Boolean, chainResetMaxGap: Float,
-        suffixModelPath: String, chainSuffixSec: Float): Long
+        suffixModelPath: String, chainSuffixSec: Float, normRms: Float): Long
     private external fun nativeFeed(handle: Long, pcm: ShortArray, sampleRate: Int)
     private external fun nativeReset(handle: Long)
     private external fun nativeSetDebug(handle: Long, enabled: Boolean)

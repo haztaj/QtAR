@@ -170,6 +170,15 @@ ARMS = {
     # strong-start fast-commit OFF (measure precision cost of the fast single-vote ayah-begin commit)
     "p3fullsuf_ss0": dict(model=REPO / "export/onnx/model_full_p3_22s.int8.onnx",
                           env={"QR_STRONGSTART": "0", "QR_SUFFIX": str(REPO / "export/onnx/model_full_p3_5s.int8.onnx")}),
+    # normalization-target sweep (quiet-mic robustness probe)
+    "p3fullsuf_nr05": dict(model=REPO / "export/onnx/model_full_p3_22s.int8.onnx",
+                           env={"QR_NORMRMS": "0.05", "QR_SUFFIX": str(REPO / "export/onnx/model_full_p3_5s.int8.onnx")}),
+    "p3fullsuf_nr15": dict(model=REPO / "export/onnx/model_full_p3_22s.int8.onnx",
+                           env={"QR_NORMRMS": "0.15", "QR_SUFFIX": str(REPO / "export/onnx/model_full_p3_5s.int8.onnx")}),
+    "p3fullsuf_nr18": dict(model=REPO / "export/onnx/model_full_p3_22s.int8.onnx",
+                           env={"QR_NORMRMS": "0.18", "QR_SUFFIX": str(REPO / "export/onnx/model_full_p3_5s.int8.onnx")}),
+    "p3fullsuf_nr20": dict(model=REPO / "export/onnx/model_full_p3_22s.int8.onnx",
+                           env={"QR_NORMRMS": "0.20", "QR_SUFFIX": str(REPO / "export/onnx/model_full_p3_5s.int8.onnx")}),
 }
 
 def truth_str(seq): return [f"{s}:{a}" for s, a in seq]

@@ -69,6 +69,7 @@ int main(int argc, char** argv) {
             if (const char* a = std::getenv("QR_STARTAYAH")) cfg.chainStartAtAyahSec = (float)atof(a);
             if (const char* m = std::getenv("QR_STARTMULT")) cfg.chainStartAyahMult = (float)atof(m);
             if (const char* s = std::getenv("QR_STRONGSTART")) cfg.chainStrongStartCost = (float)atof(s);
+            if (const char* r = std::getenv("QR_NORMRMS")) cfg.normRms = (float)atof(r);
             // Ablation hooks (research/audio_bench.py taint audit):
             if (const char* s = std::getenv("QR_SUBMIN")) cfg.chainSubMin = (float)atof(s);
             if (const char* e = std::getenv("QR_EARLY")) cfg.chainEarlyPrefix = (float)atof(e);

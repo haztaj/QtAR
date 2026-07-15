@@ -107,7 +107,7 @@ Java_com_quranrecite_sdk_QuranReciteDetector_nativeCreate(
         jstring vadPath, jint mode, jstring unitPhonemesPath, jfloat chainCost,
         jfloat chainSubMin, jstring streamConvPath, jstring streamEncoderPath,
         jboolean chainVadReset, jfloat chainResetMaxGap,
-        jstring suffixModelPath, jfloat chainSuffixSec) {
+        jstring suffixModelPath, jfloat chainSuffixSec, jfloat normRms) {
     auto* h = new Handle();
     env->GetJavaVM(&h->vm);
     h->self = env->NewGlobalRef(thiz);
@@ -140,6 +140,7 @@ Java_com_quranrecite_sdk_QuranReciteDetector_nativeCreate(
     // v13 fresh-context suffix decode (windowed Chain; empty path or 0 sec -> off).
     cfg.chainSuffixModelPath = jstr(env, suffixModelPath);
     cfg.chainSuffixSec = chainSuffixSec;
+    cfg.normRms = normRms;                          // gain-normalize target (demo: 0.15 for quiet mics)
 
     h->det = std::make_unique<Detector>(cfg);
     h->det->setEventCallback([h](const AyahEvent& e) { postEvent(h, e); });
