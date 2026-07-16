@@ -175,6 +175,9 @@ ARMS = {
                            env={"QR_NORMRMS": "0.05", "QR_SUFFIX": str(REPO / "export/onnx/model_full_p3_5s.int8.onnx")}),
     "p3fullsuf_nr15": dict(model=REPO / "export/onnx/model_full_p3_22s.int8.onnx",
                            env={"QR_NORMRMS": "0.15", "QR_SUFFIX": str(REPO / "export/onnx/model_full_p3_5s.int8.onnx")}),
+    # tusers real-learner adaptation (best_full_tu) at 0.15
+    "tu": dict(model=REPO / "export/onnx/model_full_tu_22s.int8.onnx",
+               env={"QR_NORMRMS": "0.15", "QR_SUFFIX": str(REPO / "export/onnx/model_full_tu_5s.int8.onnx")}),
     "p3fullsuf_nr18": dict(model=REPO / "export/onnx/model_full_p3_22s.int8.onnx",
                            env={"QR_NORMRMS": "0.18", "QR_SUFFIX": str(REPO / "export/onnx/model_full_p3_5s.int8.onnx")}),
     "p3fullsuf_nr20": dict(model=REPO / "export/onnx/model_full_p3_22s.int8.onnx",

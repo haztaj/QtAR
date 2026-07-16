@@ -5,6 +5,22 @@ Cross-session/cross-OS handoff note. Read this first when picking up the full-Qu
 
 ## ⏩ LIVE SESSION STATE (2026-07-14) — read this first
 
+**★ SHIPPED (2026-07-16): `best_full_tu.pt` — real-learner-adapted, DEPLOYED.** Fine-tune of
+`best_full_p3` on 17,837 real learner recitations (`data/raw/phase3/tusers_manifest.csv`, all 114
+surahs, from the user's `tusers_all_filtered_csv.tar.xz`) mixed at 8.5% into the phase-3 manifest
+(`combined_train_tusers.csv`), 8 ep moderate aug. **Best = epoch 7, val_PER 0.0443 (best clean ever).**
+Validation (all improved vs `best_full_p3`): audio_bench **141/151 (93%)** @ normRms 0.15 (best;
+was 137), clean test **95.8%**, suppression 0.976. **All three of the user's failing phone takes
+fixed:** Al-Hijr now tracks 15:1–15:5 with the wrong-`2:1` fast-commit glitch GONE; An-Nahl complete
+16:1–16:7; the quiet An-Nahl take now gets 16:1–16:3. This vindicates the diagnosis that the crowding/
+continuous-tracking wall is decode-quality-limited and REAL learner data (not synthetic aug — that
+retrain failed) is the lever. **Deployed model-only** (host + manifest bump to `best_full_tu-22s-v5`;
+the full-Quran index + native chain fixes + normRms 0.15 were already on-device from earlier this
+session) — the app auto-downloads on next launch, no APK rebuild. ONNX set: `model_full_tu_{22s,5s}.int8.onnx`
++ re-exported streaming graphs; all hosted on the `model` release. RetaSy short-surah metric dipped
+to 74.9% (narrow 14-surah slice; broad real-audio improved — do not chase it).
+audio_bench arm: `--arms tu`.
+
 **Env:** venv at `/home/hazem/qtar-venv` (Python 3.12, torch 2.13+cu130). Run training/eval with
 `/home/hazem/qtar-venv/bin/python`. `export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`.
 The Windows-path fix (`training/data.py::_localize_path`) re-anchors manifest paths — already applied.
