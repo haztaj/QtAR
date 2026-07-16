@@ -68,12 +68,22 @@ mic stream → Silero VAD gate → Stage 1 encoder → phoneme posteriors → St
   - Pre-downloaded parquets: place in `data/raw/quran-md-ayahs/` (flat) before running `prepare.py`. `prepare.py` / `extract_audio.py` scan every shard present on disk and slice `CORPUS_SURAHS = set(range(1,115))` (full Quran).
 
 ### Learner / robustness
+- **`tusers` — full-Quran learner set (primary learner corpus).** Source:
+  https://archive.org/download/quran-speech-dataset (licensing cleared, user-confirmed 2026-07-16).
+  17,837 clips / **17,811 distinct learner voices** / 45.6 h, all 114 surahs, 93.2% of ayat
+  (median 3 clips/ayah; ~1 clip per voice → huge *speaker* diversity, thin per-ayah). Manifest:
+  `data/raw/tusers/tusers_filtered.csv` → `data/raw/phase2/tusers_manifest.csv`. **Closed the
+  learner data hole** (all-surah coverage) — mixed at 8.5% into the phase-3 corpus to train the
+  shipped `best_full_tu` (see Status). Audio not committed (see standing rules).
 - **`RetaSy/quranic_audio_dataset`** (HuggingFace) — ~6.8k rows, 1287 reciters, 81 countries, Hafs. Has `Surah`/`Aya` fields + 6-class correctness.
   - Skews to short final surahs (Al-Ikhlas, Al-Falaq, An-Nas, Al-Kawthar, Al-Kafirun, Al-Asr) + Al-Fatiha; ~100 unique verses.
   - **Filter out non-Quran rows** (Adhan, adhkar) before any use.
 
 ### Known gap
-Longer early-Juz-Amma surahs (An-Naba, An-Nazi'at, Abasa…) have **no learner audio**. Plan: ~2–3 h in-house learner collection + heavy augmentation. Validate learner-tolerance on RetaSy-covered short surahs first.
+The all-surah learner hole is **closed** by the `tusers` set above (all 114 surahs, 93.2% of ayat).
+Residual: 425 ayat still have zero learner example and ~half the surahs are thin (<100 clips), but the
+recognizer is in diminishing-returns territory on bulk learner data — the remaining lever is *targeted
+real phone-on-stand continuous* capture for the far-field decode residual, not volume (assessment 2026-07-16).
 
 ### Supplementary (verify license before use)
 - `MohamedRashad/Quran-Recitations` (HF)

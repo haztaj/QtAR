@@ -39,7 +39,14 @@ python data/retasy_review.py    # by-ear review page -> raw/retasy_audio/review.
   val = nasser_alqatami, saood_ash_shuraym, tunaiji;
   test = warsh_husary, warsh_yassin, yasser_ad_dussary.
   Split is **by reciter** so eval measures speaker generalization.
-- **Learner set:** `RetaSy/quranic_audio_dataset` — only the short final surahs.
+- **Primary learner set:** `tusers` (full-Quran). Source:
+  **https://archive.org/download/quran-speech-dataset** (licensing cleared, user-confirmed
+  2026-07-16). 17,837 clips / 17,811 distinct voices / 45.6 h, all 114 surahs, 93.2% of ayat
+  (median 3 clips/ayah). Raw CSV `data/raw/tusers/tusers_filtered.csv` → manifest
+  `data/raw/phase2/tusers_manifest.csv` (columns: recording_id, reciter_id `tuser_<uid>`,
+  surah_id, ayah_id, path, duration=(filesize-44)/32000, source="tusers"). Mixed at 8.5% into
+  `data/raw/phase3/combined_train_tusers.csv` to train the shipped `best_full_tu`. Audio not committed.
+- **Legacy learner set:** `RetaSy/quranic_audio_dataset` — only the short final surahs.
   Aya IDs derived by normalized-Arabic text join against quran-md-ayahs
   (**84.8% matched**, 2235 clips). RetaSy `Surah` is a transliterated *name*
   (Al-Falaq…), `Aya` is Arabic text — neither is numeric. Remaining 15% unmatched

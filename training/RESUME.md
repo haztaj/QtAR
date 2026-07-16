@@ -6,8 +6,8 @@ Cross-session/cross-OS handoff note. Read this first when picking up the full-Qu
 ## ⏩ LIVE SESSION STATE (2026-07-14) — read this first
 
 **★ SHIPPED (2026-07-16): `best_full_tu.pt` — real-learner-adapted, DEPLOYED.** Fine-tune of
-`best_full_p3` on 17,837 real learner recitations (`data/raw/phase3/tusers_manifest.csv`, all 114
-surahs, from the user's `tusers_all_filtered_csv.tar.xz`) mixed at 8.5% into the phase-3 manifest
+`best_full_p3` on 17,837 real learner recitations (`data/raw/phase2/tusers_manifest.csv`, all 114
+surahs, source **https://archive.org/download/quran-speech-dataset**, licensing cleared) mixed at 8.5% into the phase-3 manifest
 (`combined_train_tusers.csv`), 8 ep moderate aug. **Best = epoch 7, val_PER 0.0443 (best clean ever).**
 Validation (all improved vs `best_full_p3`): audio_bench **141/151 (93%)** @ normRms 0.15 (best;
 was 137), clean test **95.8%**, suppression 0.976. **All three of the user's failing phone takes
