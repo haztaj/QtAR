@@ -27,8 +27,8 @@ android {
         applicationId = "com.quranrecite"
         minSdk = 24
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"   // v13 suffix decode + phase-3 model (v3) + near-twin guard
+        versionCode = 3
+        versionName = "0.3.0"   // best_full_tu learner-adapted model + chain fixes (corroboration/decay/fast-commit) + normRms 0.15
         // Ship only real-phone (arm64) + emulator (x86_64) ABIs. Drops x86/armeabi-v7a
         // (~34 MB of unused ONNX Runtime) and the x86 mismatch (no x86 quranrecite_jni).
         // A Play release would instead use an App Bundle for per-device ABI delivery.
