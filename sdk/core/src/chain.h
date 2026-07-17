@@ -136,9 +136,15 @@ private:
 // decodes run ~30% PER and need ~0.45 (junk absorbed by votes + assembly).
 // winAlts (per-window-position posteriors, parallel to win) + subMin < 1 enable Phase-2
 // posterior-aware SCORING of the shortlist; empty winAlts / subMin >= 1 == greedy.
+// Page-context prior: when `onPage` (per-unit-id membership, size == idx.size()) and
+// `pageBonus` > 0 are given, on-page units get `pageBonus` subtracted from their effective
+// cost for BOTH the fire gate and the blended selection — so on-page ayat win twin ties and
+// fire a touch easier. nullptr / 0 == no page effect (the byte-identical default path).
 std::pair<int, double> windowBest(const std::vector<int>& win, const UnitIndex& idx,
                                   double fireCost = 0.30,
-                                  const PhonAlts& winAlts = {}, double subMin = 1.0);
+                                  const PhonAlts& winAlts = {}, double subMin = 1.0,
+                                  const std::vector<char>* onPage = nullptr,
+                                  double pageBonus = 0.0);
 
 // Best PREFIX of `ref` aligned to the END of `win` (free leading window skips, 2 trailing
 // positions of slack): the early-detection score. Returns min over prefix lengths

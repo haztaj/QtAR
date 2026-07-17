@@ -116,6 +116,12 @@ struct Config {
     float chainHopSec = 1.5f;
     float chainCost = 0.30f;        // window fire threshold; 0.30 = clean-decode reference,
                                     // ~0.45 for consumer phone mics (~30% PER decodes)
+    float chainPageBonus = 0.0f;    // page-context prior (Mode::Chain): units whose parent ayah is
+                                    // in the currently-viewed page set (Detector::setPageContext)
+                                    // get this cost DISCOUNT in windowBest selection + the fire gate,
+                                    // so on-page ayat win twin ambiguities and fire a touch easier.
+                                    // Off-page ayat still detect (soft prior, not a hard filter).
+                                    // 0 = off (no page effect; conformance path). Demo: ~0.06.
     int chainProvVotes = 2;         // corroboration required to surface a PROVISIONAL highlight:
                                     // the emitted unit's parent surah must appear in >= this many
                                     // recent emits. chainCost governs commit/recall, but at the

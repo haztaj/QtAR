@@ -165,9 +165,11 @@ int UnitIndex::firstUnitOf(const std::string& parentKey) const {
 }
 
 std::pair<int, double> windowBest(const std::vector<int>& win, const UnitIndex& idx,
-                                  double fireCost, const PhonAlts& winAlts, double subMin) {
+                                  double fireCost, const PhonAlts& winAlts, double subMin,
+                                  const std::vector<char>* onPage, double pageBonus) {
     const int n = (int)win.size();
     const bool soft = subMin < 1.0 && !winAlts.empty();
+    const bool hasPage = onPage && pageBonus > 0.0 && !onPage->empty();
     // Counter with Python insertion-order semantics: first-seen while scanning window
     // positions ascending, posting lists ascending — ties in the sorts below break by
     // this order, exactly like Counter.most_common / heapq.nlargest (both stable).
@@ -206,11 +208,20 @@ std::pair<int, double> windowBest(const std::vector<int>& win, const UnitIndex& 
         if (!(0.5 * n <= L && L <= 1.3 * n)) continue;
         const double cost = soft ? infixNormSoft(idx.phonemes(u), win, winAlts, subMin)
                                  : infixNorm(idx.phonemes(u), win);
-        const double sel = cost - kCoverBonus * std::min(L, n) / (double)n;
-        if (cost <= fireCost && sel < bestSel) {
-            bestSel = sel; bestUnit = u; bestCost = cost; anyFire = true;
-        } else if (!anyFire && cost < bestCost) {
-            bestUnit = u; bestCost = cost;
+        // Page-context prior: when a page is set, OFF-page units pay a cost penalty, so on-page
+        // ayat win twin ambiguities AND spurious jumps to elsewhere in the Quran are suppressed
+        // (they must decode clearly, cost <= fireCost - pageBonus, to fire). On-page units are
+        // unchanged — no loosening of their fire gate, so no new on-page false fires. Off-page
+        // recitation still detects when the decode is clean (soft prior, not a hard filter).
+        // `hasPage &&` must short-circuit before dereferencing onPage (nullptr on the
+        // reference/decodeStream path, which passes no page context).
+        const bool offPage = hasPage && !(u < (int)onPage->size() && (*onPage)[u]);
+        const double eff = offPage ? cost + pageBonus : cost;
+        const double sel = eff - kCoverBonus * std::min(L, n) / (double)n;
+        if (eff <= fireCost && sel < bestSel) {
+            bestSel = sel; bestUnit = u; bestCost = eff; anyFire = true;
+        } else if (!anyFire && eff < bestCost) {
+            bestUnit = u; bestCost = eff;
         }
     }
     return {bestUnit, bestCost};

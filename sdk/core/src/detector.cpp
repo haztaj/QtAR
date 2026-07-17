@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cmath>
 #include <mutex>
+#include <unordered_set>
 #include <vector>
 
 #include "autodet.h"
@@ -93,6 +94,12 @@ struct Detector::Impl {
     std::unique_ptr<ChainAssembler> chainAsm;
     std::string chainParent;          // last confirmed parent ayah ("" before the first)
 
+    // Page-context prior (Config::chainPageBonus): the host sets the currently-viewed page's
+    // ayat via Detector::setPageContext; `onPage[unitId]` marks units whose parent ayah is in
+    // that set. windowBest discounts on-page units so they win twin ties + fire a touch easier.
+    std::vector<AyahId> pageAyat;     // requested page set (raw; survives re-init)
+    std::vector<char> onPage;         // per-unit-id membership mask (rebuilt on set / init)
+
     // True streaming acoustics (optional, Mode::Chain): decode only the NEW audio each hop and
     // keep a persistent, bounded phoneme stream — instead of re-decoding the whole rolling window.
     std::unique_ptr<StreamingModel> stream;
@@ -148,7 +155,21 @@ struct Detector::Impl {
                 stream = std::make_unique<StreamingModel>(c.streamConvPath, c.streamEncoderPath);
             if (c.chainSuffixSec > 0.0f && !c.chainSuffixModelPath.empty())
                 suffixModel = std::make_unique<AcousticModel>(c.chainSuffixModelPath);
+            rebuildPageMask();   // in case setPageContext was called before (re)construction
         }
+    }
+
+    // (Re)compute the on-page unit mask from `pageAyat`. Cheap (one pass over the unit index);
+    // called on setPageContext and chain init. No-op unless the prior is enabled + a page is set.
+    void rebuildPageMask() {
+        onPage.clear();
+        if (!units || cfg.chainPageBonus <= 0.0f || pageAyat.empty()) return;
+        std::unordered_set<std::string> pset;
+        for (const auto& a : pageAyat)
+            pset.insert(std::to_string(a.surah) + ":" + std::to_string(a.ayah));
+        onPage.assign(units->size(), 0);
+        for (int u = 0; u < (int)units->size(); ++u)
+            if (pset.count(units->parentKey(u))) onPage[u] = 1;
     }
 
     // A Silero speech-END: paused ayah boundary. Drop the buffered ayah + trailing silence and
@@ -398,7 +419,7 @@ struct Detector::Impl {
             if ((int)win.size() < 4) continue;
             PhonAlts winAlts;
             if (soft && alts.size() == ph.size()) winAlts.assign(alts.begin() + off, alts.end());
-            auto [u, cost] = windowBest(win, *units, cfg.chainCost, winAlts, cfg.chainSubMin);
+            auto [u, cost] = windowBest(win, *units, cfg.chainCost, winAlts, cfg.chainSubMin, &onPage, cfg.chainPageBonus);
             if (u < 0 || cost > cfg.chainCost) continue;
             if (cfg.chainStartAtAyahSec > 0.0f && chainAsm->confirmed().empty()
                 && units->segIdxOf(u) >= 2) {   // cold start: decaying penalty on mid-ayah matches
@@ -530,7 +551,7 @@ struct Detector::Impl {
             if ((int)win.size() < 4) continue;
             PhonAlts winAlts;
             if (soft && alts.size() == ph.size()) winAlts.assign(alts.begin() + off, alts.end());
-            auto [u, cost] = windowBest(win, *units, cfg.chainCost, winAlts, cfg.chainSubMin);
+            auto [u, cost] = windowBest(win, *units, cfg.chainCost, winAlts, cfg.chainSubMin, &onPage, cfg.chainPageBonus);
             if (u < 0 || cost > cfg.chainCost) continue;
             if (cfg.chainStartAtAyahSec > 0.0f && chainAsm->confirmed().empty()
                 && units->segIdxOf(u) >= 2) {   // cold start: decaying penalty on mid-ayah matches
@@ -758,6 +779,12 @@ void Detector::reset() {
     impl_->curActive.clear();
     impl_->upNextShown = false;
     if (impl_->vad) impl_->vad->reset();
+}
+
+void Detector::setPageContext(const std::vector<AyahId>& pageAyat) {
+    std::lock_guard<std::mutex> lk(impl_->mtx);
+    impl_->pageAyat = pageAyat;
+    impl_->rebuildPageMask();
 }
 
 void Detector::setDebug(bool enabled) { impl_->debug.store(enabled); }

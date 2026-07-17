@@ -53,7 +53,8 @@ class MainActivity : ComponentActivity() {
         // = 96% vs 138 for the earlier vadReset config, which the suffix pass SUBSUMES — reset
         // stays off). Flip streaming=true to return to the battery config (no suffix there yet).
         detector = QuranReciteDetector(this, Config(
-            mode = Mode.CHAIN, chainSubMin = 0.0f, streaming = false, chainSuffixSec = 5.0f))
+            mode = Mode.CHAIN, chainSubMin = 0.0f, streaming = false, chainSuffixSec = 5.0f,
+            chainPageBonus = 0.08f))   // prioritize ayat on the viewed page + the next one
 
         setContent {
             MaterialTheme {
@@ -203,6 +204,7 @@ class MainActivity : ComponentActivity() {
                             prefs.edit().putBoolean("recording", it).apply()
                         },
                         onShareRecording = { shareRecording() },
+                        onPageContext = { ayat -> detector.setPageContext(ayat) },
                     )
                 }
 

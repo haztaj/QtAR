@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "quranrecite/detector.h"
 
@@ -107,7 +108,7 @@ Java_com_quranrecite_sdk_QuranReciteDetector_nativeCreate(
         jstring vadPath, jint mode, jstring unitPhonemesPath, jfloat chainCost,
         jfloat chainSubMin, jstring streamConvPath, jstring streamEncoderPath,
         jboolean chainVadReset, jfloat chainResetMaxGap,
-        jstring suffixModelPath, jfloat chainSuffixSec, jfloat normRms) {
+        jstring suffixModelPath, jfloat chainSuffixSec, jfloat normRms, jfloat chainPageBonus) {
     auto* h = new Handle();
     env->GetJavaVM(&h->vm);
     h->self = env->NewGlobalRef(thiz);
@@ -141,6 +142,7 @@ Java_com_quranrecite_sdk_QuranReciteDetector_nativeCreate(
     cfg.chainSuffixModelPath = jstr(env, suffixModelPath);
     cfg.chainSuffixSec = chainSuffixSec;
     cfg.normRms = normRms;                          // gain-normalize target (demo: 0.15 for quiet mics)
+    cfg.chainPageBonus = chainPageBonus;            // page-context prior: off-page penalty (0 = off)
 
     h->det = std::make_unique<Detector>(cfg);
     h->det->setEventCallback([h](const AyahEvent& e) { postEvent(h, e); });
@@ -161,6 +163,20 @@ Java_com_quranrecite_sdk_QuranReciteDetector_nativeFeed(
 extern "C" JNIEXPORT void JNICALL
 Java_com_quranrecite_sdk_QuranReciteDetector_nativeReset(JNIEnv*, jobject, jlong handle) {
     reinterpret_cast<Handle*>(handle)->det->reset();
+}
+
+// Page-context prior: `keys` packs each ayah as surah*1000 + ayah (see Kotlin setPageContext).
+extern "C" JNIEXPORT void JNICALL
+Java_com_quranrecite_sdk_QuranReciteDetector_nativeSetPageContext(
+        JNIEnv* env, jobject, jlong handle, jintArray keys) {
+    auto* h = reinterpret_cast<Handle*>(handle);
+    jsize n = env->GetArrayLength(keys);
+    jint* k = env->GetIntArrayElements(keys, nullptr);
+    std::vector<AyahId> page;
+    page.reserve(n);
+    for (jsize i = 0; i < n; ++i) page.push_back({k[i] / 1000, k[i] % 1000});
+    env->ReleaseIntArrayElements(keys, k, JNI_ABORT);   // read-only
+    h->det->setPageContext(page);
 }
 
 extern "C" JNIEXPORT void JNICALL

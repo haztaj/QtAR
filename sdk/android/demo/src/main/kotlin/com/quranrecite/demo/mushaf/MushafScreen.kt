@@ -2,6 +2,8 @@
 
 package com.quranrecite.demo.mushaf
 
+import com.quranrecite.sdk.AyahId
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -56,6 +58,7 @@ fun MushafScreen(
     recording: Boolean,
     onRecordingChange: (Boolean) -> Unit,
     onShareRecording: () -> Unit,
+    onPageContext: (List<AyahId>) -> Unit = {},
 ) {
     val pagerState = rememberPagerState(pageCount = { repo.pageCount })
     val scope = rememberCoroutineScope()
@@ -89,6 +92,18 @@ fun MushafScreen(
     val page = pagerState.currentPage + 1
     val topSurah by produceState(1, page) { value = withContext(Dispatchers.IO) { repo.pageTopSurah(page) } }
     val juz = repo.pageJuz(page)
+
+    // Detection page-context prior: as the reader flips, tell the detector which ayat are on the
+    // current page + the next one so on-page ayat win twin ambiguities and off-page jumps are
+    // suppressed (see QuranReciteDetector.setPageContext / Config.chainPageBonus).
+    LaunchedEffect(page, repo) {
+        val keys = withContext(Dispatchers.IO) {
+            (repo.pageAyat(page) + if (page < repo.pageCount) repo.pageAyat(page + 1) else emptyList())
+        }
+        onPageContext(keys.distinct().mapNotNull { k ->
+            k.split(":").let { if (it.size == 2) AyahId(it[0].toInt(), it[1].toInt()) else null }
+        })
+    }
 
     // Next-page preview: once the reciter reaches the last two ayat of the page, peek at the next
     // page's first lines (bordered overlay over the top of the current page). Dismissable per page.

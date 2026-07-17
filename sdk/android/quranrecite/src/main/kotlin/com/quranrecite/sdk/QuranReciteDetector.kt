@@ -112,6 +112,11 @@ data class Config(
     // Gain-normalize target RMS. 0.10 matches training; 0.15 gives quiet phone mics more amplification
     // and decodes them better (+2 on audio_bench, concentrated on quiet sessions). See types.h normRms.
     val normRms: Float = 0.15f,
+    // Page-context prior (Mode.CHAIN): off-page units pay this cost penalty once a page is set via
+    // [setPageContext], so on-page ayat win twin ambiguities and spurious jumps elsewhere in the
+    // Quran are suppressed (off-page still detects if the decode is clean). 0 = off. See types.h
+    // chainPageBonus; validated +2 true hits / -2 spurious on the real-session corpus at 0.08.
+    val chainPageBonus: Float = 0.08f,
 )
 
 /**
@@ -149,6 +154,7 @@ class QuranReciteDetector(
     }
 
     private var nativeHandle: Long = 0
+    @Volatile private var pendingPage: IntArray? = null   // page context set before the engine exists
     private var listener: Listener? = null
     @Volatile private var modelPath: String? = null   // resolved at onModelReady (for debug info)
     private var capture: AudioCapture? = null
@@ -203,8 +209,9 @@ class QuranReciteDetector(
                     config.mode.ordinal, assets.unitPhonemesPath, config.chainCost,
                     config.chainSubMin, streamConv, streamEnc,
                     config.chainVadReset, config.chainResetMaxGap,
-                    suffix, config.chainSuffixSec, config.normRms)
+                    suffix, config.chainSuffixSec, config.normRms, config.chainPageBonus)
                 nativeSetDebug(nativeHandle, debugLogging)      // carry the current flag to the engine
+                synchronized(this) { pendingPage?.let { nativeSetPageContext(nativeHandle, it) } }
                 mainHandler.post { listener?.onModelReady() }
             },
             onError = { e -> mainHandler.post { listener?.onError(e) } },
@@ -244,6 +251,21 @@ class QuranReciteDetector(
     /** New recitation session — clears rolling buffer + sequential context. */
     fun reset() { if (nativeHandle != 0L) nativeReset(nativeHandle) }
 
+    /**
+     * Page-context prior: tell the detector which ayat are on the page(s) the user is currently
+     * viewing (e.g. the visible page + the next one). On-page ayat get a soft matching preference —
+     * they win twin ambiguities and off-page jumps are suppressed — while off-page ayat still
+     * detect. Call whenever the viewed page changes; pass an empty list to clear. Safe to call
+     * before the model is ready (applied once the engine is created). Requires Config.chainPageBonus > 0.
+     */
+    fun setPageContext(ayat: List<AyahId>) {
+        val keys = IntArray(ayat.size) { ayat[it].surah * 1000 + ayat[it].ayah }
+        synchronized(this) {
+            pendingPage = keys
+            if (nativeHandle != 0L) nativeSetPageContext(nativeHandle, keys)
+        }
+    }
+
     fun release() {
         stop()
         if (nativeHandle != 0L) { nativeDestroy(nativeHandle); nativeHandle = 0 }
@@ -274,10 +296,11 @@ class QuranReciteDetector(
         mode: Int, unitPhonemesPath: String, chainCost: Float, chainSubMin: Float,
         streamConvPath: String, streamEncoderPath: String,
         chainVadReset: Boolean, chainResetMaxGap: Float,
-        suffixModelPath: String, chainSuffixSec: Float, normRms: Float): Long
+        suffixModelPath: String, chainSuffixSec: Float, normRms: Float, chainPageBonus: Float): Long
     private external fun nativeFeed(handle: Long, pcm: ShortArray, sampleRate: Int)
     private external fun nativeReset(handle: Long)
     private external fun nativeSetDebug(handle: Long, enabled: Boolean)
+    private external fun nativeSetPageContext(handle: Long, keys: IntArray)
     private external fun nativeDestroy(handle: Long)
 
     companion object {

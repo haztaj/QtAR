@@ -39,6 +39,13 @@ public:
     // Clear the rolling buffer + sequential context (start a fresh recitation session).
     void reset();
 
+    // Page-context prior (Mode::Chain, requires Config::chainPageBonus > 0): tell the detector
+    // which ayat are on the page(s) the user is currently viewing (e.g. the visible page + the
+    // next one). On-page ayat get a soft matching preference — they win twin ambiguities and
+    // fire a touch easier — while off-page ayat still detect (not a hard filter). Call it
+    // whenever the viewed page changes; pass an empty list to clear. Thread-safe wrt feed.
+    void setPageContext(const std::vector<AyahId>& pageAyat);
+
     // Runtime debug logging (Android logcat, tag "QuranReciteCore"): per-hop decode stats, VAD
     // resets, commits. Off by default (zero overhead); toggle live from the host. No-op elsewhere.
     void setDebug(bool enabled);
