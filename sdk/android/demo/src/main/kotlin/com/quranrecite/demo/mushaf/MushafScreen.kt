@@ -63,6 +63,8 @@ fun MushafScreen(
     onPageContext: (List<AyahId>) -> Unit = {},
     initialPage: Int = 1,                       // 1-based page to open on (last-viewed, persisted)
     onPageChanged: (Int) -> Unit = {},          // called with the 1-based page as the reader settles
+    dark: Boolean = false,                      // render the fonts' dark palette (see MushafRepository)
+    onDarkChange: (Boolean) -> Unit = {},
 ) {
     val pagerState = rememberPagerState(
         initialPage = (initialPage - 1).coerceIn(0, repo.pageCount - 1),
@@ -123,9 +125,9 @@ fun MushafScreen(
     var previewDismissed by remember(page) { mutableStateOf(false) }
     val showPreview = listening && !previewDismissed &&
         highlight.active != null && highlight.active in lastAyat && page < repo.pageCount
-    val previewData by produceState<Pair<MushafPage, android.graphics.Typeface>?>(null, showPreview, page) {
+    val previewData by produceState<Pair<MushafPage, android.graphics.Typeface>?>(null, showPreview, page, dark) {
         value = if (showPreview) withContext(Dispatchers.IO) {
-            repo.loadPage(page + 1) to repo.typefaceForPage(page + 1)
+            repo.loadPage(page + 1) to repo.typefaceForPage(page + 1, dark)
         } else null
     }
 
@@ -164,9 +166,9 @@ fun MushafScreen(
                 val pageAreaHeight = maxHeight
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { index ->
-                        val loaded by produceState<Pair<MushafPage, android.graphics.Typeface>?>(null, index) {
+                        val loaded by produceState<Pair<MushafPage, android.graphics.Typeface>?>(null, index, dark) {
                             value = withContext(Dispatchers.IO) {
-                                repo.loadPage(index + 1) to repo.typefaceForPage(index + 1)
+                                repo.loadPage(index + 1) to repo.typefaceForPage(index + 1, dark)
                             }
                         }
                         val data = loaded
@@ -177,7 +179,7 @@ fun MushafScreen(
                         ) {
                             if (data == null) CircularProgressIndicator()
                             else MushafPageView(data.first, data.second, enriched,
-                                                repo.surahHeaderTypeface, repo.quranCommonTypeface,
+                                                repo.surahHeaderTypeface(dark), repo.quranCommonTypeface,
                                                 repo::surahHeaderGlyph,
                                                 onContentWidth = { contentWidth = it },
                                                 onFontSize = { pageFontSize = it })
@@ -215,7 +217,7 @@ fun MushafScreen(
                                 .pointerInput(Unit) { detectTapGestures { previewDismissed = true } }
                                 .padding(bottom = 4.dp),
                         ) {
-                            MushafPagePreview(nextPage, nextTf, repo.surahHeaderTypeface,
+                            MushafPagePreview(nextPage, nextTf, repo.surahHeaderTypeface(dark),
                                               repo.quranCommonTypeface, repo::surahHeaderGlyph,
                                               fontSize = pageFontSize, lineCount = PREVIEW_LINES)
                             Text("▾ ${(page + 1).easternArabic()}",
@@ -235,6 +237,7 @@ fun MushafScreen(
         ) {
             TopControls(
                 onJump = { showJump = true },
+                dark = dark, onDarkChange = onDarkChange,
                 debugLogging = debugLogging, onDebugLoggingChange = onDebugLoggingChange,
                 recording = recording, onRecordingChange = onRecordingChange,
                 blacklist = blacklist, onBlacklistChange = onBlacklistChange,
@@ -282,6 +285,7 @@ fun MushafScreen(
 @Composable
 private fun TopControls(
     onJump: () -> Unit,
+    dark: Boolean, onDarkChange: (Boolean) -> Unit,
     debugLogging: Boolean, onDebugLoggingChange: (Boolean) -> Unit,
     recording: Boolean, onRecordingChange: (Boolean) -> Unit,
     blacklist: Boolean, onBlacklistChange: (Boolean) -> Unit,
@@ -301,6 +305,10 @@ private fun TopControls(
                     Text("☰", fontSize = 24.sp)
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { MenuToggle("Dark mode", dark) },
+                        onClick = { onDarkChange(!dark) },
+                    )
                     DropdownMenuItem(
                         text = { MenuToggle("Debug logging", debugLogging) },
                         onClick = { onDebugLoggingChange(!debugLogging) },

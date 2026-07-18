@@ -21,7 +21,9 @@ class MushafRepository private constructor(
     private val layout: SQLiteDatabase,
     private val words: SQLiteDatabase,
     private val assetManager: android.content.res.AssetManager,
-    private val pageFont: (Int) -> Typeface,   // page fonts: from assets (dev) or downloaded files
+    private val cacheDir: File,
+    private val pageFont: (Int) -> Typeface,        // page fonts: from assets (dev) or downloaded files
+    private val pageFontBytes: (Int) -> ByteArray,  // same, as raw bytes (for the dark CPAL patch)
 ) {
     val pageCount: Int by lazy {
         layout.rawQuery("select max(page_number) from pages", null).use {
@@ -31,16 +33,56 @@ class MushafRepository private constructor(
 
     // Page fonts are ~50–200 KB each; keep a small window of recently-used ones resident.
     private val fontCache = object : LruCache<Int, Typeface>(12) {}
+    private val darkFontCache = object : LruCache<Int, Typeface>(12) {}
+    private val darkFontDir = File(cacheDir, "fonts-dark").apply { mkdirs() }
 
-    fun typefaceForPage(page: Int): Typeface = fontCache.get(page) ?: run {
-        val tf = pageFont(page)
-        fontCache.put(page, tf); tf
+    /** The page font, in the light default or (when [dark]) a CPAL-patched dark-palette variant. */
+    fun typefaceForPage(page: Int, dark: Boolean = false): Typeface {
+        if (!dark) return fontCache.get(page) ?: pageFont(page).also { fontCache.put(page, it) }
+        return darkFontCache.get(page)
+            ?: darkTypeface("p$page.ttf") { pageFontBytes(page) }.also { darkFontCache.put(page, it) }
     }
 
-    /** KFGQPC ornate surah-header font (COLR/CPAL color glyphs) + the "surah-N" -> glyph map. */
-    val surahHeaderTypeface: Typeface by lazy {
+    /**
+     * A Typeface whose COLR color font renders its DARK palette. Android exposes no API to pick a
+     * CPAL palette, so we point the font's default palette (index 0) at the dark palette (index 1)
+     * with a 2-byte edit and cache the patched file. Fonts without a >=2-palette CPAL are unchanged.
+     */
+    private fun darkTypeface(name: String, srcBytes: () -> ByteArray): Typeface {
+        val f = File(darkFontDir, name)
+        if (!f.exists() || f.length() == 0L) f.writeBytes(patchDarkCpal(srcBytes()))
+        return Typeface.createFromFile(f)
+    }
+
+    private fun patchDarkCpal(src: ByteArray): ByteArray {
+        val bb = java.nio.ByteBuffer.wrap(src)   // sfnt is big-endian (ByteBuffer default)
+        val numTables = bb.getShort(4).toInt() and 0xFFFF
+        var cpalOff = -1
+        for (i in 0 until numTables) {
+            val rec = 12 + i * 16
+            if (src[rec] == 'C'.code.toByte() && src[rec + 1] == 'P'.code.toByte() &&
+                src[rec + 2] == 'A'.code.toByte() && src[rec + 3] == 'L'.code.toByte()) {
+                cpalOff = bb.getInt(rec + 8); break
+            }
+        }
+        if (cpalOff < 0) return src
+        if ((bb.getShort(cpalOff + 4).toInt() and 0xFFFF) < 2) return src   // numPalettes < 2
+        val out = src.copyOf()
+        val idx0 = cpalOff + 12                  // colorRecordIndices[0]
+        java.nio.ByteBuffer.wrap(out).putShort(idx0, bb.getShort(idx0 + 2))  // [0] := [1]
+        return out
+    }
+
+    /** KFGQPC ornate surah-header font (COLR/CPAL color glyphs), light or dark-palette (see above). */
+    private val lightSurahHeader: Typeface by lazy {
         Typeface.createFromAsset(assetManager, "mushaf/fonts/surah-header.ttf")
     }
+    private var darkSurahHeader: Typeface? = null
+    fun surahHeaderTypeface(dark: Boolean = false): Typeface =
+        if (!dark) lightSurahHeader
+        else darkSurahHeader ?: darkTypeface("surah-header.ttf") {
+            assetManager.open("mushaf/fonts/surah-header.ttf").use { it.readBytes() }
+        }.also { darkSurahHeader = it }
     private val surahHeaderGlyphs: Map<Int, String> by lazy {
         val txt = assetManager.open("mushaf/surah-header-ligatures.json").bufferedReader().use { it.readText() }
         val obj = org.json.JSONObject(txt)
@@ -190,13 +232,19 @@ class MushafRepository private constructor(
         fun open(context: Context, fonts: FontSource): MushafRepository {
             val layout = openAssetDb(context, "mushaf/layout.db")
             val words = openAssetDb(context, "mushaf/words.db")
-            val pageFont: (Int) -> Typeface = when (fonts) {
-                is FontSource.Bundled ->
-                    { p -> Typeface.createFromAsset(context.assets, "mushaf/fonts/p$p.ttf") }
-                is FontSource.Downloaded ->
-                    { p -> Typeface.createFromFile(File(fonts.dir, "p$p.ttf")) }
+            val pageFont: (Int) -> Typeface
+            val pageFontBytes: (Int) -> ByteArray
+            when (fonts) {
+                is FontSource.Bundled -> {
+                    pageFont = { p -> Typeface.createFromAsset(context.assets, "mushaf/fonts/p$p.ttf") }
+                    pageFontBytes = { p -> context.assets.open("mushaf/fonts/p$p.ttf").use { it.readBytes() } }
+                }
+                is FontSource.Downloaded -> {
+                    pageFont = { p -> Typeface.createFromFile(File(fonts.dir, "p$p.ttf")) }
+                    pageFontBytes = { p -> File(fonts.dir, "p$p.ttf").readBytes() }
+                }
             }
-            return MushafRepository(layout, words, context.assets, pageFont)
+            return MushafRepository(layout, words, context.assets, context.cacheDir, pageFont, pageFontBytes)
         }
 
         private const val ASSET_VERSION = 2   // bump to force a re-copy when the DBs change

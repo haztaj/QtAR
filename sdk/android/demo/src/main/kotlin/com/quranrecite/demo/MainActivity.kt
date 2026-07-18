@@ -15,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.quranrecite.demo.mushaf.HighlightInfo
@@ -57,7 +58,14 @@ class MainActivity : ComponentActivity() {
             chainPageBonus = 0.08f))   // prioritize ayat on the viewed page + the next one
 
         setContent {
-            MaterialTheme {
+            val prefs = remember { getSharedPreferences("qr_debug", MODE_PRIVATE) }
+            // Dark mode (persisted): dark M3 chrome + the fonts' dark CPAL palette (see MushafRepository).
+            var dark by remember { mutableStateOf(prefs.getBoolean("darkMode", false)) }
+            MaterialTheme(colorScheme = if (dark)
+                    darkColorScheme(background = Color(0xFF121212), surface = Color(0xFF121212),
+                                    surfaceVariant = Color(0xFF262626))
+                else lightColorScheme()) {
+              Surface(Modifier.fillMaxSize()) {
                 var status by remember { mutableStateOf("Preparing model…") }
                 var modelReady by remember { mutableStateOf(false) }
                 var listening by remember { mutableStateOf(false) }
@@ -66,7 +74,6 @@ class MainActivity : ComponentActivity() {
 
                 // Debug toggles (persisted) — control logcat + session recording at runtime from
                 // the top control panel, so the instrumentation stays in the build, off by default.
-                val prefs = remember { getSharedPreferences("qr_debug", MODE_PRIVATE) }
                 var debugLogging by remember { mutableStateOf(prefs.getBoolean("logging", false)) }
                 var recording by remember { mutableStateOf(prefs.getBoolean("recording", false)) }
                 // Collision blacklist (default ON) — toggle live to A/B its effect by ear.
@@ -215,6 +222,8 @@ class MainActivity : ComponentActivity() {
                         onPageContext = { ayat -> detector.setPageContext(ayat) },
                         initialPage = prefs.getInt("lastPage", 1),
                         onPageChanged = { prefs.edit().putInt("lastPage", it).apply() },
+                        dark = dark,
+                        onDarkChange = { dark = it; prefs.edit().putBoolean("darkMode", it).apply() },
                     )
                 }
 
@@ -234,6 +243,7 @@ class MainActivity : ComponentActivity() {
                         confirmButton = { TextButton(onClick = { modelUpdate = null }) { Text("OK") } },
                     )
                 }
+              }
             }
         }
     }
