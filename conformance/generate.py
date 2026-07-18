@@ -173,9 +173,22 @@ def gen_chain(CONF):
         # Phase-2 posterior-aware SCORING: heavy substitutions, but the correct phoneme is a
         # strong 2nd alt at each — soft scoring (sub_min 0.0) recovers units greedy rejects.
         "soft_score_run": synth(["2:6", "2:7", "2:8"], sub=0.25, seed=9),
+        # PAGE-CONTEXT PRIOR: only 2:6/2:7 are "on the viewed page", so 2:8's units pay the
+        # off-page penalty — exercises BOTH branches (exempt + penalized) in one stream.
+        "page_prior_run": synth(["2:6", "2:7", "2:8"], sub=0.05, seed=5),
+        # COLLISION BLACKLIST: `kalla` is the corpus\'s worst misdetection magnet (eff 823). The
+        # WHOLE twin class must be listed — blacklisting only one member is bypassed by TWIN
+        # SUBSTITUTION (a non-listed twin wins the window, context maps it back). Production lists
+        # all 9 (twins share collision counts), so this fixture mirrors it. 104:4#01 is then
+        # cold-fire-suppressed (no page vouches for it) and the chain routes around it to 104:4#02.
+        "blacklist_run": synth(["104:3", "104:4", "104:5"], sub=0.05, seed=3),
     }
     extra_params = {"early_prefix_run": {"early_prefix": 0.5},
-                    "soft_score_run": {"sub_min": 0.0}}
+                    "soft_score_run": {"sub_min": 0.0},
+                    "page_prior_run": {"page_ayat": ["2:6", "2:7"], "page_bonus": 0.10},
+                    "blacklist_run": {"blacklist": [
+                        "19:79#01", "19:82#01", "70:15#01", "70:39#01", "74:16#01",
+                        "74:53#01", "83:14#01", "89:17#01", "104:4#01"]}}
 
     entries = []
     for name, stream in scenarios.items():
@@ -185,7 +198,12 @@ def gen_chain(CONF):
                                  pp["votes_jump"], ref_lens=ref_lens,
                                  use_twin_sub=True, succ_fn=succ_full,
                                  early_prefix=pp.get("early_prefix"),
-                                 sub_min=pp.get("sub_min", 1.0))
+                                 sub_min=pp.get("sub_min", 1.0),
+                                 on_page=({u for u in refs
+                                           if u.split("#")[0] in set(pp["page_ayat"])}
+                                          if "page_ayat" in pp else None),
+                                 page_bonus=pp.get("page_bonus", 0.0),
+                                 blacklist=set(pp.get("blacklist", [])) or None)
         # golden pins the emitted KEY SEQUENCE + assembled chain (exact).
         chain = assemble(emitted, succ_full)
         (CONF / "fixtures" / "chain" / f"{name}.json").write_text(

@@ -425,7 +425,8 @@ std::vector<UnitEmission> decodeStream(const std::vector<int>& phonemes,
             if (p.earlyPrefix > 0 && largest) evs.push_back({w1, 0, -1, 0.0, win});
             PhonAlts winAlts;
             if (soft) winAlts.assign(alts.begin() + j0, alts.begin() + j1);
-            auto [u, cost] = windowBest(win, idx, p.costThresh, winAlts, p.subMin);
+            auto [u, cost] = windowBest(win, idx, p.costThresh, winAlts, p.subMin,
+                                        &p.onPage, p.pageBonus, &p.blacklist);
             if (u >= 0 && cost <= p.costThresh) evs.push_back({w1, 1, u, cost, {}});
         }
     }

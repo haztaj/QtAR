@@ -128,7 +128,7 @@
       "stream": "fixtures/chain/clean_seg_run.json",
       "chain": "golden/chain/clean_seg_run.chain.json",
       "n_phonemes": 227,
-      "n_emitted": 7
+      "n_emitted": 9
     },
     {
       "name": "noisy_sub_del",
@@ -149,21 +149,35 @@
       "stream": "fixtures/chain/junk_sandwich.json",
       "chain": "golden/chain/junk_sandwich.chain.json",
       "n_phonemes": 449,
-      "n_emitted": 11
+      "n_emitted": 13
     },
     {
       "name": "early_prefix_run",
       "stream": "fixtures/chain/early_prefix_run.json",
       "chain": "golden/chain/early_prefix_run.chain.json",
       "n_phonemes": 227,
-      "n_emitted": 7
+      "n_emitted": 9
     },
     {
       "name": "soft_score_run",
       "stream": "fixtures/chain/soft_score_run.json",
       "chain": "golden/chain/soft_score_run.chain.json",
       "n_phonemes": 227,
-      "n_emitted": 5
+      "n_emitted": 6
+    },
+    {
+      "name": "page_prior_run",
+      "stream": "fixtures/chain/page_prior_run.json",
+      "chain": "golden/chain/page_prior_run.chain.json",
+      "n_phonemes": 227,
+      "n_emitted": 6
+    },
+    {
+      "name": "blacklist_run",
+      "stream": "fixtures/chain/blacklist_run.json",
+      "chain": "golden/chain/blacklist_run.chain.json",
+      "n_phonemes": 76,
+      "n_emitted": 3
     }
   ],
   "mel_filterbank_shape": [

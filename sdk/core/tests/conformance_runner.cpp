@@ -6,6 +6,7 @@
 //
 // Front-end: WAV -> logMel -> <name>.logmel.bin (float32 LE).
 // Matcher:   windows -> SlidingSegmenter -> <name>.events.json.
+#include <set>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -132,6 +133,24 @@ int main(int argc, char** argv) {
             p.votesJump = spec["params"]["votes_jump"];
             p.earlyPrefix = spec["params"].value("early_prefix", 0.0);
             p.subMin = spec["params"].value("sub_min", 1.0);
+            // Page-context prior: fixture gives PARENT AYAH keys; mark every unit of those ayat
+            // (mirrors Detector::rebuildPageMask). Collision blacklist: fixture gives UNIT keys
+            // (mirrors UnitIndex::loadBlacklist).
+            p.pageBonus = spec["params"].value("page_bonus", 0.0);
+            if (spec["params"].contains("page_ayat")) {
+                std::set<std::string> pset;
+                for (auto& a : spec["params"]["page_ayat"]) pset.insert(a.get<std::string>());
+                p.onPage.assign(uidx.size(), 0);
+                for (int u = 0; u < (int)uidx.size(); ++u)
+                    if (pset.count(uidx.parentKey(u))) p.onPage[u] = 1;
+            }
+            if (spec["params"].contains("blacklist")) {
+                p.blacklist.assign(uidx.size(), 0);
+                for (auto& k : spec["params"]["blacklist"]) {
+                    int u = uidx.unitOf(k.get<std::string>());
+                    if (u >= 0) p.blacklist[u] = 1;
+                }
+            }
             std::vector<int> phon;
             for (auto& t : spec["stream"]["phonemes"]) phon.push_back(uidx.tokenId(t.get<std::string>()));
             std::vector<double> times;

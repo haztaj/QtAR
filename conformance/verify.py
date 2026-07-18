@@ -145,10 +145,16 @@ def self_check(man):
     def get_chain(fx):
         spec = json.loads((CONF / fx["stream"]).read_text(encoding="utf-8"))
         p = spec["params"]
+        # page_ayat holds PARENT AYAH keys -> expand to the unit-key set (same mask the C++
+        # builds in Detector::rebuildPageMask / the conformance runner).
+        on_page = ({u for u in refs if u.split("#")[0] in set(p["page_ayat"])}
+                   if "page_ayat" in p else None)
         emitted = decode_sliding(spec["stream"], ngram_idx, refs, p["window_s"], p["hop_s"],
                                  p["cost"], p["votes_next"], p["votes_jump"],
                                  ref_lens=ref_lens, use_twin_sub=True, succ_fn=succ_full,
-                                 early_prefix=p.get("early_prefix"), sub_min=p.get("sub_min", 1.0))
+                                 early_prefix=p.get("early_prefix"), sub_min=p.get("sub_min", 1.0),
+                                 on_page=on_page, page_bonus=p.get("page_bonus", 0.0),
+                                 blacklist=set(p.get("blacklist", [])) or None)
         return {"emitted": emitted, "assembled": assemble(emitted, succ_full)}
 
     return get_logmel, get_events, get_states, get_chain

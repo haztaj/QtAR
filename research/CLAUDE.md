@@ -801,6 +801,10 @@ suppresses; it is also safer, since it never loosens the on-page fire gate.
 Validation (10 labeled sessions, page = truth surah +-5 ayat): true-unit hits **40 -> 42** (recovered
 2:6-9), spurious emissions **6 -> 4**, ZERO regressions.
 
-> **Conformance gap (both features):** the page prior and the blacklist are C++-only behaviours with
-> no Python reference, so only their DEFAULT-OFF paths are golden-pinned. Adding the penalty/mask to
-> `chain_sliding.window_best` + fixtures is the outstanding follow-up.
+> **Conformance gap — CLOSED (2026-07-18).** `window_best` now takes `on_page`/`page_bonus`/
+> `blacklist` (mirroring `windowBest` exactly), and `page_prior_run` + `blacklist_run` pin both
+> feature paths; C++ reproduces them EXACTLY, self-check and candidate both ALL PASS. The exercise
+> surfaced a real mechanism detail: **the blacklist is bypassed by TWIN SUBSTITUTION unless the
+> whole twin class is listed** — a non-listed twin wins the window and context maps it back to the
+> listed unit. Production is not exposed (all 9 `kalla` units are listed; twins share collision
+> counts so they enter the eff>100 set together), but a hand-edited blacklist could hit it.

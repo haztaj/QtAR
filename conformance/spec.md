@@ -159,6 +159,26 @@ if the model CONSIDERED `ri` (in that position's alts), else a full 1 — the so
 ORDERED map, not a set — a set's hash-randomized iteration breaks the Counter tie-break
 determinism, the same failure mode as the sorted-tuple posting lists.)
 
+**Page-context prior (`params.page_ayat` + `params.page_bonus > 0`):** `page_ayat` lists PARENT
+AYAH keys (the page(s) the user is viewing); expand to the per-unit mask `onPage` = every unit
+whose parent is in that set (`Detector::rebuildPageMask`). In `windowBest`, an OFF-page unit's
+effective cost is `cost + page_bonus`, used for BOTH the fire gate (`eff <= fireCost`) and the
+blended selection (`sel = eff - 0.15 * coverage`); the RETURNED cost is `eff`, not the raw cost.
+On-page units are unchanged — the prior never loosens their gate. Off-page units still fire when
+the decode is clean (soft prior, not a hard filter). `page_prior_run` pins it (its stream spans
+2:6-2:8 with only 2:6/2:7 on-page: off-page junk is suppressed while the legitimate off-page 2:8
+still fires).
+
+**Collision blacklist (`params.blacklist`):** a list of UNIT keys (`UnitIndex::loadBlacklist`)
+that are COLD-FIRE-SUPPRESSED — skipped in `windowBest`'s candidate loop, before any cost is
+computed, UNLESS the page vouches for them (`onPage[u]`). Note the page exemption is consulted
+even when `page_bonus == 0`: the two knobs are independent. Context (expected-unit) firing is
+unaffected because it bypasses `windowBest` via the early-prefix path — that is what makes the
+blacklist "context-confirm-only". `blacklist_run` pins it. ⚠️ **Blacklist a whole twin class or
+none of it:** listing only some members is bypassed by TWIN SUBSTITUTION (a non-listed twin wins
+the window and context maps it back to the listed one) — verified, and why the fixture lists all
+9 `kalla` units, as the shipped list does.
+
 **Comparison:** `emitted` (unit key sequence) and `assembled` (chain) must match
 **exactly** (`golden/chain/<name>.chain.json`). Fixtures: `fixtures/chain/<name>.json`
 (`{"stream": {"phonemes": [...], "times": [...], "alts"?: [...]}, "params": {...}}`). Beyond

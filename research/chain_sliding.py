@@ -296,7 +296,8 @@ def window_counts(win, ngram_idx, win_alts=None, retr_conf=None):
 
 
 def window_best(win, ngram_idx, refs, ref_lens, fire_cost=FIRE_COST,
-                win_alts=None, retr_conf=None, sub_min=1.0):
+                win_alts=None, retr_conf=None, sub_min=1.0,
+                on_page=None, page_bonus=0.0, blacklist=None):
     """Best (key, cost) for one window: 3-gram shortlist -> infix edit-norm.
     Length gate is TIGHT (0.5n..1.3n): with the multi-scale filter bank each window
     size only fires refs of its own length class — small windows can't be swallowed
@@ -306,7 +307,20 @@ def window_best(win, ngram_idx, refs, ref_lens, fire_cost=FIRE_COST,
 
     win_alts/retr_conf enable Phase-1 posterior-aware RETRIEVAL (the shortlist); win_alts/
     sub_min enable Phase-2 posterior-aware SCORING (the infix substitution cost). Either,
-    both, or neither — off == greedy baseline."""
+    both, or neither — off == greedy baseline.
+
+    PAGE-CONTEXT PRIOR (`on_page` = unit keys on the viewed page(s), `page_bonus` > 0): OFF-page
+    units pay `page_bonus` on their effective cost, for BOTH the fire gate and the blended
+    selection — so on-page ayat win twin ties and out-of-surah jumps are suppressed, while
+    off-page units still fire when the decode is clean (soft prior, not a hard filter).
+
+    COLLISION BLACKLIST (`blacklist` = cold-fire-suppressed unit keys): such a unit is excluded
+    from selection UNLESS the page vouches for it (`on_page`) — note this exemption applies even
+    when page_bonus is 0. Context (expected-unit) firing bypasses window_best entirely via the
+    early-prefix path, which is what makes the blacklist "context-confirm-only".
+
+    Both default to off and are byte-neutral then. Mirrors `windowBest` in sdk/core/src/chain.cpp
+    exactly (conformance-pinned — see conformance/spec.md §Stage 2b)."""
     import heapq
     c = window_counts(win, ngram_idx, win_alts, retr_conf)
     n = len(win)
@@ -320,18 +334,25 @@ def window_best(win, ngram_idx, refs, ref_lens, fire_cost=FIRE_COST,
     # Blended selection: cost - COVER_BONUS * coverage. Pure-cost lets short formulaic
     # snippets embed at ~0 cost; pure-longest (maximal munch) swallows short truths with
     # longer refs (oracle: 84.8% of losses). Coverage-blended cost handles both.
+    has_page = bool(on_page) and page_bonus > 0.0
+    has_black = bool(blacklist)
     best_key, best_cost = None, 1e9
     best_sel = 1e9
     for key in dict.fromkeys(short):
         L = ref_lens[key]
         if not (0.5 * n <= L <= 1.3 * n):   # tight band: each scale serves its size class
             continue
+        # blacklist: cold-fire-suppressed unless the page vouches for it (page membership is
+        # consulted here even when page_bonus == 0 — the two knobs are independent).
+        if has_black and key in blacklist and not (on_page and key in on_page):
+            continue
         cost = _infix_norm(refs[key], win, win_alts, sub_min)
-        sel = cost - COVER_BONUS * min(L, n) / n
-        if cost <= fire_cost and sel < best_sel:
-            best_sel, best_key, best_cost = sel, key, cost
-        elif best_sel == 1e9 and cost < best_cost:
-            best_key, best_cost = key, cost
+        eff = cost + page_bonus if (has_page and key not in on_page) else cost
+        sel = eff - COVER_BONUS * min(L, n) / n
+        if eff <= fire_cost and sel < best_sel:
+            best_sel, best_key, best_cost = sel, key, eff
+        elif best_sel == 1e9 and eff < best_cost:
+            best_key, best_cost = key, eff
     return best_key, best_cost
 
 
@@ -340,7 +361,8 @@ def decode_sliding(stream, ngram_idx, refs, window_s, hop_s, cost_thresh,
                    scales=(0.2, 0.7, 1.0, 1.5, 2.2),
                    use_twin_sub: bool = True, succ_fn=None, confusable=None,
                    early_prefix: float | None = None, retr_conf: float | None = None,
-                   sub_min: float = 1.0):
+                   sub_min: float = 1.0,
+                   on_page=None, page_bonus: float = 0.0, blacklist=None):
     """Multi-scale sliding windows; per window the production whole-window edit-norm
     (trie-shortlisted); vote state machine emits the chain.
 
@@ -382,7 +404,8 @@ def decode_sliding(stream, ngram_idx, refs, window_s, hop_s, cost_thresh,
             if early_prefix and largest:
                 fires.append((w1, 0, "", 0.0, win))
             key, cost = window_best(win, ngram_idx, refs, ref_lens, fire_cost=cost_thresh,
-                                    win_alts=win_alts, retr_conf=retr_conf, sub_min=sub_min)
+                                    win_alts=win_alts, retr_conf=retr_conf, sub_min=sub_min,
+                                    on_page=on_page, page_bonus=page_bonus, blacklist=blacklist)
             if key is not None and cost <= cost_thresh:
                 fires.append((w1, 1, key, cost, None))
     fires.sort(key=lambda f: (f[0], f[1], f[2], f[3]))

@@ -83,6 +83,12 @@ struct ChainParams {
                                 // hard 0/1 distance (off); ~0 softens mismatches the model
                                 // nearly picked (a ~+1.7 aligned-hit win in the ~30% PER
                                 // phone regime, free on clean audio). Needs posteriors.
+    // Page-context prior + collision blacklist, as per-unit-id masks (empty = off). The live
+    // Detector passes its own masks straight to windowBest; these let the BATCH path
+    // (decodeStream — the conformance reference) exercise the same behaviour. See spec.md §2b.
+    std::vector<char> onPage;
+    double pageBonus = 0.0;
+    std::vector<char> blacklist;
 };
 
 struct UnitEmission {

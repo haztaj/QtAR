@@ -54,14 +54,15 @@ Fixtures derive from dataset audio + `best_mic.pt`; `.wav`/`.bin` are regenerate
 committed (audio rule) — hand the generated package to the port team or regenerate where
 data+model are present.
 
-> **Unpinned features (2026-07-18):** two shipped C++-only decoder behaviours have **no Python
-> reference**, so only their DEFAULT-OFF paths are covered by the goldens:
-> - **page-context prior** (`Config::chainPageBonus` + `Detector::setPageContext`) — off-page units
->   pay a cost penalty in `windowBest`;
-> - **collision blacklist** (`Config::chainBlacklistPath` + `Detector::setBlacklistEnabled`) —
->   high-collision units are cold-fire-suppressed unless page/sequence context vouches for them.
+> **Page prior + collision blacklist — PINNED (2026-07-18).** Both were C++-only for a day; the
+> penalty + mask now exist in `chain_sliding.window_best` and two fixtures pin them:
+> - **`page_prior_run`** — stream spans 2:6-2:8 with only 2:6/2:7 on-page, so it exercises BOTH
+>   branches: off-page junk (`15:13#01`, `3:105#02`, `7:72#02`) is suppressed while the legitimate
+>   off-page `2:8` still fires (soft prior, not a hard filter).
+> - **`blacklist_run`** — the full `kalla` twin class is cold-fire-suppressed, so `104:4#01` drops
+>   out and the chain routes to `104:4#02`.
 >
-> Both default to off/empty in the core, so `conformance_runner` + `verify.py` remain byte-identical
-> (ALL PASS) — but a regression in either FEATURE path would not be caught. Closing this means adding
-> the penalty + mask to `chain_sliding.window_best` and generating `page_prior` / `blacklist` chain
-> fixtures. Same posture as the soft-scoring path before `soft_score_run` was added.
+> Both DIVERGE from their no-feature baselines (a fixture that doesn't change the output pins
+> nothing), and the C++ reproduces both EXACTLY. Finding along the way, now in spec.md §Stage 2b:
+> **blacklist a whole twin class or none of it** — listing one member is bypassed by twin
+> substitution. The shipped list satisfies this by construction (twins share collision counts).
