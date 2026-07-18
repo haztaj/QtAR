@@ -276,7 +276,9 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
     companion object {
         // Bundled small-asset version — bump when the shipped lexicon/tokens/etc change (corpus
         // change). Independent of the model version, which comes from the manifest.
-        const val ASSETS_VERSION = "full-p3-v2"   // + collision blacklist (short_unit_blacklist.json)
+        // NOTE: extractBundled() copies each asset ONCE per version — bump this whenever a bundled
+        // asset's CONTENT changes, not just when files are added, or existing installs keep the old copy.
+        const val ASSETS_VERSION = "full-p3-v3"   // blacklist narrowed to segments-only (96 units)
         // Remote manifest of the current released model: {"version","url","sha256"}. Publish a new
         // model by uploading the .onnx and updating this JSON (see `./gradlew :demo:modelManifest`).
         // Empty -> no download (rely on a bundled or cached model).
