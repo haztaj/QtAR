@@ -12,7 +12,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -23,6 +22,7 @@ import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -44,25 +44,38 @@ data class HighlightInfo(
 
 private const val BASMALLAH_GLYPH = "﷽"   // U+FDFD, rendered in quran-common.ttf
 private const val LINES_PER_PAGE = 15
-// Safety margin on the auto-fit. The fit measures line widths with TextPaint.measureText, which
-// under-measures vs Compose's actual RTL layout, so the widest (justified) line could overflow and
-// its glyphs collapse/overlap — worst on wide/landscape screens. 0.90 keeps enough headroom.
+// Inter-word space advance at textSize=1000. The font's own space glyph is inconsistent (40 on most
+// pages, 400 on the 6 fat-space fonts), so every inter-word space is scaled to THIS constant width —
+// words separate cleanly on every page and the fat-space lines don't overflow. 40 = the value the
+// 597 well-behaved fonts already used, which read fine before.
+private const val NORMAL_SPACE = 40f
+// The single widest line in the whole Quran at textSize=1000, measured with each page's own font
+// (glyph ink + NORMAL_SPACE per inter-word gap). One global number drives one font size + one column
+// width for EVERY page, so the surah/juz markers never shift page-to-page.
+// Source: scratchpad measure — max 17546.8 (page 585, 15 words); pages cluster ~16.6k–17.5k.
+private const val GLOBAL_WIDEST = 17600f
+// The line-INK height (TextPaint.fontMetrics bottom-top @ textSize=1000) that should fill one of the
+// 15 fixed slots. The page is laid out as 15 EQUAL-height slots (not natural-height lines spaced by
+// SpaceBetween), so lines always tile the full page height at an even pitch regardless of each
+// font's metrics — and the font is sized so a ~median line fills its slot. Rare taller glyphs
+// overlap into the neighbouring slot (never clipped — slots always tile the page). Per-page ink
+// (on-device scan): p50 2001, p90 2130, max 2531 (page 534). 2100 ≈ p85 → most pages ~95% full,
+// only the few tallest overlap a little. Lower = larger text / more overlap.
+private const val SLOT_INK = 1800f
+// Horizontal breathing room: the widest line renders at this fraction of the column (guards the
+// glyph-collapse seen when a justified line exactly meets the edge). Height needs no such margin —
+// the fixed slots can't clip.
 private const val FIT = 0.90f
-// Extra vertical room per line so a full 15-line page fits without clipping the bottom.
-private const val LINE_H_SAFETY = 0.85f
-// Each line shrinks its own footprint by this fraction of the ayah font size, absorbing the font's
-// built-in vertical padding so lines sit closer (0 = none). Per line type — the ayah page font, the
-// basmalah (quran-common) and the surah-name header each have different padding. Tune to taste.
-private const val LINE_OVERLAP = .8f        // ayah lines (page font)
-private const val BASMALLAH_OVERLAP = 0.0f   // basmalah (quran-common.ttf)
-private const val HEADER_OVERLAP = 2.5f       // surah-name header (already trimmed)
-private const val HEADER_SCALE = 4.5f           // surah-name glyph size, x the ayah font (3x prior)
+// Surah headers are scaled per-line so their ink height == one ayah line (see MushafLineItem), so
+// every page is exactly LINES_PER_PAGE slots — no per-page-header vertical band, no size drift.
+private const val HEADER_TARGET = 0.9f          // header ink height as a fraction of one line
 
 /**
- * Renders one mushaf page. Auto-sizes a single font size to fit BOTH the available width
- * (widest line's baked advance) and height (15 line slots), so it re-fits on any
- * screen — foldable postures and orientation changes flow straight through
- * [BoxWithConstraints]. Highlighting recolors word spans without resizing.
+ * Renders one mushaf page. Sizes the font from ONE global width (the widest ink line in the whole
+ * Quran, [GLOBAL_WIDEST]) and the 15 line slots, so EVERY page shares the same font size and column
+ * width — the chrome pinned to that column never shifts page-to-page. Still re-fits per viewport, so
+ * foldable postures and orientation changes flow straight through [BoxWithConstraints]. Highlighting
+ * recolors word spans without resizing.
  */
 @Composable
 fun MushafPageView(
@@ -88,45 +101,45 @@ fun MushafPageView(
         val wPx = maxWidth.value * density
         val hPx = maxHeight.value * density
 
-        // Fit font size to the tighter of width (baked line advance) and height (15 slots), and the
-        // rendered content width (widest line at that size) so the chrome can align to the page.
-        val (fontPx, contentWidthPx) = remember(page.pageNumber, typeface, headerTypeface, wPx, hPx) {
-            val tp = TextPaint().apply { this.typeface = typeface; textSize = 1000f }
-            val widest = page.lines.filter { it.type == LineType.AYAH }
-                .maxOfOrNull { tp.measureText(lineString(it)) } ?: 1f
-            val widthDriven = 1000f * wPx / widest
-            val fm = tp.fontMetrics
-            val lineH = (fm.bottom - fm.top)
-            // Reserve each header's *measured* banner-ink height (the trimmed line box) instead of a
-            // full HEADER_SCALE em, so the page fits without leaving big gaps around headers.
-            val headerLines = page.lines.count { it.type == LineType.SURAH_NAME }
-            val headerBand = page.lines.firstOrNull { it.type == LineType.SURAH_NAME }
-                ?.surahNumber?.let { s ->
-                    val htp = TextPaint().apply { this.typeface = headerTypeface; textSize = 1000f * HEADER_SCALE }
-                    val r = android.graphics.Rect()
-                    val g = headerGlyph(s); htp.getTextBounds(g, 0, g.length, r)
-                    r.height().toFloat() * 1.2f   // + small breathing margin
-                } ?: 0f
-            val extraPerHeader = maxOf(0f, headerBand / lineH - 1f)
-            val slots = LINES_PER_PAGE + headerLines * extraPerHeader
-            val heightDriven = 1000f * hPx / (slots * lineH * LINE_H_SAFETY)
-            val fp = minOf(widthDriven, heightDriven) * FIT
-            fp to (widest * fp / 1000f)
+        // One global font size = the smaller of: the width fit (widest Quran line fills the column)
+        // and the slot fit (a median line fills one of the 15 equal slots). BOTH use corpus-wide
+        // constants, so fp is IDENTICAL on every page — the column, and the chrome pinned to it,
+        // never shift. Keyed on the viewport only, so it re-fits on foldable/orientation changes.
+        val (fontPx, frameWidthPx) = remember(wPx, hPx) {
+            val widthDriven = 1000f * wPx / GLOBAL_WIDEST * FIT
+            val slotDriven = 1000f * (hPx / LINES_PER_PAGE) / SLOT_INK
+            val fp = minOf(widthDriven, slotDriven)
+            // The fixed column frame (widest-line width at this size) — steady across pages.
+            fp to (GLOBAL_WIDEST * fp / 1000f)
         }
         val fontSize = (fontPx / density).sp
-        LaunchedEffect(contentWidthPx, density) { onContentWidth((contentWidthPx / density).dp) }
+        LaunchedEffect(frameWidthPx, density) { onContentWidth((frameWidthPx / density).dp) }
         LaunchedEffect(fontSize) { onFontSize(fontSize) }
 
-        Column(
-            Modifier.fillMaxSize(),
-            // First line at the top, last at the bottom, free space distributed between lines — so
-            // every page starts/ends at the same position and sparse pages spread to fill.
-            verticalArrangement = Arrangement.SpaceBetween,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            page.lines.forEach { line ->
-                MushafLineItem(line, fontSize, family, headerFamily, commonFamily,
-                               headerGlyph, highlight, activeBg, upNextBg, optionBg)
+        // 15 EQUAL-height slots (weight 1f each) that tile the page — lines sit at an even pitch and
+        // always fill the full height, independent of each font's metric quirks. Each line's glyphs
+        // are centred in their slot; the rare tall glyph overflows into the neighbouring slot's gap
+        // (never clipped — the slots always sum to the page). zIndex descends with the line index so
+        // each line PAINTS OVER the one below it: when boxes overlap, an upper line's low glyphs are
+        // drawn on top of the lower line's (empty) top padding instead of being covered by it.
+        // Full pages (602 of them) tile the height with 15 equal slots. The two short opening pages
+        // (Al-Fatiha, Al-Baqarah's start — 8 lines each) instead use normal-pitch slots CENTRED
+        // vertically, so their few lines sit as a centred block rather than spread over the whole page.
+        val shortPage = page.lines.size < LINES_PER_PAGE
+        val slotHeight = maxHeight / LINES_PER_PAGE
+        Column(Modifier.fillMaxSize(),
+               verticalArrangement = if (shortPage) Arrangement.Center else Arrangement.Top) {
+            page.lines.forEachIndexed { index, line ->
+                val slot = if (shortPage) Modifier.height(slotHeight) else Modifier.weight(1f)
+                Box(Modifier.fillMaxWidth().then(slot).zIndex(-index.toFloat()),
+                    contentAlignment = Alignment.Center) {
+                    // unbounded height: let the line keep its full natural height and OVERFLOW its
+                    // slot rather than being clipped to it (tall marks/descenders would otherwise be
+                    // cut off at the slot edge). The zIndex above makes the upper line win the overlap.
+                    MushafLineItem(line, fontSize, family, headerFamily, commonFamily,
+                                   typeface, headerTypeface, headerGlyph, highlight, activeBg, upNextBg, optionBg,
+                                   modifier = Modifier.wrapContentHeight(unbounded = true))
+                }
             }
         }
     }
@@ -141,20 +154,31 @@ private fun MushafLineItem(
     family: FontFamily,
     headerFamily: FontFamily,
     commonFamily: FontFamily,
+    ayahTypeface: AndroidTypeface,
+    headerTypeface: AndroidTypeface,
     headerGlyph: (Int) -> String,
     highlight: HighlightInfo,
     activeBg: Color,
     upNextBg: Color,
     optionBg: Color,
+    modifier: Modifier = Modifier,
 ) {
     when (line.type) {
         LineType.SURAH_NAME -> line.surahNumber?.let { s ->
-            // Trim the header's line box to the banner ink (no font padding / leading),
-            // else a 4.8x em box wraps the short banner glyph in large empty space.
+            // Scale the banner so its ink height == one ayah line (HEADER_TARGET of it), measured
+            // from this glyph's own bounds — it fills exactly one of the 15 slots on every page (no
+            // oversized banner, no per-page vertical band). Trim the line box to the banner ink.
+            val headerScale = remember(ayahTypeface, headerTypeface, s) {
+                val tp = TextPaint().apply { this.typeface = ayahTypeface; textSize = 1000f }
+                val fm = tp.fontMetrics; val lineH = fm.bottom - fm.top
+                val htp = TextPaint().apply { this.typeface = headerTypeface; textSize = 1000f }
+                val r = android.graphics.Rect(); val g = headerGlyph(s)
+                htp.getTextBounds(g, 0, g.length, r)
+                if (r.height() > 0) HEADER_TARGET * lineH / r.height() else 1f
+            }
             Text(headerGlyph(s), fontFamily = headerFamily,
-                 fontSize = fontSize * HEADER_SCALE, textAlign = TextAlign.Center,
-                 maxLines = 1, softWrap = false,
-                 modifier = Modifier.tighten((fontSize.value * HEADER_OVERLAP).dp),
+                 fontSize = fontSize * headerScale, textAlign = TextAlign.Center,
+                 maxLines = 1, softWrap = false, modifier = modifier,
                  style = TextStyle(
                      platformStyle = PlatformTextStyle(includeFontPadding = false),
                      lineHeightStyle = LineHeightStyle(
@@ -163,60 +187,50 @@ private fun MushafLineItem(
         }
         LineType.BASMALLAH -> Text(
             BASMALLAH_GLYPH, fontFamily = commonFamily, fontSize = fontSize,
-            textAlign = TextAlign.Center, maxLines = 1, softWrap = false,
-            modifier = Modifier.tighten((fontSize.value * BASMALLAH_OVERLAP).dp),
+            textAlign = TextAlign.Center, maxLines = 1, softWrap = false, modifier = modifier,
         )
-        LineType.AYAH -> Text(
-            text = buildAnnotatedString {
-                var i = 0
-                while (i < line.words.size) {
-                    val w = line.words[i]
-                    val key = ayahKey(w.surah, w.ayah)
-                    val bg = when {
-                        key == highlight.upNext -> upNextBg
-                        key == highlight.active -> activeBg
-                        key in highlight.options -> optionBg
-                        else -> Color.Unspecified
-                    }
-                    // Coalesce the run of consecutive words in this ayah into ONE span
-                    // (spaces included) so the highlight is continuous, not per-word boxes.
-                    var j = i
-                    while (j + 1 < line.words.size &&
-                           line.words[j + 1].surah == w.surah && line.words[j + 1].ayah == w.ayah) j++
-                    val segIds = highlight.activeWordIds
-                    if (key == highlight.active && segIds != null) {
-                        // Word-level: the ACTIVE ayah's run, sub-split so the words of the
-                        // waqf segment being recited get the darker tint. Sub-runs stay
-                        // coalesced (spaces inside) so each region is one continuous box.
-                        var k = i
-                        while (k <= j) {
-                            val inSeg = line.words[k].wordId in segIds
-                            var m = k
-                            while (m + 1 <= j && (line.words[m + 1].wordId in segIds) == inSeg) m++
-                            val sub = buildString {
-                                for (q in k..m) { append(line.words[q].glyph); if (q != m) append(" ") }
-                                if (m != j) append(" ")   // joint space carries this sub-run's tint
-                            }
-                            withStyle(SpanStyle(background = if (inSeg) upNextBg else activeBg)) {
-                                append(sub)
-                            }
-                            k = m + 1
-                        }
-                    } else {
-                        val run = buildString {
-                            for (k in i..j) { append(line.words[k].glyph); if (k != j) append(" ") }
-                        }
-                        if (bg != Color.Unspecified) withStyle(SpanStyle(background = bg)) { append(run) }
-                        else append(run)
-                    }
-                    if (j + 1 < line.words.size) append(" ")   // gap between ayat: unhighlighted
-                    i = j + 1
+        LineType.AYAH -> {
+            // Scale this page-font's space glyph to the constant NORMAL_SPACE so words separate the
+            // same amount everywhere (the 6 fat-space fonts otherwise blow the gaps out ~10x).
+            val spaceScale = remember(ayahTypeface) {
+                val tp = TextPaint().apply { this.typeface = ayahTypeface; textSize = 1000f }
+                val sa = tp.measureText(" ")
+                if (sa > 0f) NORMAL_SPACE / sa else 1f
+            }
+            val segIds = highlight.activeWordIds
+            // Highlight tint for one word: within the ACTIVE ayah the waqf segment's words go darker
+            // (word-level); otherwise the whole ayah shares one tint (active / up-next / option).
+            fun bgOf(wd: WordGlyph): Color {
+                val key = ayahKey(wd.surah, wd.ayah)
+                if (key == highlight.active && segIds != null)
+                    return if (wd.wordId in segIds) upNextBg else activeBg
+                return when {
+                    key == highlight.upNext -> upNextBg
+                    key == highlight.active -> activeBg
+                    key in highlight.options -> optionBg
+                    else -> Color.Unspecified
                 }
-            },
-            fontFamily = family, fontSize = fontSize,
-            textAlign = TextAlign.Center, maxLines = 1, softWrap = false,
-            modifier = Modifier.tighten((fontSize.value * LINE_OVERLAP).dp),
-        )
+            }
+            Text(
+                text = buildAnnotatedString {
+                    val ws = line.words
+                    for (k in ws.indices) {
+                        val bg = bgOf(ws[k])
+                        if (bg != Color.Unspecified) withStyle(SpanStyle(background = bg)) { append(ws[k].glyph) }
+                        else append(ws[k].glyph)
+                        if (k + 1 < ws.size) {
+                            // The inter-word space, normalized in width and tinted only when both
+                            // neighbours share a highlight so a run reads as one continuous box.
+                            val nbg = bgOf(ws[k + 1])
+                            val sbg = if (bg == nbg) bg else Color.Unspecified
+                            withStyle(SpanStyle(background = sbg, fontSize = fontSize * spaceScale)) { append(" ") }
+                        }
+                    }
+                },
+                fontFamily = family, fontSize = fontSize,
+                textAlign = TextAlign.Center, maxLines = 1, softWrap = false, modifier = modifier,
+            )
+        }
     }
 }
 
@@ -247,21 +261,10 @@ fun MushafPagePreview(
     ) {
         page.lines.take(lineCount).forEach { line ->
             MushafLineItem(line, fontSize, family, headerFamily, commonFamily,
-                           headerGlyph, empty, Color.Unspecified, Color.Unspecified, Color.Unspecified)
+                           typeface, headerTypeface, headerGlyph, empty,
+                           Color.Unspecified, Color.Unspecified, Color.Unspecified)
         }
     }
-}
-
-private fun lineString(line: MushafLine): String =
-    line.words.joinToString(" ") { it.glyph }
-
-/** Shrink this composable's laid-out height by [dy] (content stays centred), so neighbours in a
- *  Column move in and overlap it by [dy] — used to absorb a font's built-in vertical padding. */
-private fun Modifier.tighten(dy: androidx.compose.ui.unit.Dp) = layout { measurable, constraints ->
-    val placeable = measurable.measure(constraints)
-    val d = dy.roundToPx()
-    val h = (placeable.height - d).coerceAtLeast(0)
-    layout(placeable.width, h) { placeable.place(0, -d / 2) }
 }
 
 @Composable

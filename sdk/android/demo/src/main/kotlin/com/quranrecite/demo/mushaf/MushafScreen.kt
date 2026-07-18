@@ -134,7 +134,7 @@ fun MushafScreen(
             // Top strip: surah name (left) + juz (right), aligned to the mushaf page width.
             Box(Modifier.fillMaxWidth().padding(vertical = 2.dp), contentAlignment = Alignment.Center) {
                 Row(
-                    if (contentWidth > 0.dp) Modifier.width(contentWidth)
+                    if (contentWidth > 0.dp) Modifier.width(contentWidth).padding(horizontal = 12.dp)
                     else Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -181,8 +181,8 @@ fun MushafScreen(
                     Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 6.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Row(if (contentWidth > 0.dp) Modifier.width(contentWidth)
-                        else Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+                    Row(if (contentWidth > 0.dp) Modifier.width(contentWidth).padding(horizontal = 28.dp)
+                        else Modifier.fillMaxWidth().padding(horizontal = 28.dp)) {
                         val num: @Composable () -> Unit = {
                             Text(page.easternArabic(), fontSize = 15.sp,
                                  color = MaterialTheme.colorScheme.onSurfaceVariant)
