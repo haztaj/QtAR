@@ -61,8 +61,16 @@ fun MushafScreen(
     onBlacklistChange: (Boolean) -> Unit,
     onShareRecording: () -> Unit,
     onPageContext: (List<AyahId>) -> Unit = {},
+    initialPage: Int = 1,                       // 1-based page to open on (last-viewed, persisted)
+    onPageChanged: (Int) -> Unit = {},          // called with the 1-based page as the reader settles
 ) {
-    val pagerState = rememberPagerState(pageCount = { repo.pageCount })
+    val pagerState = rememberPagerState(
+        initialPage = (initialPage - 1).coerceIn(0, repo.pageCount - 1),
+        pageCount = { repo.pageCount })
+    // Persist the last-viewed page (as it settles) so the reader reopens there next launch.
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.settledPage }.collect { onPageChanged(it + 1) }
+    }
     val scope = rememberCoroutineScope()
     var showJump by remember { mutableStateOf(false) }
     var chrome by remember { mutableStateOf(false) }   // both control panels visible

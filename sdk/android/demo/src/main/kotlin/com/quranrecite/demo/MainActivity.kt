@@ -213,6 +213,8 @@ class MainActivity : ComponentActivity() {
                         },
                         onShareRecording = { shareRecording() },
                         onPageContext = { ayat -> detector.setPageContext(ayat) },
+                        initialPage = prefs.getInt("lastPage", 1),
+                        onPageChanged = { prefs.edit().putInt("lastPage", it).apply() },
                     )
                 }
 
