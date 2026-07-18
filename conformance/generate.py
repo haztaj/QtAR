@@ -48,6 +48,10 @@ def gen_highlight(CONF):
     ambig = REPO / "data" / "lang" / "ambiguous_ayat.json"
     # self-contained copy so the C++ conformance_runner needs only the conformance dir
     (CONF / "assets" / "ambiguous_ayat.json").write_text(ambig.read_text(encoding="utf-8"), encoding="utf-8")
+    # collision blacklist (cold-fire-suppress; see research/collision_rank.py)
+    bl = REPO / "data" / "lang" / "short_unit_blacklist.json"
+    if bl.exists():
+        (CONF / "assets" / "short_unit_blacklist.json").write_text(bl.read_text(encoding="utf-8"), encoding="utf-8")
     hc = HighlightController(ambig)
 
     # Each scenario is a list of input steps: {"detect": key} or {"choose": key}.

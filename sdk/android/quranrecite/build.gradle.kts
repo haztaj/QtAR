@@ -91,7 +91,8 @@ val bundleAssets by tasks.registering(Copy::class) {
         include("ayah_phonemes.json", "tokens.txt", "mel_filterbank.bin", "hann_window.bin",
                 "ambiguous_ayat.json",   // Stage-3 confusable map (enables ambiguity deferral)
                 "silero_vad.onnx",       // VAD: paused ayah-by-ayah boundary reset (Auto mode)
-                "unit_phonemes.json")    // waqf-segment unit lexicon (enables Mode.CHAIN)
+                "unit_phonemes.json",    // waqf-segment unit lexicon (enables Mode.CHAIN)
+                "short_unit_blacklist.json")  // collision blacklist (cold-fire-suppress)
     }
     into(layout.projectDirectory.dir("src/main/assets/quranrecite"))
 }
