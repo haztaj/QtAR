@@ -103,6 +103,24 @@ cd sdk/android
 ./gradlew :demo:installDebug
 ```
 
+### Release to Play (the store page ALREADY exists)
+
+⚠️ The Google Play listing for **Quran Recite** (`com.quranrecite`) is already set up — Developer
+account, app entry, store listing, privacy policy. A release is **just build + upload**; no
+first-time setup:
+
+```bash
+# 1. bump versionCode in demo/build.gradle.kts (Play rejects a reused code)
+# 2. build the signed bundle -> demo/build/outputs/bundle/release/demo-release.aab
+JAVA_HOME=/home/hazem/jdk17 ANDROID_HOME=$HOME/android-sdk ./gradlew :demo:bundleRelease
+# 3. verify it is signed with the UPLOAD key (not the debug key), then upload to a track
+jarsigner -verify -verbose:summary demo/build/outputs/bundle/release/demo-release.aab
+```
+
+Signing comes from the gitignored `keystore.properties` → `quranrecite-release.jks` (the **upload**
+key; Play App Signing re-signs with the managed app key). Currently **versionCode 4 / 0.4.0** (~29 MB;
+the recognizer model and page fonts download at runtime — worth noting in the Data Safety form).
+
 `preBuild` runs `bundleAssets` (stages the 4 small assets from `conformance/assets/` — run
 `python conformance/generate.py` first if the `*.bin` are missing) and `extractOrt` (unpacks
 the ORT headers + per-ABI `libonnxruntime.so` from the onnxruntime-android AAR, which is not
@@ -160,6 +178,26 @@ detector.start()                   // managed mic capture (needs RECORD_AUDIO)
 // ...or feed your own PCM: detector.feed(pcm16, sampleRate)
 detector.release()
 ```
+
+### Detection context + tuning (Mode.CHAIN)
+
+```kotlin
+// Page-context prior: tell the detector which ayat are on screen (viewed page + the NEXT one).
+// On-page ayat win twin ambiguities and off-page jumps are suppressed; off-page still detects
+// when the decode is clean (soft prior, not a hard filter). Call on every page change.
+detector.setPageContext(ayatOnCurrentAndNextPage)   // List<AyahId>; empty list clears
+
+// Collision blacklist: high-misfire units (كلّا, قل الله, 55:1 …) are cold-fire-suppressed and
+// fire only with page/sequence context. Toggle live to A/B by ear (the demo puts this in ☰).
+detector.setBlacklistEnabled(true)
+```
+
+Relevant `Config` fields: `chainPageBonus` (off-page cost penalty, demo `0.08`; `0` = prior off),
+`chainBlacklist` (initial blacklist state, default `true`), `normRms` (`0.15` — quiet phone mics),
+`chainCost` (fire threshold, `0.45` for phone-mic decodes), `chainSuffixSec` (v13 fresh-context
+suffix decode, `5.0`). The blacklist needs `short_unit_blacklist.json` bundled (it is, via the
+`.aar` asset copy); both features are no-ops without their asset/config, and both default to OFF in
+the C++ core so the conformance goldens stay byte-identical.
 
 `onHighlightState` is the **centralized output contract** — one immutable `HighlightState`
 snapshot per change (`confirmed[]` · `pending{options,reason}` · `active`). The deferral,

@@ -21,6 +21,14 @@ session) — the app auto-downloads on next launch, no APK rebuild. ONNX set: `m
 to 74.9% (narrow 14-surah slice; broad real-audio improved — do not chase it).
 audio_bench arm: `--arms tu`.
 
+**Android/deploy toolchain (Ubuntu):** `JAVA_HOME=/home/hazem/jdk17`,
+`ANDROID_HOME=/home/hazem/android-sdk` (NDK 27.2.12479018), adb at
+`$ANDROID_HOME/platform-tools/adb`. Gradle fails with "JAVA_HOME is not set" without the export.
+Deploying a debug build: ALWAYS `adb shell am force-stop com.quranrecite` before `adb install -r`
+(a plain reinstall does not restart a running app -> you test stale code). Release/Play process:
+see `sdk/android/README.md` ("Release to Play" — the store page already exists; just bump
+`versionCode` + `bundleRelease` + upload).
+
 **Env:** venv at `/home/hazem/qtar-venv` (Python 3.12, torch 2.13+cu130). Run training/eval with
 `/home/hazem/qtar-venv/bin/python`. `export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`.
 The Windows-path fix (`training/data.py::_localize_path`) re-anchors manifest paths — already applied.

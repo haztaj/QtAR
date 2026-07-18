@@ -187,6 +187,52 @@ python demo/live_detect.py            # default mic; --list-devices to choose
 
 ## Status
 
+- **★ SHIPPED MODEL: `best_full_tu` — real-learner adaptation (2026-07-16).** Fine-tune of
+  `best_full_p3` on the 17,837-clip `tusers` corpus (17,811 distinct learner voices, all 114
+  surahs — see Data) mixed at 8.5% into the phase-3 manifest (`combined_train_tusers.csv`),
+  8 epochs; best = epoch 7. **Strictly better on every axis vs `best_full_p3`:** audio_bench
+  **141/151 (93%)** @ normRms 0.15 (was 137), clean test **95.8%**, val PER **0.0443** (best
+  ever), suppression ratio 0.976. **Fixed all three failing real phone takes** — Al-Hijr now
+  tracks 15:1-15:5 with the wrong-`2:1` fast-commit glitch GONE; An-Nahl complete 16:1-16:7;
+  the quiet An-Nahl take recovers 16:1-16:3. Confirms the continuous-tracking wall is
+  **decode-quality-limited and REAL learner data is the lever** (the earlier synthetic-aug
+  retrain FAILED — see the quiet-mic entry). Deployed **model-only**: hosted
+  `model_full_tu_{22s,5s}.int8.onnx` + re-exported streaming graphs, manifest
+  **`best_full_tu-22s-v5`**; the app auto-downloads (no APK rebuild). RetaSy's narrow
+  14-surah metric dipped to 74.9% — a slice artifact, do not chase it.
+- **Page-context prior — SHIPPED (2026-07-17).** The app tells the detector which ayat are on
+  the **currently-viewed page + the next** (`Detector::setPageContext`, pushed on every page
+  flip from `MushafRepository.pageAyat`). Off-page units pay a cost penalty
+  (`Config::chainPageBonus`, demo 0.08) in `windowBest`'s fire gate + blended selection, so
+  on-page ayat win twin ambiguities and spurious jumps elsewhere in the Quran are suppressed —
+  off-page still detects when the decode is clean (**soft prior, not a hard filter**). Measured
+  on the 10 labeled real sessions: true-unit hits **40 -> 42** (recovered the hard 2:6-9 case by
+  removing off-page competition), spurious emissions **6 -> 4**, ZERO regressions. Core defaults
+  0 = off, so conformance stays byte-identical. `research/calib_page_prior.py`.
+- **Collision blacklist — SHIPPED, toggleable (2026-07-18).** Misdetection magnets are ranked by
+  **corpus collision count**, not length (`research/collision_rank.py`): for each unit, how many
+  ayah contexts + the basmala retrieve-and-match it at <=0.45. The worst are short COMMON PHRASES,
+  not the muqattaʿāt — كلّا (eff 823, ~700 ayat across 94 surahs + basmala), قل الله, بلى, وعد الله;
+  **55:1 الرحمن ranks #26/3252** (basmala cost 0.11 -> fires before ~113 surahs, + 71 ayat). The
+  `eff>100` set (110 units, 18 basmala-matchers) ships as `data/lang/short_unit_blacklist.json`
+  and is **cold-fire-suppressed** in `windowBest`: such a unit fires only when the current page
+  vouches for it or the voter already expects it (**context-confirm-only**, via the early-prefix
+  path). `Config::chainBlacklistPath` + runtime `Detector::setBlacklistEnabled`; **default OFF in
+  the core (conformance byte-identical), ON in the app with a "Collision blacklist" switch in the
+  ☰ debug menu** for live A/B. Real-session sweep off->on: **40 -> 42 hits, zero regressions**.
+  User-validated on-device 2026-07-18.
+- **In-app launch calibration — NEGATIVE RESULT, do not build (2026-07-16).** Probed whether a
+  first-launch "enrollment recite" could auto-tune `normRms`/`chainCost` per user
+  (`research/calib_probe.py`, `calib_live_sweep.py`). **No exploitable per-user variance exists:**
+  decode cost is nearly FLAT across normRms 0.10-0.25 (per-session best beats fixed 0.15 by
+  +0.025 median = noise), and in the live rolling-window sweep **all 10 sessions share the same
+  best chainCost (0.30) — per-user oracle 42/42 == best single global 42/42, zero headroom.**
+  Also caught a regime trap: whole-stream infix cost (~0.19) is an optimistic LOWER BOUND on live
+  fire cost, so a naive enrollment would set the threshold too tight. Caveat: one user's voice
+  across 10 sessions (no labeled multi-user audio). **Side-finding (open):** with the better `tu`
+  decode, the deployed `chainCost 0.45` looks LOOSER than optimal — 0.30 scored 42/42 vs 0.45's
+  40/42 on this corpus. Needs a full audio_bench check (cost interacts with other knobs) before
+  changing the global.
 - **FULL-QURAN corpus expansion — data layer DONE (2026-07-13).** All 71 quran-md-ayahs
   shards downloaded; full Quran verified complete (187,080 clips / 30 reciters / all 6,236
   ayat, zero coverage gaps). Corpus scope constants moved to `set(range(1,115))` in
@@ -471,17 +517,17 @@ python demo/live_detect.py            # default mic; --list-devices to choose
     surahs; raises the learner ceiling). (3) **full-Quran corpus** (beyond the current 1,057 ayat;
     out of MVP scope but the north star).
   - *Product / deployment:* (4) **iOS wrapper** (C++ core is portable; a Swift API + JNI-equivalent
-    bridge, not a re-implementation). (5) **release signing / Play Store — IN PROGRESS (2026-07-10).**
-    Release `signingConfig` wired (gitignored `keystore.properties` -> release key, debug-key fallback
-    when absent; `keystore.properties.example` documents keytool + `assembleRelease`/`bundleRelease`).
-    Permanent identity locked: `applicationId com.quranrecite` + name "Quran Recite"; `targetSdk`/
-    `compileSdk` 35 (AGP 8.6) for Play's API-35 requirement (app already immersive edge-to-edge, so the
-    bump is a UI no-op). Privacy policy hosted (GitHub Pages, `docs/privacy-policy.html` ->
-    https://haztaj.github.io/QtAR/privacy-policy.html). **Remaining (mostly user/Play-Console):** user
-    generates the upload keystore (passwords theirs) -> I build the signed `.aab`; launcher icon
-    (512x512 + adaptive; app currently ships the default robot); Play Developer account ($25), create
-    app + Play App Signing enrollment, Data Safety form, store listing (screenshots + feature graphic +
-    descriptions), upload to a testing track. (6) **word-level segment highlighting** (light the active waqf segment's exact words; main work
+    bridge, not a re-implementation). (5) **release signing / Play Store — SET UP; releases are now
+    routine (2026-07-18).** ⚠️ **The Play store page ALREADY EXISTS** (Developer account, app entry,
+    store listing) — do NOT re-suggest first-time setup. Identity locked: `applicationId
+    com.quranrecite`, name "Quran Recite", `targetSdk`/`compileSdk` 35; custom launcher icon shipped;
+    privacy policy hosted (https://haztaj.github.io/QtAR/privacy-policy.html). Signing: gitignored
+    `sdk/android/keystore.properties` -> `quranrecite-release.jks` (the UPLOAD key; Play App Signing
+    re-signs). **A release is just:** bump `versionCode` in `sdk/android/demo/build.gradle.kts`
+    (Play rejects a reused code) -> `JAVA_HOME=/home/hazem/jdk17 ./gradlew :demo:bundleRelease` ->
+    upload `demo/build/outputs/bundle/release/demo-release.aab` to a track. **Currently at
+    versionCode 4 / 0.4.0** (page prior + collision blacklist; 29 MB, model downloads at runtime).
+    Note for Data Safety: the app fetches ~199 MB of page fonts + the model on first launch. (6) **word-level segment highlighting** (light the active waqf segment's exact words; main work
     is the offline segment→word map — word-exact boundaries, ~85% correct-phrase, verifiable
     offline; see the assessment 2026-07-09).
   - *Research:* (7) **deeper N-back context** for the 8 structural `needs_choice` cases

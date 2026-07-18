@@ -53,3 +53,15 @@ assets/stream_conv.onnx assets/stream_encoder.onnx` reproduces it EXACTLY (ALL P
 Fixtures derive from dataset audio + `best_mic.pt`; `.wav`/`.bin` are regenerated, not
 committed (audio rule) — hand the generated package to the port team or regenerate where
 data+model are present.
+
+> **Unpinned features (2026-07-18):** two shipped C++-only decoder behaviours have **no Python
+> reference**, so only their DEFAULT-OFF paths are covered by the goldens:
+> - **page-context prior** (`Config::chainPageBonus` + `Detector::setPageContext`) — off-page units
+>   pay a cost penalty in `windowBest`;
+> - **collision blacklist** (`Config::chainBlacklistPath` + `Detector::setBlacklistEnabled`) —
+>   high-collision units are cold-fire-suppressed unless page/sequence context vouches for them.
+>
+> Both default to off/empty in the core, so `conformance_runner` + `verify.py` remain byte-identical
+> (ALL PASS) — but a regression in either FEATURE path would not be caught. Closing this means adding
+> the penalty + mask to `chain_sliding.window_best` and generating `page_prior` / `blacklist` chain
+> fixtures. Same posture as the soft-scoring path before `soft_score_run` was added.

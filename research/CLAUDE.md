@@ -688,3 +688,107 @@ posture (captures the off-axis/in-motion difficulty), + real full prayers as neg
 rejection) and as the validation exam. Takbir split by posture (stand/ruku/**sujud=face-to-floor,
 hardest**); salam both head-turns; sami'allah from the ruku-rise. Train on isolated+negatives, GATE
 on the real prayers (anchor metric = sami'allah-count-per-rakah + salam-at-end + recitation FP rate).
+
+## calib_probe.py / calib_live_sweep.py — in-app launch calibration: NEGATIVE RESULT (2026-07-16)
+
+Hypothesis: a first-launch "enrollment recite" of a KNOWN passage could auto-tune `normRms` and
+`chainCost` **per user**, capturing device/mic/voice variance that a global constant misses. Probed
+before any app work (the point of de-risking). **Verdict: do NOT build it — the variance it would
+exploit is not there.**
+
+- **`calib_probe.py`** (the mechanism, faithful): decode a known-truth session at normRms
+  candidates {0.05..0.25}; measure the focused decode cost of each TRUE ayah (infix match of its
+  reference phonemes against the decoded stream). Pick normRms* = argmin median true cost;
+  chainCost* = an upper quantile of the true costs.
+- **`calib_live_sweep.py`** (the confirmation): sweep `chainCost` per session through the REAL
+  rolling-window Detector (`test_detector`), scoring correct in-order truth units.
+
+Results over the 10 labeled real phone sessions (`best_full_tu`):
+
+| knob | finding |
+|---|---|
+| `normRms` | **FLAT** across 0.10-0.25 on every session. Per-session "best" scatters (0.05x3, 0.10x2, 0.15x2, 0.20x1, 0.25x2) but beats fixed 0.15 by only **+0.025 median cost = noise**. 0.15 sits in the flat zone for all. |
+| `chainCost` | **ALL 10 sessions share the same best cost (0.30).** Per-session ORACLE 42/42 == best single global 42/42 -> **ZERO per-user headroom.** |
+
+**Regime trap the probe also caught (same class as the crowding lesson):** whole-stream infix cost
+(~0.19 median) is an optimistic LOWER BOUND on the live rolling-window fire cost. A naive enrollment
+measuring whole-stream would set the threshold far too tight (~0.23) and then MISS units live —
+which is why the live sweep (not the offline probe) is the deciding measurement.
+
+**Caveat:** corpus is one user's voice across 10 sessions/devices (all our labeled real audio). This
+is "no evidence of exploitable variance in what we have," not proof none exists across very
+different accents/devices — and we have no labeled multi-user sessions to test that.
+
+**Side-finding, OPEN:** with the better `best_full_tu` decode, the deployed `chainCost 0.45` is now
+LOOSER than optimal — 0.30 scored 42/42 vs 0.45's 40/42 here (the extra headroom lets a junk fire
+disrupt one session). The old 0.45 was tuned for the *worse* pre-tu decode. Needs a full audio_bench
+pass before changing the global (the taint audit showed cost ANTI-stacks with other knobs).
+
+## collision_rank.py — misdetection magnets ranked by COLLISION, not length (2026-07-18)
+
+Motivated by a live report that **55:1 الرحمن constantly misdetects** — which a length/word-count
+blacklist would never flag (it is 9 phonemes, "distinctive"). The real risk axis is **how many other
+contexts a unit fuzzy-matches**.
+
+Method (faithful to the decoder): for every firing unit U (<=30 ph; 3,521 of the 10,510 units), count
+distinct ayah contexts V (parent(V) != parent(U)) where U appears in V's **3-gram shortlist** AND
+`infix_norm(U, V) <= 0.45` — i.e. retrieve-then-score exactly as `windowBest` does. Plus the
+**BASMALA**, recited before ~113 surahs but not a numbered ayah (weight 113). Output:
+`research/collision_rank.csv` (3,252 units with >=1 collision).
+
+**Top magnets are short COMMON PHRASES, not the muqattaʿāt:**
+
+| unit | text | ph | ayah collisions | surahs | basmala | eff |
+|---|---|---|---|---|---|---|
+| 19:79#01 … (x9) | **كلّا** | 5 | 537-710 | ~94 | 0.20 | **650-823** |
+| 6:19#02 … (x3) | قل الله | 9 | 331-367 | ~69 | 0.33 | 444-480 |
+| 3:125#01 | بلى | 4 | 301 | 85 | — | 301 |
+| **55:1** | **الرحمن** | 9 | 71 | 26 | **0.11** | **184 (rank #26/3252)** |
+| 2:1 | الم | 4 | 160 | 68 | — | 160 |
+
+Severity: `eff>400: 12 · >200: 25 · >100: 110 · >50: 455`. **18 units match the basmala** (كلّا,
+قل الله, من دون الله, 55:1) — these fire at ~every surah opening and the page prior CANNOT help them
+(the basmala precedes the on-page surah too), so they need context-gating.
+
+**Why 55:1 is special:** ~60% of its misfires come from the basmala («بسم الله **الرحمن** الرحيم»,
+cost 0.11), ~40% from الرحمن-as-divine-name (1:3 exact 0.0, 2:163, the Maryam cluster). Contrast
+مدهامتان (55:64): same 1-word class, but a rare phrase -> **2** collisions, basmala 0.73 = genuinely
+safe. **Lesson: word/phoneme count is a poor blacklist criterion; collision count is the right one.**
+
+**Caveat:** `eff` is the collision SURFACE (potential retrieve-and-match), not a literal misfire rate
+— the voter corroboration, streak gating and 2-deep assembler filter much of it before commit, and
+match COST matters (كلّا at 0.20 is far more dangerous than a 27-ph unit at 0.42). Use it as a
+relative priority ranking.
+
+### Blacklist (shipped): cold-fire-suppress, context-confirm-only
+
+`eff>100` (110 units, 18 basmala-matchers) -> `data/lang/short_unit_blacklist.json`. In `windowBest`
+a blacklisted unit is **excluded from cold selection unless the current page vouches for it**
+(`onPage`); the early-prefix/expected-unit path bypasses `windowBest` entirely, so a blacklisted unit
+still fires when the chain legitimately expects it (**context-confirm-only** — and the basmala-matchers
+get context-gating for free). `Config::chainBlacklistPath` + runtime `Detector::setBlacklistEnabled`
+(app toggle, default ON; core default OFF so conformance is byte-identical).
+
+Real-session sweep off->on: **40 -> 42 hits, zero regressions** (it recovered the hard 2:6-9 session by
+suppressing a disrupting short-phrase unit). Note the labeled sessions do NOT recite blacklisted units,
+so the headline benefit (basmala/كلّا suppression) is proven analytically, not empirically — the
+on-device A/B is the real test (user-validated 2026-07-18).
+
+## calib_page_prior.py — page-context prior (shipped 2026-07-17)
+
+The app pushes the ayat of the **currently-viewed page + the next** to the detector on every flip
+(`Detector::setPageContext`). Off-page units pay `Config::chainPageBonus` (demo 0.08) in the fire gate
+AND the blended selection, so on-page ayat win twin ambiguities and out-of-surah jumps are suppressed;
+off-page still detects when the decode is clean (soft prior, not a hard filter).
+
+Design note (measured, not assumed): a *bonus for on-page* was tried first and was INVISIBLE on the
+real sessions — the correct ayat already won. The failure mode that actually shows up is an **off-page
+false jump** (a stray `2:275` while reciting Ayat al-Kursi), which only an **off-page penalty**
+suppresses; it is also safer, since it never loosens the on-page fire gate.
+
+Validation (10 labeled sessions, page = truth surah +-5 ayat): true-unit hits **40 -> 42** (recovered
+2:6-9), spurious emissions **6 -> 4**, ZERO regressions.
+
+> **Conformance gap (both features):** the page prior and the blacklist are C++-only behaviours with
+> no Python reference, so only their DEFAULT-OFF paths are golden-pinned. Adding the penalty/mask to
+> `chain_sliding.window_best` + fixtures is the outstanding follow-up.
