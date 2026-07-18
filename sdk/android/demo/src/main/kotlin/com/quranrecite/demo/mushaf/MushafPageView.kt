@@ -53,6 +53,9 @@ private const val NORMAL_SPACE = 40f
 // (glyph ink + NORMAL_SPACE per inter-word gap). One global number drives one font size + one column
 // width for EVERY page, so the surah/juz markers never shift page-to-page.
 // Source: scratchpad measure — max 17546.8 (page 585, 15 words); pages cluster ~16.6k–17.5k.
+// The constant sits just above that max, so the widest line fills ~the full column and everything
+// narrower is inset naturally — that small headroom is the only guard against edge glyph-collapse
+// (no extra width margin; a flat 0.9 factor looked too inset in portrait, where width is binding).
 private const val GLOBAL_WIDEST = 17600f
 // The line-INK height (TextPaint.fontMetrics bottom-top @ textSize=1000) that should fill one of the
 // 15 fixed slots. The page is laid out as 15 EQUAL-height slots (not natural-height lines spaced by
@@ -62,10 +65,6 @@ private const val GLOBAL_WIDEST = 17600f
 // (on-device scan): p50 2001, p90 2130, max 2531 (page 534). 2100 ≈ p85 → most pages ~95% full,
 // only the few tallest overlap a little. Lower = larger text / more overlap.
 private const val SLOT_INK = 1800f
-// Horizontal breathing room: the widest line renders at this fraction of the column (guards the
-// glyph-collapse seen when a justified line exactly meets the edge). Height needs no such margin —
-// the fixed slots can't clip.
-private const val FIT = 0.90f
 // Surah headers are scaled per-line so their ink height == one ayah line (see MushafLineItem), so
 // every page is exactly LINES_PER_PAGE slots — no per-page-header vertical band, no size drift.
 private const val HEADER_TARGET = 0.9f          // header ink height as a fraction of one line
@@ -106,7 +105,7 @@ fun MushafPageView(
         // constants, so fp is IDENTICAL on every page — the column, and the chrome pinned to it,
         // never shift. Keyed on the viewport only, so it re-fits on foldable/orientation changes.
         val (fontPx, frameWidthPx) = remember(wPx, hPx) {
-            val widthDriven = 1000f * wPx / GLOBAL_WIDEST * FIT
+            val widthDriven = 1000f * wPx / GLOBAL_WIDEST
             val slotDriven = 1000f * (hPx / LINES_PER_PAGE) / SLOT_INK
             val fp = minOf(widthDriven, slotDriven)
             // The fixed column frame (widest-line width at this size) — steady across pages.
