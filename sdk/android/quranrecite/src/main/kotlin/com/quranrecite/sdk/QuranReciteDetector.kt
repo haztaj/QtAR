@@ -117,6 +117,10 @@ data class Config(
     // Quran are suppressed (off-page still detects if the decode is clean). 0 = off. See types.h
     // chainPageBonus; validated +2 true hits / -2 spurious on the real-session corpus at 0.08.
     val chainPageBonus: Float = 0.08f,
+    // Collision blacklist (Mode.CHAIN): initial state of the cold-fire-suppress list of
+    // high-misfire units (كلّا, قل الله, 55:1 …). No effect unless the blacklist asset is bundled;
+    // toggle live via [setBlacklistEnabled]. See research/collision_rank.py.
+    val chainBlacklist: Boolean = true,
 )
 
 /**
@@ -161,6 +165,7 @@ class QuranReciteDetector(
     private var debugRec: DebugWavRecorder? = null
     @Volatile private var debugLogging = false   // logcat: engine assets + native per-hop stats
     @Volatile private var recording = false      // dump each session's PCM to a WAV (takes effect at start)
+    @Volatile private var blacklistEnabled = config.chainBlacklist  // collision blacklist toggle
     private var lastRecordingPath: String? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -176,6 +181,13 @@ class QuranReciteDetector(
     /** Toggle dumping the exact 16 kHz PCM fed to the engine to a WAV (host UI). Applies to the next
      *  [start]; the file lands under getExternalFilesDir and is returned by [lastRecording]. */
     fun setRecording(enabled: Boolean) { recording = enabled }
+
+    /** Toggle the collision blacklist live (Mode.CHAIN) — for A/B comparison in the app. No effect
+     *  unless the blacklist asset is bundled. Survives detector (re)creation. */
+    fun setBlacklistEnabled(enabled: Boolean) {
+        blacklistEnabled = enabled
+        if (nativeHandle != 0L) nativeSetBlacklistEnabled(nativeHandle, enabled)
+    }
 
     /** Absolute path of the most recently recorded session WAV, or null. */
     fun lastRecording(): String? = lastRecordingPath
@@ -209,8 +221,10 @@ class QuranReciteDetector(
                     config.mode.ordinal, assets.unitPhonemesPath, config.chainCost,
                     config.chainSubMin, streamConv, streamEnc,
                     config.chainVadReset, config.chainResetMaxGap,
-                    suffix, config.chainSuffixSec, config.normRms, config.chainPageBonus)
+                    suffix, config.chainSuffixSec, config.normRms, config.chainPageBonus,
+                    assets.blacklistPath, blacklistEnabled)
                 nativeSetDebug(nativeHandle, debugLogging)      // carry the current flag to the engine
+                nativeSetBlacklistEnabled(nativeHandle, blacklistEnabled)
                 synchronized(this) { pendingPage?.let { nativeSetPageContext(nativeHandle, it) } }
                 mainHandler.post { listener?.onModelReady() }
             },
@@ -296,11 +310,13 @@ class QuranReciteDetector(
         mode: Int, unitPhonemesPath: String, chainCost: Float, chainSubMin: Float,
         streamConvPath: String, streamEncoderPath: String,
         chainVadReset: Boolean, chainResetMaxGap: Float,
-        suffixModelPath: String, chainSuffixSec: Float, normRms: Float, chainPageBonus: Float): Long
+        suffixModelPath: String, chainSuffixSec: Float, normRms: Float, chainPageBonus: Float,
+        blacklistPath: String, blacklistEnabled: Boolean): Long
     private external fun nativeFeed(handle: Long, pcm: ShortArray, sampleRate: Int)
     private external fun nativeReset(handle: Long)
     private external fun nativeSetDebug(handle: Long, enabled: Boolean)
     private external fun nativeSetPageContext(handle: Long, keys: IntArray)
+    private external fun nativeSetBlacklistEnabled(handle: Long, enabled: Boolean)
     private external fun nativeDestroy(handle: Long)
 
     companion object {

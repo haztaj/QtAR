@@ -105,6 +105,14 @@ struct Config {
     // The phoneme stream is decoded once per hop from the rolling buffer (largest chain
     // window), then all scale windows are sliced from that decode by time.
     std::string unitPhonemesPath;   // unit_phonemes.json (waqf segments + unsegmented ayat)
+    // Collision blacklist (Mode::Chain): units that misfire across many contexts (short common
+    // phrases like كلّا / قل الله, basmala-matchers like 55:1 — see research/collision_rank.py).
+    // When enabled, these are COLD-FIRE-SUPPRESSED in windowBest: they can only fire when the
+    // current page vouches for them (setPageContext) or the voter already expects them
+    // (context-confirm-only). "" / empty mask = off (conformance path). Runtime-toggleable via
+    // Detector::setBlacklistEnabled for live A/B comparison.
+    std::string chainBlacklistPath; // short_unit_blacklist.json; "" -> no blacklist loaded
+    bool chainBlacklistEnabled = true;  // initial toggle state (no-op unless a path is loaded)
     // True streaming acoustics (Mode::Chain only). If BOTH are set, stepChain decodes only the
     // NEW audio each hop via StreamingModel (stream_conv.onnx + stream_encoder.int8.onnx) and
     // maintains an incremental phoneme stream, instead of re-decoding the whole rolling window

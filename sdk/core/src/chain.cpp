@@ -150,6 +150,17 @@ int UnitIndex::unitOf(const std::string& key) const {
     auto it = keyIdx_.find(key);
     return it == keyIdx_.end() ? -1 : it->second;
 }
+std::vector<char> UnitIndex::loadBlacklist(const std::string& path) const {
+    std::vector<char> mask(keys_.size(), 0);
+    if (path.empty()) return mask;
+    auto j = nlohmann::json::parse(readFile(path));
+    const auto& units = j.contains("units") ? j["units"] : j;   // tolerate a bare map
+    for (auto it = units.begin(); it != units.end(); ++it) {
+        int u = unitOf(it.key());
+        if (u >= 0) mask[u] = 1;
+    }
+    return mask;
+}
 int UnitIndex::tokenId(const std::string& tok) const {
     auto it = tok2id_.find(tok);
     return it == tok2id_.end() ? -1 : it->second;
@@ -166,10 +177,12 @@ int UnitIndex::firstUnitOf(const std::string& parentKey) const {
 
 std::pair<int, double> windowBest(const std::vector<int>& win, const UnitIndex& idx,
                                   double fireCost, const PhonAlts& winAlts, double subMin,
-                                  const std::vector<char>* onPage, double pageBonus) {
+                                  const std::vector<char>* onPage, double pageBonus,
+                                  const std::vector<char>* blacklist) {
     const int n = (int)win.size();
     const bool soft = subMin < 1.0 && !winAlts.empty();
     const bool hasPage = onPage && pageBonus > 0.0 && !onPage->empty();
+    const bool hasBlack = blacklist && !blacklist->empty();
     // Counter with Python insertion-order semantics: first-seen while scanning window
     // positions ascending, posting lists ascending — ties in the sorts below break by
     // this order, exactly like Counter.most_common / heapq.nlargest (both stable).
@@ -206,6 +219,11 @@ std::pair<int, double> windowBest(const std::vector<int>& win, const UnitIndex& 
     for (int u : shortlist) {
         const int L = idx.len(u);
         if (!(0.5 * n <= L && L <= 1.3 * n)) continue;
+        // Collision blacklist: a cold-fire-suppressed unit is excluded from selection unless the
+        // current page vouches for it (onPage). Context (expected-unit) firing bypasses windowBest.
+        if (hasBlack && u < (int)blacklist->size() && (*blacklist)[u]
+            && !(onPage && u < (int)onPage->size() && !onPage->empty() && (*onPage)[u]))
+            continue;
         const double cost = soft ? infixNormSoft(idx.phonemes(u), win, winAlts, subMin)
                                  : infixNorm(idx.phonemes(u), win);
         // Page-context prior: when a page is set, OFF-page units pay a cost penalty, so on-page

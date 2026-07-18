@@ -44,6 +44,10 @@ public:
     // First unit of an ayah ("S:A" -> "S:A#01" if segmented else "S:A"); -1 if absent.
     int firstUnitOf(const std::string& parentKey) const;
 
+    // Parse a collision-blacklist JSON ({"units":{"s:a#seg":{...}, ...}}) into a per-unit-id
+    // mask (size == size(); 1 = blacklisted). Unknown keys are ignored. See collision_rank.py.
+    std::vector<char> loadBlacklist(const std::string& path) const;
+
 private:
     std::vector<std::string> keys_;                   // canonical (s, a, seg) order
     std::vector<std::vector<int>> phon_;
@@ -140,11 +144,14 @@ private:
 // `pageBonus` > 0 are given, on-page units get `pageBonus` subtracted from their effective
 // cost for BOTH the fire gate and the blended selection — so on-page ayat win twin ties and
 // fire a touch easier. nullptr / 0 == no page effect (the byte-identical default path).
+// `blacklist` (per-unit-id mask): a blacklisted unit is excluded from cold selection UNLESS the
+// page vouches for it (onPage[u]) — the context-confirm bypass. nullptr == no blacklist.
 std::pair<int, double> windowBest(const std::vector<int>& win, const UnitIndex& idx,
                                   double fireCost = 0.30,
                                   const PhonAlts& winAlts = {}, double subMin = 1.0,
                                   const std::vector<char>* onPage = nullptr,
-                                  double pageBonus = 0.0);
+                                  double pageBonus = 0.0,
+                                  const std::vector<char>* blacklist = nullptr);
 
 // Best PREFIX of `ref` aligned to the END of `win` (free leading window skips, 2 trailing
 // positions of slack): the early-detection score. Returns min over prefix lengths

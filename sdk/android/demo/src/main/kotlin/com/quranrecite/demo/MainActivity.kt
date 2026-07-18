@@ -69,6 +69,8 @@ class MainActivity : ComponentActivity() {
                 val prefs = remember { getSharedPreferences("qr_debug", MODE_PRIVATE) }
                 var debugLogging by remember { mutableStateOf(prefs.getBoolean("logging", false)) }
                 var recording by remember { mutableStateOf(prefs.getBoolean("recording", false)) }
+                // Collision blacklist (default ON) — toggle live to A/B its effect by ear.
+                var blacklist by remember { mutableStateOf(prefs.getBoolean("blacklist", true)) }
 
                 // Ensure the page fonts (downloaded once, ~199 MB — survives app updates) then open
                 // the mushaf DBs — all off the main thread. First launch shows download progress;
@@ -145,6 +147,7 @@ class MainActivity : ComponentActivity() {
                     })
                     detector.setDebugLogging(debugLogging)   // carried to the engine at onReady
                     detector.setRecording(recording)
+                    detector.setBlacklistEnabled(blacklist)  // honor the persisted A/B state
                     detector.prepare()
                 }
 
@@ -202,6 +205,11 @@ class MainActivity : ComponentActivity() {
                         onRecordingChange = {
                             recording = it; detector.setRecording(it)
                             prefs.edit().putBoolean("recording", it).apply()
+                        },
+                        blacklist = blacklist,
+                        onBlacklistChange = {
+                            blacklist = it; detector.setBlacklistEnabled(it)
+                            prefs.edit().putBoolean("blacklist", it).apply()
                         },
                         onShareRecording = { shareRecording() },
                         onPageContext = { ayat -> detector.setPageContext(ayat) },

@@ -46,6 +46,11 @@ public:
     // whenever the viewed page changes; pass an empty list to clear. Thread-safe wrt feed.
     void setPageContext(const std::vector<AyahId>& pageAyat);
 
+    // Toggle the collision blacklist at runtime (Mode::Chain; no-op unless Config::chainBlacklistPath
+    // loaded a mask). When on, high-collision units (كلّا, قل الله, 55:1 …) are cold-fire-suppressed
+    // and fire only via page/sequence context. Exposed for live A/B comparison in the app.
+    void setBlacklistEnabled(bool enabled);
+
     // Runtime debug logging (Android logcat, tag "QuranReciteCore"): per-hop decode stats, VAD
     // resets, commits. Off by default (zero overhead); toggle live from the host. No-op elsewhere.
     void setDebug(bool enabled);

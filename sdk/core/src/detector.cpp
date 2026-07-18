@@ -100,6 +100,11 @@ struct Detector::Impl {
     std::vector<AyahId> pageAyat;     // requested page set (raw; survives re-init)
     std::vector<char> onPage;         // per-unit-id membership mask (rebuilt on set / init)
 
+    // Collision blacklist (Config::chainBlacklistPath): per-unit-id mask of cold-fire-suppressed
+    // units; toggleable live via setBlacklistEnabled (empty mask -> no effect, conformance path).
+    std::vector<char> blacklist;
+    std::atomic<bool> blacklistOn{true};
+
     // True streaming acoustics (optional, Mode::Chain): decode only the NEW audio each hop and
     // keep a persistent, bounded phoneme stream — instead of re-decoding the whole rolling window.
     std::unique_ptr<StreamingModel> stream;
@@ -155,6 +160,9 @@ struct Detector::Impl {
                 stream = std::make_unique<StreamingModel>(c.streamConvPath, c.streamEncoderPath);
             if (c.chainSuffixSec > 0.0f && !c.chainSuffixModelPath.empty())
                 suffixModel = std::make_unique<AcousticModel>(c.chainSuffixModelPath);
+            if (!c.chainBlacklistPath.empty())
+                blacklist = units->loadBlacklist(c.chainBlacklistPath);
+            blacklistOn.store(c.chainBlacklistEnabled);
             rebuildPageMask();   // in case setPageContext was called before (re)construction
         }
     }
@@ -419,7 +427,7 @@ struct Detector::Impl {
             if ((int)win.size() < 4) continue;
             PhonAlts winAlts;
             if (soft && alts.size() == ph.size()) winAlts.assign(alts.begin() + off, alts.end());
-            auto [u, cost] = windowBest(win, *units, cfg.chainCost, winAlts, cfg.chainSubMin, &onPage, cfg.chainPageBonus);
+            auto [u, cost] = windowBest(win, *units, cfg.chainCost, winAlts, cfg.chainSubMin, &onPage, cfg.chainPageBonus, blacklistOn.load() ? &blacklist : nullptr);
             if (u < 0 || cost > cfg.chainCost) continue;
             if (cfg.chainStartAtAyahSec > 0.0f && chainAsm->confirmed().empty()
                 && units->segIdxOf(u) >= 2) {   // cold start: decaying penalty on mid-ayah matches
@@ -551,7 +559,7 @@ struct Detector::Impl {
             if ((int)win.size() < 4) continue;
             PhonAlts winAlts;
             if (soft && alts.size() == ph.size()) winAlts.assign(alts.begin() + off, alts.end());
-            auto [u, cost] = windowBest(win, *units, cfg.chainCost, winAlts, cfg.chainSubMin, &onPage, cfg.chainPageBonus);
+            auto [u, cost] = windowBest(win, *units, cfg.chainCost, winAlts, cfg.chainSubMin, &onPage, cfg.chainPageBonus, blacklistOn.load() ? &blacklist : nullptr);
             if (u < 0 || cost > cfg.chainCost) continue;
             if (cfg.chainStartAtAyahSec > 0.0f && chainAsm->confirmed().empty()
                 && units->segIdxOf(u) >= 2) {   // cold start: decaying penalty on mid-ayah matches
@@ -786,6 +794,8 @@ void Detector::setPageContext(const std::vector<AyahId>& pageAyat) {
     impl_->pageAyat = pageAyat;
     impl_->rebuildPageMask();
 }
+
+void Detector::setBlacklistEnabled(bool enabled) { impl_->blacklistOn.store(enabled); }
 
 void Detector::setDebug(bool enabled) { impl_->debug.store(enabled); }
 

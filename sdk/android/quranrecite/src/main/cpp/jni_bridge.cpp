@@ -108,7 +108,8 @@ Java_com_quranrecite_sdk_QuranReciteDetector_nativeCreate(
         jstring vadPath, jint mode, jstring unitPhonemesPath, jfloat chainCost,
         jfloat chainSubMin, jstring streamConvPath, jstring streamEncoderPath,
         jboolean chainVadReset, jfloat chainResetMaxGap,
-        jstring suffixModelPath, jfloat chainSuffixSec, jfloat normRms, jfloat chainPageBonus) {
+        jstring suffixModelPath, jfloat chainSuffixSec, jfloat normRms, jfloat chainPageBonus,
+        jstring blacklistPath, jboolean blacklistEnabled) {
     auto* h = new Handle();
     env->GetJavaVM(&h->vm);
     h->self = env->NewGlobalRef(thiz);
@@ -143,6 +144,8 @@ Java_com_quranrecite_sdk_QuranReciteDetector_nativeCreate(
     cfg.chainSuffixSec = chainSuffixSec;
     cfg.normRms = normRms;                          // gain-normalize target (demo: 0.15 for quiet mics)
     cfg.chainPageBonus = chainPageBonus;            // page-context prior: off-page penalty (0 = off)
+    cfg.chainBlacklistPath = jstr(env, blacklistPath);  // collision blacklist ("" = off)
+    cfg.chainBlacklistEnabled = blacklistEnabled == JNI_TRUE;
 
     h->det = std::make_unique<Detector>(cfg);
     h->det->setEventCallback([h](const AyahEvent& e) { postEvent(h, e); });
@@ -163,6 +166,12 @@ Java_com_quranrecite_sdk_QuranReciteDetector_nativeFeed(
 extern "C" JNIEXPORT void JNICALL
 Java_com_quranrecite_sdk_QuranReciteDetector_nativeReset(JNIEnv*, jobject, jlong handle) {
     reinterpret_cast<Handle*>(handle)->det->reset();
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_quranrecite_sdk_QuranReciteDetector_nativeSetBlacklistEnabled(
+        JNIEnv*, jobject, jlong handle, jboolean enabled) {
+    reinterpret_cast<Handle*>(handle)->det->setBlacklistEnabled(enabled == JNI_TRUE);
 }
 
 // Page-context prior: `keys` packs each ayah as surah*1000 + ayah (see Kotlin setPageContext).

@@ -57,6 +57,8 @@ fun MushafScreen(
     onDebugLoggingChange: (Boolean) -> Unit,
     recording: Boolean,
     onRecordingChange: (Boolean) -> Unit,
+    blacklist: Boolean,
+    onBlacklistChange: (Boolean) -> Unit,
     onShareRecording: () -> Unit,
     onPageContext: (List<AyahId>) -> Unit = {},
 ) {
@@ -227,6 +229,7 @@ fun MushafScreen(
                 onJump = { showJump = true },
                 debugLogging = debugLogging, onDebugLoggingChange = onDebugLoggingChange,
                 recording = recording, onRecordingChange = onRecordingChange,
+                blacklist = blacklist, onBlacklistChange = onBlacklistChange,
                 onShareRecording = onShareRecording,
             )
         }
@@ -273,6 +276,7 @@ private fun TopControls(
     onJump: () -> Unit,
     debugLogging: Boolean, onDebugLoggingChange: (Boolean) -> Unit,
     recording: Boolean, onRecordingChange: (Boolean) -> Unit,
+    blacklist: Boolean, onBlacklistChange: (Boolean) -> Unit,
     onShareRecording: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
@@ -292,6 +296,10 @@ private fun TopControls(
                     DropdownMenuItem(
                         text = { MenuToggle("Debug logging", debugLogging) },
                         onClick = { onDebugLoggingChange(!debugLogging) },
+                    )
+                    DropdownMenuItem(
+                        text = { MenuToggle("Collision blacklist", blacklist) },
+                        onClick = { onBlacklistChange(!blacklist) },
                     )
                     DropdownMenuItem(
                         text = { MenuToggle("Record session audio", recording) },

@@ -18,6 +18,7 @@ data class ModelAssets(
     val ambiguousPath: String,   // Stage-3 confusable map; "" if not bundled (deferral off)
     val vadPath: String,         // Silero VAD; "" if not bundled (no paused-recitation reset)
     val unitPhonemesPath: String,// waqf-segment unit lexicon; "" if not bundled (Chain mode off)
+    val blacklistPath: String = "",     // collision blacklist; "" -> not bundled (blacklist off)
     val streamConvPath: String = "",    // streaming Conv2dSubsampling ONNX; "" -> windowed decode
     val streamEncoderPath: String = "", // streaming Emformer-step ONNX; "" -> windowed decode
     val suffixModelPath: String = "",   // v13 fresh-context 5s graph; "" -> suffix pass off
@@ -91,6 +92,8 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
                     extractBundled("silero_vad.onnx") else ""
                 val units = if (assetExists("quranrecite/unit_phonemes.json"))
                     extractBundled("unit_phonemes.json") else ""
+                val blacklist = if (assetExists("quranrecite/short_unit_blacklist.json"))
+                    extractBundled("short_unit_blacklist.json") else ""
                 // Fetch the manifest ONCE (skipped entirely for a fully-bundled model — no network).
                 val bundledModel = assetExists("quranrecite/$BUNDLED_MODEL")
                 val release = if (bundledModel) null else fetchManifest()
@@ -111,7 +114,7 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
                 if (suffix.isEmpty() && release != null)
                     suffix = resolveSuffix(release, onProgress) ?: ""
                 onReady(ModelAssets(model, lexicon, tokens, filterbank, hann, ambiguous, vad, units,
-                    streamConv, streamEnc, suffix))
+                    blacklist, streamConv, streamEnc, suffix))
             } catch (t: Throwable) {
                 onError(t)
             }
@@ -273,7 +276,7 @@ class ModelManager(private val context: Context, private val corpus: Corpus) {
     companion object {
         // Bundled small-asset version — bump when the shipped lexicon/tokens/etc change (corpus
         // change). Independent of the model version, which comes from the manifest.
-        const val ASSETS_VERSION = "full-p3-v1"   // full-Quran corpus (6236 ayat / 10510 units)
+        const val ASSETS_VERSION = "full-p3-v2"   // + collision blacklist (short_unit_blacklist.json)
         // Remote manifest of the current released model: {"version","url","sha256"}. Publish a new
         // model by uploading the .onnx and updating this JSON (see `./gradlew :demo:modelManifest`).
         // Empty -> no download (rely on a bundled or cached model).
