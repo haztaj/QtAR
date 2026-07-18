@@ -719,10 +719,15 @@ which is why the live sweep (not the offline probe) is the deciding measurement.
 is "no evidence of exploitable variance in what we have," not proof none exists across very
 different accents/devices — and we have no labeled multi-user sessions to test that.
 
-**Side-finding, OPEN:** with the better `best_full_tu` decode, the deployed `chainCost 0.45` is now
-LOOSER than optimal — 0.30 scored 42/42 vs 0.45's 40/42 here (the extra headroom lets a junk fire
-disrupt one session). The old 0.45 was tuned for the *worse* pre-tu decode. Needs a full audio_bench
-pass before changing the global (the taint audit showed cost ANTI-stacks with other knobs).
+**Side-finding — RESOLVED (2026-07-18), and it moved the shipped config.** The deployed
+`chainCost 0.45` WAS too loose for the `tu` decode. Full audio_bench sweep (/151): 0.30 -> 146,
+**0.35 -> 148**, 0.40 -> 141, 0.45 -> 141, 0.50 -> 138. **0.35 is the operating point (+7).** The
+10-session probe pointed at 0.30, but the full corpus prefers 0.35 — 0.30 is too tight
+(short_112_114_cont 15 -> 13), and 0.40+ collapses long_baqarah_1_5 (4/5 -> 1/5). Cost interacts with
+the blacklist exactly as the taint audit warned: the blacklist HELPS at a loose threshold
+(0.45: 141 -> 143) and HURTS at the right one (0.35: 148 -> 146) — because a tighter cost and the
+blacklist do the same job, so once the threshold is right the blacklist only over-suppresses. That
+regression traced entirely to the blacklist's WHOLE-AYAH entries -> segments-only (below).
 
 ## collision_rank.py — misdetection magnets ranked by COLLISION, not length (2026-07-18)
 
@@ -762,7 +767,14 @@ relative priority ranking.
 
 ### Blacklist (shipped): cold-fire-suppress, context-confirm-only
 
-`eff>100` (110 units, 18 basmala-matchers) -> `data/lang/short_unit_blacklist.json`. In `windowBest`
+`eff>100` **AND a waqf SEGMENT** (96 units, 14 basmala-matchers) -> `data/lang/short_unit_blacklist.json`.
+**Whole ayat are excluded by design** (2026-07-18): suppressing a segment is cheap (the parent ayah
+still fires via its siblings), but suppressing a whole ayah can make it UNDETECTABLE — measured on
+`107:6` («الذين هم…», eff 321), which cost short_105_108 two units, and the 14 dropped entries also
+included **`1:3` (Al-Fatiha)**, `55:1` and the muqattaʿāt. Cross-surah whole-ayah collisions are the
+**page prior's** job instead (off-page penalty: context-aware and reversible, so on-page they still
+fire). Segments-only measures 148/151 at cost 0.35 — i.e. FREE (equal to no-blacklist) while keeping
+all the top offenders (كلّا x9, قل الله, بلى). In `windowBest`
 a blacklisted unit is **excluded from cold selection unless the current page vouches for it**
 (`onPage`); the early-prefix/expected-unit path bypasses `windowBest` entirely, so a blacklisted unit
 still fires when the chain legitimately expects it (**context-confirm-only** — and the basmala-matchers

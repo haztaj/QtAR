@@ -221,6 +221,28 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   the core (conformance byte-identical), ON in the app with a "Collision blacklist" switch in the
   ☰ debug menu** for live A/B. Real-session sweep off->on: **40 -> 42 hits, zero regressions**.
   User-validated on-device 2026-07-18.
+- **`chainCost` re-swept 0.45 -> 0.35 + blacklist narrowed to SEGMENTS-ONLY (2026-07-18).** The
+  0.45 threshold was tuned for the OLD pre-adaptation decode; `best_full_tu` decodes far better, so
+  0.45 was admitting junk fires that disrupt the chain. Full audio_bench sweep (/151):
+
+  | chainCost | no blacklist | full blacklist (110) | segments-only (96) |
+  |---|---|---|---|
+  | 0.30 | 146 | 145 | 147 |
+  | **0.35** | **148** | 146 | **148 <- shipped** |
+  | 0.40 | 141 | 142 | — |
+  | 0.45 (was deployed) | 141 | 143 | 143 |
+  | 0.50 | 138 | — | — |
+
+  **`chainCost 0.35` is the operating point** (+7 over 0.45), robust in every blacklist condition —
+  0.30 is too tight (loses short_112_114_cont), 0.40+ collapses long_baqarah_1_5 (4/5 -> 1/5).
+  **The blacklist is now SEGMENTS-ONLY (96 units, 14 whole ayat dropped).** The full list's -2
+  regression was entirely its whole-ayah entries: suppressing a segment is cheap (the parent ayah
+  still fires via its siblings) but suppressing a WHOLE ayah can make it undetectable — measured on
+  `107:6` (cost short_105_108 two units), and the dropped set also contained **`1:3` (Al-Fatiha!)**,
+  `55:1` and the muqattaʿāt. Cross-surah whole-ayah collisions are handled by the **page-context
+  prior** instead (off-page penalty), which is the context-aware, reversible mechanism for them.
+  Shipped config = `chainCost 0.35` + segments-only blacklist + page prior: **148/151 (98%)** vs the
+  previously deployed 143. Conformance ALL PASS (core defaults unchanged; the app sets the cost).
 - **In-app launch calibration — NEGATIVE RESULT, do not build (2026-07-16).** Probed whether a
   first-launch "enrollment recite" could auto-tune `normRms`/`chainCost` per user
   (`research/calib_probe.py`, `calib_live_sweep.py`). **No exploitable per-user variance exists:**
@@ -229,10 +251,8 @@ python demo/live_detect.py            # default mic; --list-devices to choose
   best chainCost (0.30) — per-user oracle 42/42 == best single global 42/42, zero headroom.**
   Also caught a regime trap: whole-stream infix cost (~0.19) is an optimistic LOWER BOUND on live
   fire cost, so a naive enrollment would set the threshold too tight. Caveat: one user's voice
-  across 10 sessions (no labeled multi-user audio). **Side-finding (open):** with the better `tu`
-  decode, the deployed `chainCost 0.45` looks LOOSER than optimal — 0.30 scored 42/42 vs 0.45's
-  40/42 on this corpus. Needs a full audio_bench check (cost interacts with other knobs) before
-  changing the global.
+  across 10 sessions (no labeled multi-user audio). **Side-finding — RESOLVED, see the next entry:**
+  the deployed `chainCost 0.45` was indeed too loose for the `tu` decode.
 - **FULL-QURAN corpus expansion — data layer DONE (2026-07-13).** All 71 quran-md-ayahs
   shards downloaded; full Quran verified complete (187,080 clips / 30 reciters / all 6,236
   ayat, zero coverage gaps). Corpus scope constants moved to `set(range(1,115))` in

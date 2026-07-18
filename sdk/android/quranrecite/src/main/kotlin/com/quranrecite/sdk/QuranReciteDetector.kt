@@ -75,10 +75,12 @@ data class Config(
     val managedCapture: Boolean = true,   // SDK opens the mic with recommended settings
     val windowSec: Float = 4.0f,
     val hopSec: Float = 1.0f,
-    // Chain-mode window fire threshold. 0.30 = the research reference for clean decodes;
-    // consumer phone mics decode at ~30% PER and need ~0.45 (verified on a live session —
-    // the vote + deferral-assembly layers absorb the extra junk fires).
-    val chainCost: Float = 0.45f,
+    // Chain-mode window fire threshold. 0.30 = the research reference for clean decodes. 0.45 was
+    // right for the OLD pre-learner-adaptation decode (~30% PER phone mics); `best_full_tu` decodes
+    // far better, so 0.45 is now too LOOSE — it admits junk fires that disrupt the chain.
+    // Re-swept on the full audio_bench corpus (2026-07-18): 0.30 -> 146, **0.35 -> 148**, 0.40 -> 141,
+    // 0.45 -> 141, 0.50 -> 138 (/151). 0.35 is the operating point (+7), robust with the blacklist on.
+    val chainCost: Float = 0.35f,
     // Phase-2 posterior-aware scoring floor: 1.0 = off (hard distance); ~0 softens mismatches
     // the model nearly picked (a ~+1.7 aligned-hit win in the ~30% PER phone regime, free on
     // clean audio). Needs a model that emits posteriors (Mode.CHAIN decodes them per hop).

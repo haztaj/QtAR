@@ -178,6 +178,26 @@ ARMS = {
     # tusers real-learner adaptation (best_full_tu) at 0.15
     "tu": dict(model=REPO / "export/onnx/model_full_tu_22s.int8.onnx",
                env={"QR_NORMRMS": "0.15", "QR_SUFFIX": str(REPO / "export/onnx/model_full_tu_5s.int8.onnx")}),
+    # chainCost re-sweep on the shipped tu model. The deployed 0.45 was tuned for the WORSE
+    # pre-tu decode; the calibration probe found 0.30 beat it on the 10 real sessions (42/42 vs
+    # 40/42) — this is the full-corpus check before touching the global. "_bl" = + collision
+    # blacklist (the shipped app config), since cost and the blacklist can interact.
+    **{f"tu_c{c:02d}": dict(model=REPO / "export/onnx/model_full_tu_22s.int8.onnx",
+                            env={"QR_NORMRMS": "0.15", "QR_COST": f"0.{c:02d}",
+                                 "QR_SUFFIX": str(REPO / "export/onnx/model_full_tu_5s.int8.onnx")})
+       for c in (30, 35, 40, 50)},
+    # SEGMENTS-ONLY blacklist: suppressing a segment is cheap (the parent ayah still fires via its
+    # other segments); suppressing a WHOLE ayah can make it undetectable (107:6 cost 2 units, and
+    # the whole-ayah set includes 1:3 / 55:1 / the muqattaʿāt).
+    **{f"tu_c{c:02d}_blseg": dict(model=REPO / "export/onnx/model_full_tu_22s.int8.onnx",
+                                  env={"QR_NORMRMS": "0.15", "QR_COST": f"0.{c:02d}",
+                                       "QR_BLACKLIST": "/tmp/bl_segonly.json",
+                                       "QR_SUFFIX": str(REPO / "export/onnx/model_full_tu_5s.int8.onnx")})
+       for c in (30, 35, 45)},
+    **{f"tu_c{c:02d}_bl": dict(model=REPO / "export/onnx/model_full_tu_22s.int8.onnx",
+                               env={"QR_NORMRMS": "0.15", "QR_COST": f"0.{c:02d}", "QR_BLACKLIST": "1",
+                                    "QR_SUFFIX": str(REPO / "export/onnx/model_full_tu_5s.int8.onnx")})
+       for c in (30, 35, 40, 45, 50)},
     "p3fullsuf_nr18": dict(model=REPO / "export/onnx/model_full_p3_22s.int8.onnx",
                            env={"QR_NORMRMS": "0.18", "QR_SUFFIX": str(REPO / "export/onnx/model_full_p3_5s.int8.onnx")}),
     "p3fullsuf_nr20": dict(model=REPO / "export/onnx/model_full_p3_22s.int8.onnx",

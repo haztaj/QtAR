@@ -74,8 +74,10 @@ int main(int argc, char** argv) {
             // Ablation hooks (research/audio_bench.py taint audit):
             if (const char* s = std::getenv("QR_SUBMIN")) cfg.chainSubMin = (float)atof(s);
             if (const char* b = std::getenv("QR_PAGEBONUS")) cfg.chainPageBonus = (float)atof(b);
-            if (std::getenv("QR_BLACKLIST")) {   // collision blacklist (cold-fire-suppress)
-                cfg.chainBlacklistPath = conf + "/assets/short_unit_blacklist.json";
+            if (const char* b = std::getenv("QR_BLACKLIST")) {   // cold-fire-suppress list
+                // "1" -> the bundled list; anything containing '/' -> that path (ablation variants)
+                cfg.chainBlacklistPath = std::strchr(b, '/') ? b
+                                       : conf + "/assets/short_unit_blacklist.json";
                 std::printf("blacklist ON: %s\n", cfg.chainBlacklistPath.c_str());
             }
             if (const char* e = std::getenv("QR_EARLY")) cfg.chainEarlyPrefix = (float)atof(e);
