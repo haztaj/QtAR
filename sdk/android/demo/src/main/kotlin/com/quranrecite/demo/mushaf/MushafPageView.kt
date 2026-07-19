@@ -68,6 +68,11 @@ private const val SLOT_INK = 1800f
 // Surah headers are scaled per-line so their ink height == one ayah line (see MushafLineItem), so
 // every page is exactly LINES_PER_PAGE slots — no per-page-header vertical band, no size drift.
 private const val HEADER_TARGET = 0.9f          // header ink height as a fraction of one line
+// Recitation-highlight height. The highlight is a span background behind the ayah glyphs, so its
+// height = the ayah line box. By default that hugs the tight font metrics and reads short against
+// these tall glyphs; set the line box to this multiple of the font size so the highlight fills more
+// of the slot. Glyphs stay centred (LineHeightStyle.Center) — only the highlight height changes.
+private const val HIGHLIGHT_LINE_HEIGHT = 1.5f
 
 /**
  * Renders one mushaf page. Sizes the font from ONE global width (the widest ink line in the whole
@@ -230,6 +235,14 @@ private fun MushafLineItem(
                 },
                 fontFamily = family, fontSize = fontSize,
                 textAlign = TextAlign.Center, maxLines = 1, softWrap = false, modifier = modifier,
+                // Taller line box so the span-background highlight reads consistently with the
+                // glyphs; centred + untrimmed so the glyphs stay put and the fill spans the height.
+                style = TextStyle(
+                    lineHeight = fontSize * HIGHLIGHT_LINE_HEIGHT,
+                    platformStyle = PlatformTextStyle(includeFontPadding = false),
+                    lineHeightStyle = LineHeightStyle(
+                        alignment = LineHeightStyle.Alignment.Center,
+                        trim = LineHeightStyle.Trim.None)),
             )
         }
     }
