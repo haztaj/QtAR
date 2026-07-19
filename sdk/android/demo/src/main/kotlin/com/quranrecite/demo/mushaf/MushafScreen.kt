@@ -21,8 +21,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontFamily
@@ -39,6 +44,14 @@ private val ARABIC_DIGITS = charArrayOf('٠', '١', '٢', '٣', '٤', '٥', '٦'
 private fun Int.easternArabic(): String = toString().map { ARABIC_DIGITS[it - '0'] }.joinToString("")
 
 private const val PREVIEW_LINES = 4        // next-page preview: how many top lines to show
+
+// Preview-band seam: the current page reads as a sheet in front of the preview. The boundary is a
+// gentle rounded-tooth wave — the --seam shadow hugs it (cast up onto the preview) and the --edge-hi
+// line is stroked on it. Tune here.
+private val SEAM_SHADOW = 16.dp            // how far the cast shadow fades up into the preview
+private val SEAM_AMPLITUDE = 3.5.dp        // rounded-tooth height (subtle)
+private val SEAM_WAVELENGTH = 22.dp        // one full up+down tooth
+private val SEAM_EDGE = 1.5.dp             // lit-edge stroke width
 
 /**
  * The mushaf reader. Chrome is a printed-mushaf frame: the top strip shows the page's surah name
@@ -214,29 +227,72 @@ fun MushafScreen(
                 // "page behind" cue is the faint top-hint shadow overlaid at the very top edge.
                 previewData?.let { (nextPage, nextTf) ->
                     if (pageFontSize > 0.sp) {
+                        val pal = LocalAppPalette.current
                         Box(
                             Modifier
                                 .align(Alignment.TopCenter)
                                 .fillMaxWidth()
-                                .background(LocalAppPalette.current.preview)
-                                .pointerInput(Unit) { detectTapGestures { previewDismissed = true } }
-                                .padding(bottom = 4.dp),
+                                .background(pal.preview)
+                                .pointerInput(Unit) { detectTapGestures { previewDismissed = true } },
                         ) {
                             MushafPagePreview(nextPage, nextTf, repo.surahHeaderTypeface(dark),
                                               repo.quranCommonTypeface, repo::surahHeaderGlyph,
                                               fontSize = pageFontSize, slotHeight = slotHeight,
                                               lineCount = PREVIEW_LINES,
                                               modifier = Modifier.alpha(0.94f))   // spec: keep readable, don't dim
-                            Text("▾ ${(page + 1).easternArabic()}",
-                                 fontSize = 13.sp, color = MaterialTheme.colorScheme.primary,
-                                 modifier = Modifier.align(Alignment.BottomCenter))
                             // Top hint: subtle full-width top-edge shadow (a faint hint of a sheet
                             // behind). Absolutely positioned overlay — adds NO layout height.
                             Box(
                                 Modifier.align(Alignment.TopCenter).fillMaxWidth().height(7.dp)
                                     .alpha(0.8f)
                                     .background(Brush.verticalGradient(
-                                        listOf(LocalAppPalette.current.seam, Color.Transparent))))
+                                        listOf(pal.seam, Color.Transparent))))
+                            // Seam / depth (UI_SPEC "Preview band · Seam / depth"): the current page
+                            // reads as a physical sheet lying IN FRONT of this preview. Because our
+                            // preview is the front-most overlay there's no occlusion battle — we draw
+                            // the seam directly at the band's bottom edge (no z-order restructuring):
+                            // a soft --seam shadow cast UP onto the preview + a lit --edge-hi edge, both
+                            // hugging a gentle rounded-tooth wave. Overlay — adds NO layout height.
+                            val seamColor = pal.seam
+                            val edgeColor = pal.edgeHi
+                            Spacer(
+                                Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                                    .height(SEAM_SHADOW + SEAM_AMPLITUDE * 2)
+                                    .clipToBounds()
+                                    .drawWithCache {
+                                        val amp = SEAM_AMPLITUDE.toPx()
+                                        val half = SEAM_WAVELENGTH.toPx() / 2f   // peak→trough span
+                                        val midY = size.height - amp             // troughs touch the bottom edge
+                                        // Rounded teeth: quadratic curves bulging alternately up/down,
+                                        // crossing the midline every half-wavelength.
+                                        val wave = Path().apply {
+                                            moveTo(0f, midY)
+                                            var x = 0f; var up = true
+                                            while (x < size.width) {
+                                                quadraticBezierTo(
+                                                    x + half / 2f, midY + if (up) -amp else amp,
+                                                    x + half, midY)
+                                                x += half; up = !up
+                                            }
+                                        }
+                                        // Shadow = the region ABOVE the wave, filled with the gradient.
+                                        val fill = Path().apply {
+                                            addPath(wave)
+                                            lineTo(size.width, 0f); lineTo(0f, 0f); close()
+                                        }
+                                        val brush = Brush.verticalGradient(
+                                            listOf(Color.Transparent, seamColor),
+                                            startY = 0f, endY = midY + amp)
+                                        onDrawBehind {
+                                            drawPath(fill, brush)
+                                            drawPath(wave, edgeColor,
+                                                style = Stroke(width = SEAM_EDGE.toPx(),
+                                                               cap = StrokeCap.Round))
+                                        }
+                                    })
+                            Text("▾ ${(page + 1).easternArabic()}",
+                                 fontSize = 13.sp, color = MaterialTheme.colorScheme.primary,
+                                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp))
                         }
                     }
                 }
