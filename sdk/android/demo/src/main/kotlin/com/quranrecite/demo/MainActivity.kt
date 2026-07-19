@@ -15,7 +15,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.quranrecite.demo.mushaf.HighlightInfo
@@ -23,6 +22,10 @@ import com.quranrecite.demo.mushaf.MushafFonts
 import com.quranrecite.demo.mushaf.MushafRepository
 import com.quranrecite.demo.mushaf.MushafScreen
 import com.quranrecite.demo.mushaf.ayahKey
+import com.quranrecite.demo.ui.DarkPalette
+import com.quranrecite.demo.ui.LightPalette
+import com.quranrecite.demo.ui.LocalAppPalette
+import com.quranrecite.demo.ui.toColorScheme
 import com.quranrecite.sdk.Config
 import com.quranrecite.sdk.Mode
 import com.quranrecite.sdk.HighlightState
@@ -61,10 +64,11 @@ class MainActivity : ComponentActivity() {
             val prefs = remember { getSharedPreferences("qr_debug", MODE_PRIVATE) }
             // Dark mode (persisted): dark M3 chrome + the fonts' dark CPAL palette (see MushafRepository).
             var dark by remember { mutableStateOf(prefs.getBoolean("darkMode", false)) }
-            MaterialTheme(colorScheme = if (dark)
-                    darkColorScheme(background = Color(0xFF121212), surface = Color(0xFF121212),
-                                    surfaceVariant = Color(0xFF262626))
-                else lightColorScheme()) {
+            // Single source of truth for chrome colors (see ui/AppPalette.kt). The Quran glyphs
+            // are coloured by the fonts' own CPAL palette, not this — see AppPalette's docs.
+            val palette = if (dark) DarkPalette else LightPalette
+            CompositionLocalProvider(LocalAppPalette provides palette) {
+              MaterialTheme(colorScheme = palette.toColorScheme(dark)) {
               Surface(Modifier.fillMaxSize()) {
                 var status by remember { mutableStateOf("Preparing model…") }
                 var modelReady by remember { mutableStateOf(false) }
@@ -243,6 +247,7 @@ class MainActivity : ComponentActivity() {
                         confirmButton = { TextButton(onClick = { modelUpdate = null }) { Text("OK") } },
                     )
                 }
+              }
               }
             }
         }

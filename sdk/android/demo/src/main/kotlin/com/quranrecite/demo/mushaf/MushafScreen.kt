@@ -3,6 +3,7 @@
 package com.quranrecite.demo.mushaf
 
 import com.quranrecite.sdk.AyahId
+import com.quranrecite.demo.ui.LocalAppPalette
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
@@ -150,6 +151,7 @@ fun MushafScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(repo.surahNameGlyph(topSurah), fontFamily = surahNameFamily, fontSize = 26.sp,
+                         color = MaterialTheme.colorScheme.primary,   // monochrome font — tinted (spec --accent)
                          maxLines = 1, softWrap = false)
                     Spacer(Modifier.weight(1f))
                     // Waqf-segment progress of the active ayah (Mode.CHAIN), centered in the strip.
@@ -158,6 +160,7 @@ fun MushafScreen(
                         Spacer(Modifier.weight(1f))
                     }
                     Text(repo.juzGlyph(juz), fontFamily = quranCommonFamily, fontSize = 22.sp,
+                         color = MaterialTheme.colorScheme.primary,   // monochrome font — tinted (spec --accent)
                          maxLines = 1, softWrap = false)
                 }
             }
@@ -214,7 +217,7 @@ fun MushafScreen(
                                 .align(Alignment.TopCenter)
                                 .fillMaxWidth()
                                 .clip(shape)
-                                .background(MaterialTheme.colorScheme.surface)
+                                .background(LocalAppPalette.current.preview)
                                 .border(BorderStroke(2.dp, MaterialTheme.colorScheme.primary), shape)
                                 .pointerInput(Unit) { detectTapGestures { previewDismissed = true } }
                                 .padding(bottom = 4.dp),
