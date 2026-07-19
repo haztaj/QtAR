@@ -86,6 +86,7 @@ fun MushafPageView(
     headerGlyph: (Int) -> String,
     onContentWidth: (androidx.compose.ui.unit.Dp) -> Unit = {},
     onFontSize: (TextUnit) -> Unit = {},
+    onSlotHeight: (androidx.compose.ui.unit.Dp) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val family = remember(typeface) { FontFamily(Typeface(typeface)) }
@@ -112,8 +113,10 @@ fun MushafPageView(
             fp to (GLOBAL_WIDEST * fp / 1000f)
         }
         val fontSize = (fontPx / density).sp
+        val slotHeight = maxHeight / LINES_PER_PAGE       // the pitch of one of the 15 line slots
         LaunchedEffect(frameWidthPx, density) { onContentWidth((frameWidthPx / density).dp) }
         LaunchedEffect(fontSize) { onFontSize(fontSize) }
+        LaunchedEffect(slotHeight) { onSlotHeight(slotHeight) }
 
         // 15 EQUAL-height slots (weight 1f each) that tile the page — lines sit at an even pitch and
         // always fill the full height, independent of each font's metric quirks. Each line's glyphs
@@ -125,7 +128,6 @@ fun MushafPageView(
         // (Al-Fatiha, Al-Baqarah's start — 8 lines each) instead use normal-pitch slots CENTRED
         // vertically, so their few lines sit as a centred block rather than spread over the whole page.
         val shortPage = page.lines.size < LINES_PER_PAGE
-        val slotHeight = maxHeight / LINES_PER_PAGE
         Column(Modifier.fillMaxSize(),
                verticalArrangement = if (shortPage) Arrangement.Center else Arrangement.Top) {
             page.lines.forEachIndexed { index, line ->
@@ -234,9 +236,10 @@ private fun MushafLineItem(
 }
 
 /**
- * Next-page preview: the first [lineCount] lines of [page], rendered at a fixed [fontSize] (the
- * full page's size, so scale matches) and top-aligned. Height wraps the lines — no clipping, so it
- * unambiguously shows the TOP of the page. Meant to be placed in a bordered overlay.
+ * Next-page preview: the first [lineCount] lines of [page], rendered at the full page's [fontSize]
+ * and [slotHeight] pitch — the SAME fixed-slot layout as the live page (equal-height slots, glyphs
+ * centred and unbounded, upper line drawn on top) so it lines up exactly with the page underneath.
+ * Top-aligned; height = lineCount slots. Meant to be placed in a bordered overlay.
  */
 @Composable
 fun MushafPagePreview(
@@ -246,6 +249,7 @@ fun MushafPagePreview(
     commonTypeface: AndroidTypeface,
     headerGlyph: (Int) -> String,
     fontSize: TextUnit,
+    slotHeight: androidx.compose.ui.unit.Dp,
     lineCount: Int,
     modifier: Modifier = Modifier,
 ) {
@@ -258,10 +262,14 @@ fun MushafPagePreview(
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        page.lines.take(lineCount).forEach { line ->
-            MushafLineItem(line, fontSize, family, headerFamily, commonFamily,
-                           typeface, headerTypeface, headerGlyph, empty,
-                           Color.Unspecified, Color.Unspecified, Color.Unspecified)
+        page.lines.take(lineCount).forEachIndexed { index, line ->
+            Box(Modifier.fillMaxWidth().height(slotHeight).zIndex(-index.toFloat()),
+                contentAlignment = Alignment.Center) {
+                MushafLineItem(line, fontSize, family, headerFamily, commonFamily,
+                               typeface, headerTypeface, headerGlyph, empty,
+                               Color.Unspecified, Color.Unspecified, Color.Unspecified,
+                               modifier = Modifier.wrapContentHeight(unbounded = true))
+            }
         }
     }
 }

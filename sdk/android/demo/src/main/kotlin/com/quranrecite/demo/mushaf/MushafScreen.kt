@@ -78,6 +78,7 @@ fun MushafScreen(
     var chrome by remember { mutableStateOf(false) }   // both control panels visible
     var contentWidth by remember { mutableStateOf(0.dp) }   // rendered mushaf width (chrome aligns to it)
     var pageFontSize by remember { mutableStateOf(0.sp) }   // the page's fitted font size (preview reuses it)
+    var slotHeight by remember { mutableStateOf(0.dp) }     // the page's line-slot pitch (preview reuses it)
 
     val surahNameFamily = remember(repo) { FontFamily(Typeface(repo.surahNameTypeface)) }
     val quranCommonFamily = remember(repo) { FontFamily(Typeface(repo.quranCommonTypeface)) }
@@ -182,7 +183,8 @@ fun MushafScreen(
                                                 repo.surahHeaderTypeface(dark), repo.quranCommonTypeface,
                                                 repo::surahHeaderGlyph,
                                                 onContentWidth = { contentWidth = it },
-                                                onFontSize = { pageFontSize = it })
+                                                onFontSize = { pageFontSize = it },
+                                                onSlotHeight = { slotHeight = it })
                         }
                     }
                 }
@@ -219,7 +221,8 @@ fun MushafScreen(
                         ) {
                             MushafPagePreview(nextPage, nextTf, repo.surahHeaderTypeface(dark),
                                               repo.quranCommonTypeface, repo::surahHeaderGlyph,
-                                              fontSize = pageFontSize, lineCount = PREVIEW_LINES)
+                                              fontSize = pageFontSize, slotHeight = slotHeight,
+                                              lineCount = PREVIEW_LINES)
                             Text("▾ ${(page + 1).easternArabic()}",
                                  fontSize = 13.sp, color = MaterialTheme.colorScheme.primary,
                                  modifier = Modifier.align(Alignment.BottomCenter))
