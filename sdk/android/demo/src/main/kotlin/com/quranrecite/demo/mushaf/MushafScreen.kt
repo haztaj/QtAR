@@ -8,9 +8,7 @@ import com.quranrecite.demo.ui.LocalAppPalette
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -21,7 +19,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontFamily
@@ -207,28 +208,35 @@ fun MushafScreen(
                     }
                 }
 
-                // Next-page preview overlay — only the next page's first lines, rendered at the SAME
+                // Next-page preview band — only the next page's first lines, rendered at the SAME
                 // font size as the page (so scale matches) and top-aligned. Height wraps the lines.
+                // A flush, full-bleed --preview band (spec "Preview band"): no border/rounding; the
+                // "page behind" cue is the faint top-hint shadow overlaid at the very top edge.
                 previewData?.let { (nextPage, nextTf) ->
                     if (pageFontSize > 0.sp) {
-                        val shape = RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp)
                         Box(
                             Modifier
                                 .align(Alignment.TopCenter)
                                 .fillMaxWidth()
-                                .clip(shape)
                                 .background(LocalAppPalette.current.preview)
-                                .border(BorderStroke(2.dp, MaterialTheme.colorScheme.primary), shape)
                                 .pointerInput(Unit) { detectTapGestures { previewDismissed = true } }
                                 .padding(bottom = 4.dp),
                         ) {
                             MushafPagePreview(nextPage, nextTf, repo.surahHeaderTypeface(dark),
                                               repo.quranCommonTypeface, repo::surahHeaderGlyph,
                                               fontSize = pageFontSize, slotHeight = slotHeight,
-                                              lineCount = PREVIEW_LINES)
+                                              lineCount = PREVIEW_LINES,
+                                              modifier = Modifier.alpha(0.94f))   // spec: keep readable, don't dim
                             Text("▾ ${(page + 1).easternArabic()}",
                                  fontSize = 13.sp, color = MaterialTheme.colorScheme.primary,
                                  modifier = Modifier.align(Alignment.BottomCenter))
+                            // Top hint: subtle full-width top-edge shadow (a faint hint of a sheet
+                            // behind). Absolutely positioned overlay — adds NO layout height.
+                            Box(
+                                Modifier.align(Alignment.TopCenter).fillMaxWidth().height(7.dp)
+                                    .alpha(0.8f)
+                                    .background(Brush.verticalGradient(
+                                        listOf(LocalAppPalette.current.seam, Color.Transparent))))
                         }
                     }
                 }

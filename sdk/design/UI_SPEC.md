@@ -66,3 +66,27 @@ These are the non-negotiable rules that make the feature work. Read before imple
 
 ### Preview readability
 - Preview ayah opacity: **0.94** — keep the preview clearly readable. Do **not** heavily fade/dim it; the "next page" signal comes from the depth/seam, not transparency.
+
+### Preview band (component)
+The transient band peeking the next page. Imported from the handoff into app design language;
+text styling (font, size, line-height, color, alignment) is **excluded** — the band reuses the
+app's own page rendering — and the only text-related value imported is the opacity above.
+
+- **Background:** the `--preview` token (distinct from `--paper`).
+- **Full-bleed, flush:** spans edge to edge with no side insets; **no border and no corner
+  rounding** — it reads as a flush band, not a floating card. Horizontal/vertical position reuses
+  the page's own slot layout so the previewed line sits exactly where it will after the turn (the
+  handoff's `18px` top-padding value is **not** imported — the shared slot layout already satisfies
+  the "stable position" constraint).
+- **Top hint** (the "page behind" cue): a subtle full-width shadow at the band's **top edge** — a
+  `--seam`→transparent gradient, ~7 dp tall, ~0.8 opacity. Absolutely positioned overlay that adds
+  **no layout height**, and does not intercept touches.
+
+**Seam / depth (concept — not yet implemented).** At the band's **bottom edge** the current page
+should read as a physical sheet lying *in front of* the next page: a soft `--seam` shadow cast
+*upward* onto the preview plus a lit `--edge-hi` top edge (the cue that carries dark mode). This is
+a statement about how the depth should *look* — deliberately architecture-neutral. The handoff
+realizes it with `z-index` stacking + a `box-shadow` on the *current-page* element; that stacking
+(and the "which component owns it" question) is an **implementation detail of the handoff's layout**,
+not part of the concept. Our reader stacks the preview as an overlay on top, so we implement the
+same look by drawing the seam directly at the band's bottom boundary — no z-order restructuring.
