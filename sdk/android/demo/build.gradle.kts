@@ -27,8 +27,8 @@ android {
         applicationId = "com.quranrecite"
         minSdk = 24
         targetSdk = 35
-        versionCode = 5
-        versionName = "0.5.0"   // + chainCost re-swept 0.45->0.35 and the blacklist narrowed to segments-only (bench 148/151)
+        versionCode = 6
+        versionName = "0.6.0"   // reader restyle: app-wide design-token palette + next-page preview band (flush, top-hint, rounded-tooth seam) + taller recitation highlight
         // Ship only real-phone (arm64) + emulator (x86_64) ABIs. Drops x86/armeabi-v7a
         // (~34 MB of unused ONNX Runtime) and the x86 mismatch (no x86 quranrecite_jni).
         // A Play release would instead use an App Bundle for per-device ABI delivery.
